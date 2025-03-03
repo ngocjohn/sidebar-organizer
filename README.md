@@ -20,16 +20,16 @@
     </tr>
     <tr>
       <td>
-       <img src="./assets/sidebar-default.png" />
+       <img src="https://raw.githubusercontent.com/ngocjohn/sidebar-organizer/refs/heads/main/assets/sidebar-default.png" />
       </td>
       <td>
-       <img src="./assets/sidebar-organizer-anim.gif" />
+       <img src="https://raw.githubusercontent.com/ngocjohn/sidebar-organizer/refs/heads/main/assets/sidebar-organizer-anim.gif" />
       </td>
       <td>
-       <img src="./assets/sidebar-light-theme.png" />
+       <img src="https://raw.githubusercontent.com/ngocjohn/sidebar-organizer/refs/heads/main/assets/sidebar-light-theme.png" />
       </td>
 			<td>
-       <img src="./assets/sidebar-items-expanded.png" />
+       <img src="https://raw.githubusercontent.com/ngocjohn/sidebar-organizer/refs/heads/main/assets/sidebar-items-expanded.png" />
       </td>
     </tr>
   </tbody>
@@ -161,10 +161,10 @@ In this section, you can organize the layout of the sidebar panels by customizin
       </tr>
       <tr>
         <td>
-        <img src="./assets/config-bottom-panel.png" />
+        <img src="https://raw.githubusercontent.com/ngocjohn/sidebar-organizer/refs/heads/main/assets/config-bottom-panel.png" />
         </td>
         <td>
-        <img src="./assets/config-groups-sort.gif" />
+        <img src="https://raw.githubusercontent.com/ngocjohn/sidebar-organizer/refs/heads/main/assets/config-groups-sort.gif" />
         </td>
       </tr>
       <tr>
@@ -174,7 +174,7 @@ In this section, you can organize the layout of the sidebar panels by customizin
       </tr>
         <tr>
         <td colspan="2">
-        <img src="./assets/config-group-items.gif" />
+        <img src="https://raw.githubusercontent.com/ngocjohn/sidebar-organizer/refs/heads/main/assets/config-group-items.gif" />
         </td>
       </tr>
     </tbody>
