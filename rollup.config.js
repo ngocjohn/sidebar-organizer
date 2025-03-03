@@ -54,7 +54,7 @@ export default [
       {
         file: 'dist/sidebar-organizer.js',
         format: 'es',
-        sourcemap: true,
+        sourcemap: dev ? true : false,
         inlineDynamicImports: true,
       },
       {
