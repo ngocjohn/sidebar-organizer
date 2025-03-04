@@ -20,9 +20,10 @@ const serveopts = {
   },
 };
 const terserOpt = {
-  module: false,
+  module: true,
   compress: {
     drop_console: ['log', 'error'],
+    module: false,
   },
 };
 const plugins = [
