@@ -1,11 +1,14 @@
+const HELPERS = (window as any).loadCardHelpers ? (window as any).loadCardHelpers() : undefined;
+
 import { html, css, LitElement, TemplateResult, CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import YAML from 'yaml';
-
+/* eslint-disable */
 import { NAMESPACE, STORAGE } from '../const';
-import { SidebarConfig, HaExtened } from '../types';
 import { removeStorage } from '../utils';
+import { SidebarConfig, HaExtened } from '../types';
 import { SidebarConfigDialog } from './sidebar-dialog';
+import { showConfirmDialog } from '../helpers';
 
 @customElement('sidebar-dialog-code-editor')
 export class SidebarDialogCodeEditor extends LitElement {
@@ -63,6 +66,7 @@ export class SidebarDialogCodeEditor extends LitElement {
               </div>
             `}
         ${haCodeEditor}
+
         <ha-button
           ?hidden=${configEmpty}
           style="--mdc-theme-primary: var(--error-color); float: inline-end;"
@@ -92,7 +96,33 @@ export class SidebarDialogCodeEditor extends LitElement {
     }
   }
 
-  private _handleBtnAction = (action: string) => {
+  private _showPrompt = async () => {
+    const title = 'Import Configuration';
+    const text = 'Paste your configuration below:';
+
+    let helpers;
+    if ((window as any).loadCardHelpers) {
+      helpers = await (window as any).loadCardHelpers();
+    } else if (HELPERS) {
+      helpers = HELPERS;
+    }
+
+    const result = await helpers.showPromptDialog(this, {
+      title,
+      text,
+      inputLabel: 'Configuration',
+      confirmText: 'Import',
+      inputType: 'string',
+      defaultValue: '',
+    });
+
+    if (!result) return;
+    const yamlStr = result;
+
+    console.log('Importing Config', yamlStr);
+  };
+
+  private _handleBtnAction = async (action: string) => {
     switch (action) {
       case 'download':
         const data = YAML.stringify(this._sidebarConfig);
@@ -113,11 +143,18 @@ export class SidebarDialogCodeEditor extends LitElement {
           console.log('Copied to clipboard');
         });
         break;
+
       case 'delete':
-        const confirmDelete = confirm('Are you sure you want to delete the current configuration?');
-        if (!confirmDelete) return;
-        removeStorage(STORAGE.UI_CONFIG);
-        window.location.reload();
+        const message = 'Are you sure you want to delete the current configuration?';
+        const confirmText = 'Delete';
+        const confirmDelete = await showConfirmDialog(this, message, confirmText);
+        console.log('Delete Config', confirmDelete);
+        if (confirmDelete) {
+          removeStorage(STORAGE.UI_CONFIG);
+          setTimeout(() => {
+            window.location.reload();
+          }, 200);
+        }
         break;
       default:
         break;

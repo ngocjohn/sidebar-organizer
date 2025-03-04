@@ -1,7 +1,16 @@
+import yaml from 'js-yaml';
+
+import { CONFIG_NAME, CONFIG_PATH, NAMESPACE_TITLE, PANEL_ICONS, STORAGE } from './const';
 import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from './types';
 import { color2rgba, randomId, setStorage } from './utils';
-import yaml from 'js-yaml';
-import { CONFIG_NAME, CONFIG_PATH, PANEL_ICONS, STORAGE } from './const';
+
+const HELPERS = (window as any).loadCardHelpers ? (window as any).loadCardHelpers() : undefined;
+let helpers: any;
+if ((window as any).loadCardHelpers) {
+  helpers = await (window as any).loadCardHelpers();
+} else if (HELPERS) {
+  helpers = HELPERS;
+}
 
 export const getStorageConfig = (): SidebarConfig | undefined => {
   const config = localStorage.getItem(STORAGE.UI_CONFIG);
@@ -146,6 +155,49 @@ export const getPreviewItems = (hass: HaExtened['hass'], config: SidebarConfig) 
   _panelItems['bottomItems'] = createPanelItems(config.bottom_items || []);
   _panelItems['bottomSystem'] = createPanelItems(['developer-tools', 'config']);
 
-  console.log(_panelItems);
+  // console.log(_panelItems);
   return _panelItems;
+};
+
+export const showConfirmDialog = async (
+  element: HTMLElement,
+  message: string,
+  confirmText: string,
+  cancelText?: string
+): Promise<boolean> => {
+  const result = await helpers.showConfirmationDialog(element, {
+    title: NAMESPACE_TITLE,
+    text: message,
+    confirmText,
+    dismissText: cancelText ? cancelText : 'Cancel',
+  });
+
+  console.log('showConfirmDialog', result);
+  return result;
+};
+
+export const showPromptDialog = async (
+  element: HTMLElement,
+  text: string,
+  placeholder: string,
+  confirmText: string
+): Promise<string | null> => {
+  const result = await helpers.showPromptDialog(element, {
+    title: NAMESPACE_TITLE,
+    text,
+    placeholder,
+    confirmText,
+    inputType: 'string',
+    defaultValue: '',
+  });
+
+  console.log('showPromptDialog', result);
+  return result;
+};
+
+export const showAlertDialog = async (element: HTMLElement, message: string): Promise<void> => {
+  await helpers.showAlertDialog(element, {
+    title: NAMESPACE_TITLE,
+    text: message,
+  });
 };

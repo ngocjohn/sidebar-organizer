@@ -1,16 +1,13 @@
 import { HAQuerySelector, HAQuerySelectorEvent } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
-import tinycolor from 'tinycolor2';
-
-import { HaExtened, SidebarConfig, ThemeSettings } from './types';
-import { addAction, createCloseHeading, getStorage, setStorage, logConsoleInfo } from './utils';
-import { NAMESPACE, STORAGE } from './const';
-import { fetchConfig, getDefaultThemeColors, isColorMissing } from './helpers';
-import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
-
-import './components/sidebar-dialog';
 import { SidebarConfigDialog } from './components/sidebar-dialog';
+import { NAMESPACE, NAMESPACE_TITLE, STORAGE } from './const';
+import { fetchConfig, getDefaultThemeColors } from './helpers';
+import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
+import { HaExtened, SidebarConfig, ThemeSettings } from './types';
+import './components/sidebar-dialog';
+import { addAction, createCloseHeading, getStorage, setStorage, logConsoleInfo } from './utils';
 
 class SidebarOrganizer {
   constructor() {
@@ -54,22 +51,16 @@ class SidebarOrganizer {
   private firstSetUpDone = false;
   private _bottomItems: string[] = [];
 
-  private _colorHelper: tinycolor = tinycolor;
-
   get hass(): HaExtened['hass'] {
     return this.ha!.hass;
   }
 
-  get darkMode() {
+  get darkMode(): boolean {
     return this.hass.themes.darkMode;
   }
 
   get paperListbox(): HTMLElement {
     return this.sideBarRoot?.querySelector('paper-listbox') as HTMLElement;
-  }
-
-  get isMobile(): boolean {
-    return this.HaSidebar.narrow;
   }
 
   private _panelLoaded() {
@@ -107,12 +98,29 @@ class SidebarOrganizer {
       await this._getConfig();
       this._handleSetupCollapsed();
       this._addCollapeToggle();
-      this._addPanelBoxListener();
       this.firstSetUpDone = true;
     }
 
     const sidebar = customElements.get('ha-sidebar');
     this._handleSidebarUpdate(sidebar);
+  }
+
+  private _handleSidebarUpdate(sidebar: any) {
+    const sidebarUpdated = sidebar.prototype.updated;
+    const _thisInstace = this;
+    sidebar.prototype.updated = function (changedProperties: any) {
+      if (sidebarUpdated) {
+        sidebarUpdated.call(this, changedProperties);
+      }
+
+      if (changedProperties.has('editMode') && this.editMode) {
+        _thisInstace._handleEditMode();
+        return;
+      } else if (changedProperties.has('editMode') && !this.editMode) {
+        _thisInstace._reloadSidebar();
+        return;
+      }
+    };
   }
 
   private _storageListener(event: StorageEvent) {
@@ -186,7 +194,7 @@ class SidebarOrganizer {
 
   private _setupConfigBtn() {
     const profileEl = this.HaSidebar.shadowRoot.querySelector('a[data-panel="panel"]') as HTMLElement;
-    addAction(profileEl, this._addDialog.bind(this));
+    addAction(profileEl, this._addConfigDialog.bind(this));
   }
 
   private _addPanelBoxListener = () => {
@@ -275,54 +283,55 @@ class SidebarOrganizer {
     });
   }
 
-  private _addDialog() {
+  private _addConfigDialog() {
+    // Close menu if in narrow mode
     if (this.HaSidebar.narrow) {
       this.main.dispatchEvent(new Event('hass-toggle-menu', { bubbles: true, composed: true }));
     }
-    const sidebarHaDialog = this.main.querySelector('ha-dialog#sidebar-config-dialog');
-    if (sidebarHaDialog) {
-      sidebarHaDialog.remove();
-    }
 
+    // Remove any existing dialog
+    const existingDialog = this.main.querySelector('#sidebar-config-dialog');
+    existingDialog?.remove();
+
+    // Create new dialog elements
     const sidebarDialog = document.createElement('sidebar-config-dialog') as SidebarConfigDialog;
     sidebarDialog.hass = this.hass;
     sidebarDialog._sideBarRoot = this.sideBarRoot;
     this._sidebarDialog = sidebarDialog;
 
     const haDialog = document.createElement('ha-dialog') as any;
-    haDialog.id = 'sidebar-config-dialog';
-    haDialog.open = true;
-    haDialog.heading = createCloseHeading(this.hass, 'Sidebar Config');
-    haDialog.hideActions = false;
-    haDialog.flexContent = true;
-    haDialog.scrimClickAction = '';
-    haDialog.escapeKeyAction = '';
-
-    haDialog.addEventListener('closed', () => {
-      haDialog.remove();
+    Object.assign(haDialog, {
+      id: 'sidebar-config-dialog',
+      open: true,
+      heading: createCloseHeading(this.hass, NAMESPACE_TITLE + ' Configuration'),
+      hideActions: false,
+      flexContent: true,
+      scrimClickAction: '',
+      escapeKeyAction: '',
     });
+    console.log('Dialog', haDialog);
+    // Attach close event handler
+    haDialog.addEventListener('closed', () => haDialog.remove());
 
-    const primaryAction = document.createElement('ha-button') as any;
-    primaryAction.slot = 'primaryAction';
-    primaryAction.innerText = 'Save';
-    primaryAction.addEventListener('click', () => {
+    // Create action buttons
+    const createActionButton = (slot: string, text: string, handler: () => void) => {
+      const button = document.createElement('ha-button') as any;
+      button.slot = slot;
+      button.innerText = text;
+      button.addEventListener('click', handler);
+      return button;
+    };
+
+    const primaryAction = createActionButton('primaryAction', 'Save', () => {
       const sidebarConfig = this._sidebarDialog!._sidebarConfig;
-      // console.log('Saving Config', JSON.stringify(sidebarConfig));
       this._handleNewConfig(sidebarConfig);
       haDialog.remove();
     });
 
-    const secondaryAction = document.createElement('ha-button') as any;
-    secondaryAction.slot = 'secondaryAction';
-    secondaryAction.innerText = 'Cancel';
-    secondaryAction.addEventListener('click', () => {
-      console.log('Canceling Config');
-      haDialog.remove();
-    });
+    const secondaryAction = createActionButton('secondaryAction', 'Cancel', () => haDialog.remove());
 
-    haDialog.appendChild(sidebarDialog);
-    haDialog.appendChild(primaryAction);
-    haDialog.appendChild(secondaryAction);
+    // Append dialog and actions
+    haDialog.append(sidebarDialog, primaryAction, secondaryAction);
     this._styleManager.addStyle(DIALOG_STYLE, haDialog);
     this.main.appendChild(haDialog);
   }
@@ -367,46 +376,28 @@ class SidebarOrganizer {
   }
 
   private _handleCollapsed(collapsedItems: Set<string>) {
-    // console.log('Handling Collapsed');
     const toggleIcon = this.sideBarRoot!.querySelector('ha-icon.collapse-toggle') as HTMLElement;
-    const collapsed = collapsedItems.size > 0;
-    toggleIcon?.classList.toggle('active', collapsed);
-    toggleIcon?.setAttribute('icon', collapsed ? 'mdi:plus' : 'mdi:minus');
-    const scrollbar = this.paperListbox;
-    const scrollbarItems = scrollbar!.querySelectorAll('a:not([moved])') as NodeListOf<HTMLElement>;
-    // Hide collapsed items
-    // console.log('Collapsed Items', scrollbar);
+    const isCollapsed = collapsedItems.size > 0;
 
+    // Update toggle icon
+    toggleIcon?.classList.toggle('active', isCollapsed);
+    toggleIcon?.setAttribute('icon', isCollapsed ? 'mdi:plus' : 'mdi:minus');
+
+    const scrollbarItems = this.paperListbox!.querySelectorAll('a:not([moved])') as NodeListOf<HTMLElement>;
+
+    // Update visibility of collapsed items
     scrollbarItems.forEach((item) => {
       const group = item.getAttribute('group');
-      const collapsed = collapsedItems.has(group!);
-      item.classList.toggle('collapsed', collapsed);
+      item.classList.toggle('collapsed', collapsedItems.has(group!));
     });
 
-    scrollbar.querySelectorAll('div.divider').forEach((divider) => {
+    // Update dividers and their content
+    this.paperListbox!.querySelectorAll('div.divider').forEach((divider) => {
       const group = divider.getAttribute('group');
-      const collapsed = collapsedItems.has(group!);
-      divider.classList.toggle('collapsed', collapsed);
-      divider.querySelector('div.added-content')?.classList.toggle('collapsed', collapsed);
+      const isGroupCollapsed = collapsedItems.has(group!);
+      divider.classList.toggle('collapsed', isGroupCollapsed);
+      divider.querySelector('div.added-content')?.classList.toggle('collapsed', isGroupCollapsed);
     });
-  }
-
-  private _handleSidebarUpdate(sidebar: any) {
-    const sidebarUpdated = sidebar.prototype.updated;
-    const _thisInstace = this;
-    sidebar.prototype.updated = function (changedProperties: any) {
-      if (sidebarUpdated) {
-        sidebarUpdated.call(this, changedProperties);
-      }
-
-      if (changedProperties.has('editMode') && this.editMode) {
-        _thisInstace._handleEditMode();
-        return;
-      } else if (changedProperties.has('editMode') && !this.editMode) {
-        _thisInstace._reloadSidebar();
-        return;
-      }
-    };
   }
 
   private _reloadSidebar() {
@@ -449,28 +440,25 @@ class SidebarOrganizer {
     this._styleManager.addStyle([dividerConfigColor, DIVIDER_ADDED_STYLE], this.sideBarRoot!);
   }
 
-  _handleEditMode() {
-    const sidebarInstance = this.sideBarRoot!;
-    const scrollbar = sidebarInstance.querySelector('paper-listbox.ha-scrollbar') as HTMLElement;
-    const scrollbarItems = scrollbar!.querySelectorAll('a') as NodeListOf<HTMLElement>;
+  private _handleEditMode() {
+    const scrollbarItems = this.paperListbox!.querySelectorAll('a') as NodeListOf<HTMLElement>;
     const addedItems = Array.from(scrollbarItems).filter((item) => item.hasAttribute('moved'));
     addedItems.forEach((item) => {
       // remove divider if the next element of item is div.divide
       const nextItem = item.nextElementSibling;
       if (nextItem && nextItem.classList.contains('divider')) {
         console.log('remove divider', nextItem);
-        scrollbar.removeChild(nextItem);
+        this.paperListbox.removeChild(nextItem);
       }
 
       console.log('remove item', item);
-      scrollbar.removeChild(item);
+      this.paperListbox.removeChild(item);
     });
   }
 
   private _handleItemsGroup(customGroups?: { [key: string]: string[] }) {
     if (!customGroups) return;
-    const scrollbar = this.paperListbox;
-    const scrollbarItems = scrollbar!.querySelectorAll('a') as NodeListOf<HTMLElement>;
+    const scrollbarItems = this.paperListbox!.querySelectorAll('a') as NodeListOf<HTMLElement>;
 
     Object.keys(customGroups).forEach((group) => {
       const config = Object.values(customGroups[group]);
@@ -490,158 +478,154 @@ class SidebarOrganizer {
   }
 
   private _handleGroupedPanelOrder(currentPanel: string[]) {
-    // console.log(currentPanel);
-    const defaultPanel = this.hass.defaultPanel;
+    const { defaultPanel } = this.hass;
     const bottomMovedItems = this._config.bottom_items || [];
     const customGroups = this._config.custom_groups || {};
 
-    const groupedItems: string[] = [];
-
-    Object.values(customGroups)
+    // Get grouped items
+    const groupedItems = Object.values(customGroups)
       .flat()
-      .forEach((item) => {
-        const inCurrentPanel = currentPanel.includes(item);
-        if (inCurrentPanel) groupedItems.push(item);
-      });
+      .filter((item) => currentPanel.includes(item));
 
-    // Combine the grouped items before the default items
-    const defaultItems = currentPanel
-      .filter((item: string) => !groupedItems.includes(item))
-      .filter((item: string) => !bottomMovedItems.includes(item));
+    // Filter default items that are not in grouped or bottom items
+    const defaultItems = currentPanel.filter(
+      (item) => !groupedItems.includes(item) && !bottomMovedItems.includes(item)
+    );
 
+    // Move default panel item to the front
     const defaultPanelItem = defaultItems.find((item) => item === defaultPanel);
-
     if (defaultPanelItem) {
       defaultItems.splice(defaultItems.indexOf(defaultPanelItem), 1);
       groupedItems.unshift(defaultPanelItem);
     }
 
-    const combinedItems = [...groupedItems, ...defaultItems, ...bottomMovedItems.reverse()];
-    return combinedItems;
+    // Combine grouped, default, and bottom items
+    return [...groupedItems, ...defaultItems, ...bottomMovedItems.reverse()];
   }
 
   private _reorderGroupedSidebar() {
-    // console.log('Reordering Grouped Sidebar');
     const customGroups = this._config.custom_groups || {};
     if (!customGroups) return;
+
     const sidebarInstance = this.sideBarRoot!;
     const scrollbar = this.paperListbox;
-    const scrollbarItems = scrollbar!.querySelectorAll('a') as NodeListOf<HTMLElement>;
-    const divider = sidebarInstance.querySelector('div.divider') as HTMLElement;
+    const scrollbarItems = Array.from(scrollbar!.querySelectorAll('a')) as HTMLElement[];
+    const dividerTemplate = sidebarInstance.querySelector('div.divider') as HTMLElement;
 
-    const newDivider = (group: string) => {
-      const newDivider = divider.cloneNode(true) as HTMLElement;
-      const title = group.replace(/_/g, ' ');
-      const icon = 'mdi:chevron-down';
-      newDivider.setAttribute('group', `${group}`);
+    const createDivider = (group: string) => {
+      const newDivider = dividerTemplate.cloneNode(true) as HTMLElement;
+      newDivider.setAttribute('group', group);
       newDivider.setAttribute('added', '');
+
       const contentDiv = document.createElement('div');
       contentDiv.classList.add('added-content');
-      contentDiv.setAttribute('group', `${group}`);
-      contentDiv.innerHTML = `
-			<ha-icon icon=${icon}></ha-icon>
-			<span>${title}</span>
-			`;
+      contentDiv.setAttribute('group', group);
+      contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.replace(/_/g, ' ')}</span>`;
 
       newDivider.appendChild(contentDiv);
+      newDivider.addEventListener('click', this._toggleGroup.bind(this));
       return newDivider;
     };
 
-    // Insert the dividers
+    // Insert group dividers before matching group items
     Object.keys(customGroups).forEach((group) => {
-      const insertBefore = Array.from(scrollbarItems).find(
+      const insertBefore = scrollbarItems.find(
         (item) => item.getAttribute('group') === group && !item.hasAttribute('moved')
       );
-
       if (insertBefore) {
-        const newAddedDivider = newDivider(group);
-        scrollbar.insertBefore(newAddedDivider, insertBefore);
-        newAddedDivider.addEventListener('click', (event) => {
-          this._toggleGroup(event);
-        });
+        const divider = createDivider(group);
+        scrollbar.insertBefore(divider, insertBefore);
       }
     });
 
-    // fimd first item not in a group and insert divider before it
-    const itemsNotInGroup = Array.from(scrollbarItems).find(
+    // Insert a divider before the first item not in any group
+    const firstItemNotInGroup = scrollbarItems.find(
       (item) =>
         !item.hasAttribute('group') &&
         !item.hasAttribute('moved') &&
         item.previousElementSibling?.hasAttribute('group') &&
         scrollbarItems[0] !== item
     );
-    if (itemsNotInGroup) {
-      scrollbar.insertBefore(divider.cloneNode(true), itemsNotInGroup);
+    if (firstItemNotInGroup) {
+      scrollbar.insertBefore(dividerTemplate.cloneNode(true), firstItemNotInGroup);
     }
 
-    setTimeout(() => {
-      this._checkDiffs();
-    }, 100);
+    // Check differences after a delay
+    setTimeout(() => this._checkDiffs(), 100);
   }
 
   private _checkDiffs = () => {
-    const customGroups = this._config.custom_groups || {};
-    const bottomItems = this._config.bottom_items || [];
+    const { custom_groups = {}, bottom_items = [] } = this._config;
     const scrollbar = this.paperListbox;
 
-    const notEmptyGroups = Object.keys(customGroups).filter((key) => customGroups[key].length !== 0);
-    const dividerOrder = Array.from(scrollbar.querySelectorAll('div.divider:has([group]')).map((divider) =>
+    const notEmptyGroups = Object.keys(custom_groups).filter((key) => custom_groups[key].length > 0);
+
+    const dividerOrder = Array.from(scrollbar.querySelectorAll('div.divider:has([group])')).map((divider) =>
       divider.getAttribute('group')
     );
 
-    const groupItems = Object.values(customGroups).flat();
-    const panelOrderNamed = Array.from(scrollbar.querySelectorAll('a') as NodeListOf<HTMLElement>)
-      .filter((item) => item.hasAttribute('group'))
-      .map((item) => item.getAttribute('data-panel'));
+    const groupItems = Object.values(custom_groups).flat();
 
-    const bottomMovedItems = Array.from(scrollbar.querySelectorAll('a[moved]')).map((item) =>
+    const panelOrderNamed = Array.from(scrollbar.querySelectorAll('a[group]') as NodeListOf<HTMLElement>).map((item) =>
       item.getAttribute('data-panel')
     );
 
-    const bottomItemsDiff = JSON.stringify(bottomItems) !== JSON.stringify(bottomMovedItems);
-    const dividerOrderDiff = JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder);
-    const panelOrderDiff = JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed);
+    const bottomMovedItems = Array.from(scrollbar.querySelectorAll('a[moved]') as NodeListOf<HTMLElement>).map((item) =>
+      item.getAttribute('data-panel')
+    );
 
-    if (bottomItemsDiff || dividerOrderDiff || panelOrderDiff) {
-      console.log('something changed', bottomItemsDiff, dividerOrderDiff, panelOrderDiff);
+    const hasDiff =
+      JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems) ||
+      JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder) ||
+      JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed);
+
+    if (hasDiff) {
+      console.log('Changes detected:', {
+        bottomItemsDiff: JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems),
+        dividerOrderDiff: JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder),
+        panelOrderDiff: JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed),
+      });
       window.location.reload();
-      return;
     } else {
       this._handleCollapsed(this.collapsedItems);
     }
   };
 
-  _toggleGroup(event: Event) {
+  private _toggleGroup(event: Event) {
     event.stopPropagation();
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
-    const scrollbar = this.paperListbox as HTMLElement;
-    const items = scrollbar.querySelectorAll(`a[group="${group}"]:not([moved])`) as NodeListOf<HTMLElement>;
+    const items = this.paperListbox!.querySelectorAll(`a[group="${group}"]:not([moved])`) as NodeListOf<HTMLElement>;
 
-    // Check if there are any matching items
-    if (items.length === 0) {
+    if (!items.length) {
       console.error(`No items found for group: ${group}`);
       return;
     }
 
-    const collapsed = items[0].classList.contains('collapsed');
+    const isCollapsed = items[0].classList.contains('collapsed');
+    this._setItemToLocalStorage(group!, !isCollapsed);
 
-    this._setItemToLocalStorage(group!, !collapsed);
+    // Toggle collapsed state for group and its items
+    target.classList.toggle('collapsed', !isCollapsed);
+    target.parentElement?.classList.toggle('collapsed', !isCollapsed);
 
-    target.parentElement?.classList.toggle('collapsed', !collapsed);
-    target.classList.toggle('collapsed', !collapsed);
     items.forEach((item, index) => {
-      const animateClass = collapsed ? 'slideIn' : 'slideOut';
+      const animationClass = isCollapsed ? 'slideIn' : 'slideOut';
       item.style.animationDelay = `${index * 50}ms`;
-      item.classList.add(animateClass);
-      item.addEventListener('animationend', () => {
-        item.classList.toggle('collapsed', !collapsed);
-        item.classList.remove(animateClass);
-      });
+      item.classList.add(animationClass);
+
+      item.addEventListener(
+        'animationend',
+        () => {
+          item.classList.toggle('collapsed', !isCollapsed);
+          item.classList.remove(animationClass);
+        },
+        { once: true }
+      );
     });
   }
 
-  _setItemToLocalStorage(group: string, collapsed: boolean) {
+  private _setItemToLocalStorage(group: string, collapsed: boolean) {
     if (collapsed) {
       this.collapsedItems.add(group);
     } else {

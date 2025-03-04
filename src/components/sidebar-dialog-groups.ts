@@ -4,6 +4,7 @@ import { repeat } from 'lit-html/directives/repeat.js';
 import { customElement, property, state } from 'lit/decorators';
 import Sortable from 'sortablejs';
 
+import { showAlertDialog, showConfirmDialog, showPromptDialog } from '../helpers';
 import { SidebarConfig, HaExtened } from '../types';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
@@ -88,11 +89,67 @@ export class SidebarDialogGroups extends LitElement {
       .header-row.center {
         justify-content: center;
       }
+      .header-row.flex-icon {
+        justify-content: flex-end;
+        background-color: var(--divider-color);
+        min-height: 42px;
+      }
+      .header-row.flex-icon > span {
+        margin-inline-start: 0.5rem;
+        flex: 1;
+      }
+      .header-row.flex-icon > ha-icon {
+        margin-inline-end: 0.5rem;
+        flex: 0;
+      }
 
       .sortable-ghost {
         opacity: 0.5;
         background-color: var(--primary-color);
       }
+
+      #items-preview-wrapper {
+        display: flex;
+        flex-direction: row;
+        gap: var(--side-dialog-gutter);
+        justify-content: center;
+      }
+      @media all and (max-width: 700px), all and (max-height: 500px) {
+        #items-preview-wrapper {
+          flex-wrap: wrap;
+        }
+      }
+      .items-container {
+        display: block;
+        border: 1px solid var(--divider-color);
+        flex: 1 1 100%;
+        height: 100%;
+      }
+      .preview-container {
+        min-width: 230px;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        border: 1px solid var(--divider-color);
+        /* display: block; */
+      }
+      ul.selected-items {
+        list-style-type: none;
+        padding-inline-start: 0px;
+        font-family: monospace;
+        color: var(--codemirror-atom);
+        text-align: center;
+        line-height: 150%;
+        margin: 0;
+      }
+      ul.selected-items li {
+        padding: 0.5rem;
+        border-bottom: 0.5px solid var(--divider-color);
+      }
+      ul.selected-items li:last-child {
+        border-bottom: none;
+      }
+
       code {
         font-family: monospace;
         background-color: var(--code-editor-background-color);
@@ -161,7 +218,7 @@ export class SidebarDialogGroups extends LitElement {
         const div = selector.shadowRoot?.querySelector('div');
         if (div) {
           div.style.display = 'grid';
-          div.style.gridTemplateColumns = 'repeat(auto-fill, minmax(30.5%, 1fr))';
+          div.style.gridTemplateColumns = 'repeat(auto-fill, minmax(40.5%, 1fr))';
         }
       }
     }
@@ -258,7 +315,9 @@ export class SidebarDialogGroups extends LitElement {
   private _renderCustomGroupTab(): TemplateResult {
     const customGroupList = Object.keys(this._sidebarConfig.custom_groups || []);
     const addBtn = html`
-      <ha-button style="width: fit-content; place-self: flex-end" @click=${this._togglePromptNewGroup}
+      <ha-button
+        style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
+        @click=${this._togglePromptNewGroup}
         >Add New Group</ha-button
       >
     `;
@@ -266,6 +325,20 @@ export class SidebarDialogGroups extends LitElement {
       return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
     };
 
+    const _createActionMap = (key: string) => {
+      const actions = [
+        { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
+        { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
+        // Default 'collapsed-group' action
+        {
+          title: isCollapsed(key) ? 'Remove from collapsed by default' : 'Add to collapsed by default',
+          action: 'collapsed-group',
+          icon: isCollapsed(key) ? 'mdi:eye-minus' : 'mdi:eye-plus',
+        },
+        { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
+      ];
+      return actions;
+    };
     const loading =
       customGroupList.length === 0
         ? html`<div>No custom groups found</div>`
@@ -281,17 +354,7 @@ export class SidebarDialogGroups extends LitElement {
                 (key) => key,
                 (key, index) => {
                   const groupName = key.replace(/_/g, ' ').toUpperCase();
-                  let actionMap = [
-                    { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
-                    { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
-                    // Default 'collapsed-group' action
-                    {
-                      title: isCollapsed(key) ? 'Remove from collapsed by default' : 'Add to collapsed by default',
-                      action: 'collapsed-group',
-                      icon: isCollapsed(key) ? 'mdi:eye-minus' : 'mdi:eye-plus',
-                    },
-                    { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
-                  ];
+                  let actionMap = _createActionMap(key);
                   return html` <div class="group-item-row" data-group=${key}>
                     <div class="handle">
                       <ha-icon-button .path=${mdiDrag}></ha-icon-button>
@@ -304,10 +367,15 @@ export class SidebarDialogGroups extends LitElement {
                       </div>
                     </div>
                     <div class="group-actions">
+                      <ha-icon
+                        ?hidden=${!isCollapsed(key)}
+                        icon="mdi:eye-off-outline"
+                        style="color: var(--disabled-color)"
+                      ></ha-icon>
                       <ha-button-menu
-                        .corner=${'BOTTOM_START'}
+                        .corner=${'TOP_LEFT'}
                         .fixed=${true}
-                        .menuCorner=${'START'}
+                        .menuCorner=${'END'}
                         .activatable=${true}
                         .naturalMenuWidth=${true}
                         @closed=${(ev: Event) => ev.stopPropagation()}
@@ -325,12 +393,13 @@ export class SidebarDialogGroups extends LitElement {
                 }
               )}
             </div>
+            <div class="header-row">${addBtn}</div>
+            ${this._renderSpacer()}
           `}
-      ${this._renderSpacer()} ${addBtn}
     `;
   }
 
-  private _handleGroupAction(action: string, key: string) {
+  private _handleGroupAction = async (action: string, key: string) => {
     console.log('group action', action, key);
 
     const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
@@ -357,12 +426,17 @@ export class SidebarDialogGroups extends LitElement {
         this._selectedGroup = key;
         break;
       case 'rename':
-        let newName = prompt('Enter new group name for: ', key);
+        let newName = await showPromptDialog(
+          this,
+          'Enter new group name',
+          key.replace(/_/g, ' ').toUpperCase(),
+          'Rename'
+        );
         if (newName === null || newName === '') return;
         newName = newName.trim().replace(/\s/g, '_').toLowerCase();
         const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
         if (Object.keys(customGroups).includes(newName)) {
-          alert('Group name already exists. Please choose a different one.');
+          await showAlertDialog(this, 'Group name already exists. Please choose a different one.');
           return;
         }
         const inCollapsed = defaultCollapsed.includes(key) ?? false;
@@ -399,7 +473,11 @@ export class SidebarDialogGroups extends LitElement {
         console.log('item is collapsed', this._sidebarConfig?.default_collapsed);
         break;
       case 'delete':
-        const confirmDelete = confirm(`Are you sure you want to delete group: ${key}`);
+        const confirmDelete = await showConfirmDialog(
+          this,
+          `Are you sure you want to delete this group? ${key.replace(/_/g, ' ').toLocaleUpperCase()}`,
+          'Delete'
+        );
         if (!confirmDelete) return;
         const deletedInCollapsed = defaultCollapsed.indexOf(key) !== -1;
         if (deletedInCollapsed) {
@@ -412,7 +490,7 @@ export class SidebarDialogGroups extends LitElement {
         updateConfig(currentGroups);
         break;
     }
-  }
+  };
 
   private _renderEditGroup(): TemplateResult | typeof nothing {
     if (!this._selectedGroup) return nothing;
@@ -430,12 +508,7 @@ export class SidebarDialogGroups extends LitElement {
     if (this._selectedTab !== 'bottomPanel') return nothing;
     const selectorList = this._renderPanelSelector('bottomPanels');
 
-    return html`
-      <div class="header-row">
-        <div>Bottom Items</div>
-      </div>
-      ${selectorList}
-    `;
+    return html` ${selectorList} `;
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
@@ -475,26 +548,42 @@ export class SidebarDialogGroups extends LitElement {
         this.hass.localize(`panel.${hassPanels[item].title}`) || hassPanels[item]?.title || hassPanels[item].url_path
     );
 
-    const renderItems = html` <div class="header-row">
-        Preview of selected items. Items is displayed from top.
+    const renderItems = html` <div class="header-row flex-icon">
+        <span>ITEMS ORDER</span>
         <ha-icon-button .path=${mdiSortAlphabeticalVariant} @click=${() => this._sortItems(selectedType)}>
         </ha-icon-button>
       </div>
-      <code>${selectedItemsArrayWithTitles.join(' | ')}</code>`;
+      <ul class="selected-items">
+        ${repeat(
+          selectedItemsArrayWithTitles,
+          (item) => item,
+          (item) => {
+            return html`<li>${item}</li>`;
+          }
+        )}
+      </ul>`;
 
     return html`
-      <ha-selector
-        .hass=${this.hass}
-        .selector=${selector}
-        .value=${selectedItemsArray}
-        .configValue=${configValue}
-        .customGroup=${customGroup}
-        .required=${false}
-        id="customSelector"
-        @value-changed=${this._handleValueChange}
-      >
-      </ha-selector>
-      ${this._renderSpacer()} ${selectedItemsArray.length ? renderItems : nothing}
+      <div id="items-preview-wrapper">
+        <div class="items-container">
+          <div class="header-row flex-icon">
+            <span>SELECT ITEMS</span>
+          </div>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${selector}
+            .value=${selectedItemsArray}
+            .configValue=${configValue}
+            .customGroup=${customGroup}
+            .required=${false}
+            id="customSelector"
+            @value-changed=${this._handleValueChange}
+          >
+          </ha-selector>
+          ${this._renderSpacer()}
+        </div>
+        <div class="preview-container">${selectedItemsArray.length ? renderItems : nothing}</div>
+      </div>
     `;
   }
 
@@ -565,57 +654,16 @@ export class SidebarDialogGroups extends LitElement {
     }
   }
 
-  private _handleRename(key: string) {
-    let newName = prompt('Enter new group name', key);
-    if (newName === null || newName === '') return;
-    newName = newName.trim().replace(/\s/g, '_').toLowerCase();
-    const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
-    const groupItems = customGroups[key];
-    console.log('groupItems', groupItems);
-    const indexOfKey = Object.keys(customGroups).indexOf(key);
-    delete customGroups[key];
-    customGroups[newName] = groupItems;
-    if (indexOfKey) {
-      const newOrder = Object.keys(customGroups);
-      newOrder.splice(indexOfKey, 0, newName);
-      const reorderedGroups = newOrder.reduce((acc: { [key: string]: string[] }, key) => {
-        acc[key] = customGroups[key];
-        return acc;
-      }, {});
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        custom_groups: reorderedGroups,
-      };
-    } else {
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        custom_groups: customGroups,
-      };
-    }
-
-    this._dispatchConfig(this._sidebarConfig);
-    this.requestUpdate();
-  }
-
-  private _handleDeleteGroup(key: string) {
-    const confirmDelete = confirm(`Are you sure you want to delete group: ${key}`);
-    if (!confirmDelete) return;
-    const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
-    delete customGroups[key];
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      custom_groups: customGroups,
-    };
-
-    this.requestUpdate();
-    this._dispatchConfig(this._sidebarConfig);
-  }
-
-  private _togglePromptNewGroup() {
-    const groupName = prompt('Enter new group name', 'Some Group Name');
-    if (groupName === null || groupName === '') return;
+  private _togglePromptNewGroup = async () => {
+    // const groupName = prompt('Enter new group name', 'Some Group Name');
+    const groupName = await showPromptDialog(this, 'Enter new group name', 'Some Group Name', 'Create');
+    if (groupName === null) return;
     let newName = groupName.trim().replace(/\s/g, '_').toLowerCase();
     const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
+    if (Object.keys(customGroups).includes(newName)) {
+      await showAlertDialog(this, 'Group name already exists. Please choose a different one.');
+      return;
+    }
     customGroups[newName] = [];
     this._sidebarConfig = {
       ...this._sidebarConfig,
@@ -624,7 +672,7 @@ export class SidebarDialogGroups extends LitElement {
 
     this._dispatchConfig(this._sidebarConfig);
     this.requestUpdate();
-  }
+  };
 
   private _handleValueChange(ev: any) {
     ev.stopPropagation();

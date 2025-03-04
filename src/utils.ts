@@ -1,9 +1,9 @@
+import { mdiClose, mdiInformation } from '@mdi/js';
 import { HomeAssistant } from 'custom-card-helpers';
 import { html, TemplateResult } from 'lit';
-import { mdiClose, mdiInformation } from '@mdi/js';
-import { repository, version, description, name } from '../package.json';
-
 import tinycolor from 'tinycolor2';
+
+import { repository, version, description, name } from '../package.json';
 
 const repoLink = `${repository.url}`;
 export const randomId = (): string => Math.random().toString(16).slice(2);
@@ -54,7 +54,7 @@ export function addAction(configItem: HTMLElement, action: () => void): void {
       if (isMouseHold) {
         isLongPress = true;
         action(); // Trigger long-press action
-        console.log('Long press detected');
+        // console.log('Long press detected');
       }
     }, 300);
   };

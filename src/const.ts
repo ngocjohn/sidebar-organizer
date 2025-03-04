@@ -1,6 +1,7 @@
 import { version, repository } from '../package.json';
 
 export const NAMESPACE = 'sidebar-organizer';
+export const NAMESPACE_TITLE = 'Sidebar Organizer';
 export const VERSION = `v${version}`;
 export const REPO_URL = `${repository.url}`;
 
