@@ -7,10 +7,10 @@ import json from '@rollup/plugin-json';
 import postcss from 'rollup-plugin-postcss';
 import postcssPresetEnv from 'postcss-preset-env';
 import postcssLit from 'rollup-plugin-postcss-lit';
-import filesize from 'rollup-plugin-filesize';
 
 const dev = process.env.ROLLUP_WATCH;
 const port = process.env.PORT || 8235;
+
 const serveopts = {
   contentBase: ['./dist'],
   port,
@@ -20,6 +20,7 @@ const serveopts = {
   },
 };
 const terserOpt = {
+  module: false,
   compress: {
     drop_console: ['log', 'error'],
   },
@@ -44,7 +45,6 @@ const plugins = [
   postcssLit(),
   dev && serve(serveopts),
   !dev && terser(terserOpt),
-  !dev && filesize(),
 ];
 
 export default [
@@ -53,8 +53,8 @@ export default [
     output: [
       {
         file: dev ? 'dist/sidebar-organizer.js' : 'build/sidebar-organizer.js',
-        sourcemap: dev ? true : false,
         format: 'es',
+        sourcemap: dev ? true : false,
         inlineDynamicImports: true,
       },
     ],

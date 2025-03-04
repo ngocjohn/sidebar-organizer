@@ -6,6 +6,7 @@ import unusedImports from 'eslint-plugin-unused-imports';
 export default [
   {
     files: ['src/**/*.ts'],
+    ignores: ['dist', 'node_modules'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -20,7 +21,7 @@ export default [
     },
     rules: {
       // TypeScript recommended rules
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': 'off',
       'unused-imports/no-unused-imports': 'error',
       'unused-imports/no-unused-vars': 'warn',
       // Perfectionist sort-imports rule
