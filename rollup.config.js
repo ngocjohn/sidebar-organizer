@@ -52,15 +52,9 @@ export default [
     input: 'src/main.ts',
     output: [
       {
-        file: 'dist/sidebar-organizer.js',
-        format: 'es',
+        file: dev ? 'dist/sidebar-organizer.js' : 'build/sidebar-organizer.js',
         sourcemap: dev ? true : false,
-        inlineDynamicImports: true,
-      },
-      {
-        file: 'build/sidebar-organizer.js',
         format: 'es',
-        sourcemap: false,
         inlineDynamicImports: true,
       },
     ],
