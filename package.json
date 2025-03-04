@@ -51,6 +51,6 @@
     "dev": "rollup -c --watch --bundleConfigAsCjs",
     "build": "npm run lint && rollup -c --bundleConfigAsCjs",
     "rollup": "rollup -c",
-    "lint": "eslint src/**/*.ts --no-warn-ignored"
+    "lint": "eslint --ext .ts"
   }
 }
