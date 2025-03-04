@@ -324,7 +324,8 @@ class SidebarOrganizer {
 
     const primaryAction = createActionButton('primaryAction', 'Save', () => {
       const sidebarConfig = this._sidebarDialog!._sidebarConfig;
-      this._handleNewConfig(sidebarConfig);
+      const sidebarUseConfigFile = this._sidebarDialog!._useConfigFile;
+      this._handleNewConfig(sidebarConfig, sidebarUseConfigFile);
       haDialog.remove();
     });
 
@@ -336,7 +337,15 @@ class SidebarOrganizer {
     this.main.appendChild(haDialog);
   }
 
-  private _handleNewConfig(config: SidebarConfig) {
+  private _handleNewConfig(config: SidebarConfig, useConfigFile: boolean) {
+    if (useConfigFile) {
+      console.log('Using Config File');
+      setTimeout(() => {
+        window.location.reload();
+      }, 200);
+      return;
+    }
+
     const isChanged = JSON.stringify(config) !== JSON.stringify(this._config);
     if (!isChanged) {
       console.log('No Changes');

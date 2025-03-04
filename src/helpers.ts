@@ -1,4 +1,4 @@
-import yaml from 'js-yaml';
+import YAML from 'yaml';
 
 import { CONFIG_NAME, CONFIG_PATH, NAMESPACE_TITLE, PANEL_ICONS, STORAGE } from './const';
 import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from './types';
@@ -29,7 +29,8 @@ export const fetchLocalConfig = async (): Promise<SidebarConfig | undefined> => 
   try {
     const response = await fetch(randomUrl, { cache: 'no-store' });
     const yamlStr = await response.text();
-    const data = yaml.load(yamlStr);
+    const data = YAML.parse(yamlStr);
+    // console.log('data', data);
     return data;
   } catch (e) {
     console.error(`${errorNotFound}`, e);

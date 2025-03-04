@@ -21,7 +21,7 @@ export class SidebarConfigDialog extends LitElement {
   @state() private _tabState: TAB_STATE = 'base';
   @state() private _configLoaded = false;
 
-  @state() private _useConfigFile = false;
+  @state() public _useConfigFile = false;
 
   public _initPanelOrder: string[] = [];
   @state() public _paperListbox: Record<string, PanelInfo[]> = {};
@@ -41,7 +41,6 @@ export class SidebarConfigDialog extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       return true;
     }
-
     return true;
   }
 
