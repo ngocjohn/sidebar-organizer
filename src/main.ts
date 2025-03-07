@@ -7,7 +7,7 @@ import { fetchConfig, getDefaultThemeColors } from './helpers';
 import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
 import { HaExtened, SidebarConfig, ThemeSettings } from './types';
 import './components/sidebar-dialog';
-import { addAction, createCloseHeading, getStorage, setStorage, logConsoleInfo } from './utils';
+import { addAction, createCloseHeading, getStorage, setStorage } from './utils';
 
 class SidebarOrganizer {
   constructor() {
@@ -652,6 +652,5 @@ declare global {
 
 // Initial Run
 Promise.resolve(customElements.whenDefined('home-assistant')).then(() => {
-  logConsoleInfo();
   window.SidebarOrganizer = new SidebarOrganizer();
 });
