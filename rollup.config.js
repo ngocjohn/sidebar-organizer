@@ -7,9 +7,13 @@ import json from '@rollup/plugin-json';
 import postcss from 'rollup-plugin-postcss';
 import postcssPresetEnv from 'postcss-preset-env';
 import postcssLit from 'rollup-plugin-postcss-lit';
+import { version } from './package.json';
+import { logCardInfo } from './rollup.config.helper.mjs';
 
 const dev = process.env.ROLLUP_WATCH;
 const port = process.env.PORT || 8235;
+const currentVersion = dev ? 'DEVELOPMENT' : `v${version}`;
+const custombanner = logCardInfo(currentVersion);
 
 const serveopts = {
   contentBase: ['./dist'],
@@ -57,6 +61,7 @@ export default [
         format: 'es',
         sourcemap: dev ? true : false,
         inlineDynamicImports: true,
+        banner: custombanner,
       },
     ],
     plugins: [...plugins],
