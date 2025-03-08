@@ -60,12 +60,12 @@ export interface PanelInfo {
 export type Panels = Record<string, PanelInfo>;
 
 export interface DividerColorSettings {
-  divider_color?: string;
   background_color?: string;
   border_top_color?: string;
-  scrollbar_thumb_color?: string;
   custom_sidebar_background_color?: string;
+  divider_color?: string;
   divider_text_color?: string;
+  scrollbar_thumb_color?: string;
 }
 
 export interface SidebarConfig {
@@ -73,6 +73,7 @@ export interface SidebarConfig {
   custom_groups?: {
     [key: string]: string[];
   };
+  hidden_items?: string[];
   default_collapsed?: string[];
   header_title?: string;
   hide_header_toggle?: boolean;

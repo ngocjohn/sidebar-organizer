@@ -13,6 +13,7 @@ export enum STORAGE {
   USE_CONFIG_FILE = 'sidebarOrganizerUseConfigFile',
   PANEL_ORDER = 'sidebarPanelOrder',
   COLLAPSE = 'sidebarCollapsedGroups',
+  HIDDEN_PANELS = 'sidebarHiddenPanels',
 }
 
 export const PANEL_ICONS = {

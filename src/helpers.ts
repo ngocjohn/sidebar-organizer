@@ -12,6 +12,11 @@ if ((window as any).loadCardHelpers) {
   helpers = HELPERS;
 }
 
+export const getHiddenPanels = (): string[] => {
+  const hiddenPanels = localStorage.getItem(STORAGE.HIDDEN_PANELS);
+  return hiddenPanels ? JSON.parse(hiddenPanels) : [];
+};
+
 export const getStorageConfig = (): SidebarConfig | undefined => {
   const config = localStorage.getItem(STORAGE.UI_CONFIG);
   if (!config || JSON.parse(config).length === 0) return undefined;
@@ -23,7 +28,7 @@ export const sidebarUseConfigFile = (): boolean => {
   return JSON.parse(useJson) === 'true';
 };
 
-export const fetchLocalConfig = async (): Promise<SidebarConfig | undefined> => {
+export const fetchFileConfig = async (): Promise<SidebarConfig | undefined> => {
   const errorNotFound = `${CONFIG_NAME} not found. Make sure you have a valid ${CONFIG_NAME}.yaml file in your www folder.`;
   const randomUrl = `${CONFIG_PATH}?hash=${randomId()}`;
   try {
@@ -39,10 +44,25 @@ export const fetchLocalConfig = async (): Promise<SidebarConfig | undefined> => 
 };
 
 export const fetchConfig = async (): Promise<SidebarConfig | undefined> => {
-  if (sidebarUseConfigFile()) {
-    return fetchLocalConfig();
+  const hiddenPanels = getHiddenPanels();
+  let config = sidebarUseConfigFile() ? await fetchFileConfig() : getStorageConfig();
+  if (config) {
+    config = validateConfig(config, hiddenPanels);
+    _changeStorageConfig(config);
   }
-  return getStorageConfig();
+  return config;
+};
+
+const _changeStorageConfig = (config: SidebarConfig): void => {
+  if (sidebarUseConfigFile()) return;
+  const currentConfig = getStorageConfig();
+  const isConfigDifferent = JSON.stringify(currentConfig) !== JSON.stringify(config);
+  if (isConfigDifferent) {
+    console.log('changeStorageConfig', config);
+    setStorage(STORAGE.UI_CONFIG, config);
+  } else {
+    return;
+  }
 };
 
 export const isColorMissing = (colors: DividerColorSettings): boolean => {
@@ -201,4 +221,26 @@ export const showAlertDialog = async (element: HTMLElement, message: string): Pr
     title: NAMESPACE_TITLE,
     text: message,
   });
+};
+
+export const validateConfig = (config: SidebarConfig, hiddenPanels: string[]): SidebarConfig => {
+  if (hiddenPanels.length === 0) return config;
+  const _config = { ...config };
+  const _groups = { ...(config.custom_groups || {}) };
+  let _items = [...(config.bottom_items || [])];
+
+  hiddenPanels.forEach((panel) => {
+    Object.entries(_groups).forEach(([key, value]) => {
+      if (value.includes(panel)) {
+        _groups[key] = value.filter((item) => item !== panel);
+      }
+    });
+    _items = _items.filter((item) => item !== panel);
+  });
+
+  _config.hidden_items = hiddenPanels;
+  _config.custom_groups = _groups;
+  _config.bottom_items = _items;
+  // console.log('validateConfig', _config);
+  return _config;
 };

@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators';
 import YAML from 'yaml';
 
 import { STORAGE } from '../const';
-import { sidebarUseConfigFile, getStorageConfig, getPreviewItems } from '../helpers';
+import { sidebarUseConfigFile, getStorageConfig, getPreviewItems, getHiddenPanels } from '../helpers';
 import { SidebarConfig, HaExtened, PanelInfo } from '../types';
 import { getStorage, setStorage } from '../utils';
 import './sidebar-dialog-colors';
@@ -23,7 +23,9 @@ export class SidebarConfigDialog extends LitElement {
 
   @state() public _useConfigFile = false;
 
-  public _initPanelOrder: string[] = [];
+  @state() public _initPanelOrder: string[] = [];
+  @state() public _initCombiPanels: string[] = [];
+
   @state() public _paperListbox: Record<string, PanelInfo[]> = {};
 
   connectedCallback(): void {
@@ -278,49 +280,42 @@ export class SidebarConfigDialog extends LitElement {
     this._sidebarConfig = newConfig;
   }
   private _updateSidebarItems = () => {
-    const currentPanelOrder = getStorage(STORAGE.PANEL_ORDER) || '[]';
+    const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
+    const initHiddenItems = getHiddenPanels();
     const defaultPanel = this.hass.defaultPanel;
 
-    let defaultInGroup: boolean = false;
-    let collapsedGroupNotExists: boolean = false;
+    const customGroup = { ...this._sidebarConfig?.custom_groups };
+    const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
+    let hiddenItems = [...(this._sidebarConfig?.hidden_items || [])];
 
-    const customGroup = this._sidebarConfig?.custom_groups || {};
-    const defaultCollapsed = this._sidebarConfig?.default_collapsed || [];
+    const hiddenItemsDiff = JSON.stringify(hiddenItems) !== JSON.stringify(initHiddenItems);
 
+    // Remove the default panel from any custom group
     Object.keys(customGroup).forEach((key) => {
-      const defaultPanelInGroup = customGroup[key].findIndex((item: string) => item === defaultPanel);
-      if (defaultPanelInGroup !== -1) {
-        defaultInGroup = true;
-        customGroup[key].splice(defaultPanelInGroup, 1);
-        console.log(customGroup[key]);
-      }
+      customGroup[key] = customGroup[key].filter((item: string) => item !== defaultPanel);
     });
 
-    defaultCollapsed.forEach((group) => {
-      if (!customGroup[group]) {
-        collapsedGroupNotExists = true;
-        defaultCollapsed.splice(defaultCollapsed.indexOf(group), 1);
-        console.log('collapsed group not exists', group, 'new defaultCollapsed', defaultCollapsed);
-      }
-    });
+    // Remove collapsed groups that no longer exist in customGroup
+    const updatedCollapsedGroups = defaultCollapsed.filter((group) => customGroup[group]);
 
-    if (defaultInGroup || collapsedGroupNotExists) {
+    // If there are any changes (default panel removed from group, hidden items or collapsed groups changed)
+    if (hiddenItemsDiff || updatedCollapsedGroups.length !== defaultCollapsed.length) {
+      console.log('updateSidebarItems', hiddenItemsDiff, updatedCollapsedGroups.length !== defaultCollapsed.length);
       this._sidebarConfig = {
         ...this._sidebarConfig,
         custom_groups: customGroup,
-        default_collapsed: defaultCollapsed,
+        default_collapsed: updatedCollapsedGroups,
+        hidden_items: initHiddenItems,
       };
-      console.log('new config', this._sidebarConfig);
       setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);
-      this._updateSidebarItems();
     }
-    const _sidebarItems = JSON.parse(currentPanelOrder).filter(
-      (item: string) => item !== defaultPanel && item !== 'lovelace'
-    );
 
-    this._initPanelOrder = _sidebarItems;
+    // Filter out defaultPanel and 'lovelace' from the current panel order
+    const _sidebarItems = currentPanelOrder.filter((item: string) => item !== defaultPanel && item !== 'lovelace');
 
-    // console.log(this._initPanelOrder);
+    // Initialize panel combinations
+    this._initCombiPanels = [..._sidebarItems, ...initHiddenItems];
+    this._initPanelOrder = [..._sidebarItems];
   };
 }
 
