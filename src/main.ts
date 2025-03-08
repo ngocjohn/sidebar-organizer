@@ -3,7 +3,7 @@ import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
 import { SidebarConfigDialog } from './components/sidebar-dialog';
 import { NAMESPACE, NAMESPACE_TITLE, STORAGE } from './const';
-import { fetchConfig, getDefaultThemeColors } from './helpers';
+import { fetchConfig, getDefaultThemeColors, getHiddenPanels, showAlertDialog, validateConfig } from './helpers';
 import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
 import { HaExtened, SidebarConfig, ThemeSettings } from './types';
 import './components/sidebar-dialog';
@@ -45,6 +45,7 @@ class SidebarOrganizer {
   private sideBarRoot!: ShadowRoot;
   private _partialPanelResolver?: any;
   public _baseOrder: string[] = [];
+  public _hiddenPanels: string[] = [];
   private _styleManager: HomeAssistantStylesManager;
   private _sidebarDialog?: SidebarConfigDialog;
   private collapsedItems = new Set<string>();
@@ -117,8 +118,21 @@ class SidebarOrganizer {
         _thisInstace._handleEditMode();
         return;
       } else if (changedProperties.has('editMode') && !this.editMode) {
-        _thisInstace._reloadSidebar();
-        return;
+        const currentOrder = _thisInstace._baseOrder;
+        const currentHidden = _thisInstace._hiddenPanels;
+        const newPanelOrder = this._panelOrder;
+        const hiddenPanels = this._hiddenPanels;
+        const isOrderChanged = JSON.stringify(currentOrder) !== JSON.stringify(newPanelOrder);
+        const isHiddenChanged = JSON.stringify(currentHidden) !== JSON.stringify(hiddenPanels);
+        if (isOrderChanged || isHiddenChanged) {
+          console.log('Panel Order Changed', currentOrder, newPanelOrder);
+          console.log('Hidden Panels Changed', currentHidden, hiddenPanels);
+          _thisInstace._reloadSidebar(newPanelOrder, hiddenPanels);
+          return;
+        } else {
+          _thisInstace._refreshSidebar();
+          return;
+        }
       }
     };
   }
@@ -167,6 +181,7 @@ class SidebarOrganizer {
   }
 
   private _handleFirstConfig() {
+    this._hiddenPanels = getHiddenPanels();
     const storageOrder = getStorage(STORAGE.PANEL_ORDER) || '[]';
     if (!storageOrder || JSON.parse(storageOrder).length === 0) {
       const paperListbox = this.paperListbox;
@@ -194,7 +209,7 @@ class SidebarOrganizer {
 
   private _setupConfigBtn() {
     const profileEl = this.HaSidebar.shadowRoot.querySelector('a[data-panel="panel"]') as HTMLElement;
-    addAction(profileEl, this._addConfigDialog.bind(this));
+    addAction(profileEl, this._addConfigDialog.bind(this, profileEl));
   }
 
   private _addPanelBoxListener = () => {
@@ -245,9 +260,10 @@ class SidebarOrganizer {
   }
 
   private async _setupConfig(config: SidebarConfig) {
-    const { color_config, bottom_items, custom_groups } = config;
+    const { color_config, bottom_items, custom_groups, hidden_items } = config;
 
     const asyncProcess = async () => {
+      this._handleHiddenPanels(hidden_items);
       this._addAdditionalStyles(color_config);
       this._handleBottomPanels(bottom_items);
       this._handleItemsGroup(custom_groups);
@@ -261,6 +277,18 @@ class SidebarOrganizer {
     this._baseOrder = this._handleGroupedPanelOrder(currentPanel);
     this.HaSidebar._panelOrder = [...this._baseOrder];
     this._reorderGroupedSidebar();
+  }
+
+  private _handleHiddenPanels(hiddenItems?: string[]) {
+    if (!hiddenItems) return;
+    const paperListbox = this.paperListbox;
+    const children = paperListbox.children;
+    const spacerIndex = Array.from(children).findIndex((child) => child.classList.contains('spacer'));
+    const panelOrder = Array.from(children)
+      .slice(0, spacerIndex)
+      .map((child) => child.getAttribute('data-panel'))
+      .filter((child) => child !== null);
+    this.HaSidebar._panelOrder = panelOrder;
   }
 
   private _handleBottomPanels(bottomItems?: string[]) {
@@ -283,7 +311,9 @@ class SidebarOrganizer {
     });
   }
 
-  private _addConfigDialog() {
+  private _addConfigDialog(target: HTMLElement) {
+    console.log('Config Dialog Clicked', target);
+
     // Close menu if in narrow mode
     if (this.HaSidebar.narrow) {
       this.main.dispatchEvent(new Event('hass-toggle-menu', { bubbles: true, composed: true }));
@@ -309,7 +339,6 @@ class SidebarOrganizer {
       scrimClickAction: '',
       escapeKeyAction: '',
     });
-    console.log('Dialog', haDialog);
     // Attach close event handler
     haDialog.addEventListener('closed', () => haDialog.remove());
 
@@ -353,6 +382,7 @@ class SidebarOrganizer {
     } else {
       console.log('Changes Detected');
       // remove empty custom group or alert to abort
+      setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
       setStorage(STORAGE.UI_CONFIG, config);
       setTimeout(() => {
         window.location.reload();
@@ -409,11 +439,16 @@ class SidebarOrganizer {
     });
   }
 
-  private _reloadSidebar() {
-    const panelOrder = this.HaSidebar._panelOrder;
-    this._baseOrder = this._handleGroupedPanelOrder(panelOrder);
-    this.HaSidebar._panelOrder = [...this._baseOrder];
+  private _reloadSidebar(newPanelOrder: string[], hiddenPanels: string[]) {
     console.log('Reloading Sidebar');
+    this._hiddenPanels = hiddenPanels;
+    this._config = validateConfig(this._config, this._hiddenPanels);
+    this._baseOrder = this._handleGroupedPanelOrder(newPanelOrder);
+    this.HaSidebar._panelOrder = [...this._baseOrder];
+    this._refreshSidebar();
+  }
+
+  private _refreshSidebar() {
     this._setupConfig(this._config);
     this._addCollapeToggle();
   }
@@ -456,11 +491,8 @@ class SidebarOrganizer {
       // remove divider if the next element of item is div.divide
       const nextItem = item.nextElementSibling;
       if (nextItem && nextItem.classList.contains('divider')) {
-        console.log('remove divider', nextItem);
         this.paperListbox.removeChild(nextItem);
       }
-
-      console.log('remove item', item);
       this.paperListbox.removeChild(item);
     });
   }
@@ -532,7 +564,8 @@ class SidebarOrganizer {
       contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.replace(/_/g, ' ')}</span>`;
 
       newDivider.appendChild(contentDiv);
-      newDivider.addEventListener('click', this._toggleGroup.bind(this));
+      // newDivider.addEventListener('click', this._toggleGroup.bind(this));
+      addAction(newDivider, undefined, this._toggleGroup.bind(this, newDivider));
       return newDivider;
     };
 
@@ -568,7 +601,6 @@ class SidebarOrganizer {
     const scrollbar = this.paperListbox;
 
     const notEmptyGroups = Object.keys(custom_groups).filter((key) => custom_groups[key].length > 0);
-
     const dividerOrder = Array.from(scrollbar.querySelectorAll('div.divider:has([group])')).map((divider) =>
       divider.getAttribute('group')
     );
@@ -600,9 +632,7 @@ class SidebarOrganizer {
     }
   };
 
-  private _toggleGroup(event: Event) {
-    event.stopPropagation();
-    const target = event.target as HTMLElement;
+  private _toggleGroup(target: HTMLElement) {
     const group = target.getAttribute('group');
     const items = this.paperListbox!.querySelectorAll(`a[group="${group}"]:not([moved])`) as NodeListOf<HTMLElement>;
 

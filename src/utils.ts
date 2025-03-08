@@ -7,6 +7,7 @@ import { repository, version, description, name } from '../package.json';
 
 const repoLink = `${repository.url}`;
 export const randomId = (): string => Math.random().toString(16).slice(2);
+const HOLD_DURATION = 300;
 
 export const createCloseHeading = (
   hass: HomeAssistant | undefined,
@@ -37,7 +38,7 @@ export const hex2rgb = (hex: string): [number, number, number] => {
   return [parseInt(hex.substring(0, 2), 16), parseInt(hex.substring(2, 4), 16), parseInt(hex.substring(4, 6), 16)];
 };
 
-export function addAction(configItem: HTMLElement, action: () => void): void {
+export function addAction(configItem: HTMLElement, action?: () => void, clickAction?: () => void): void {
   // Variable to keep track of whether the user is holding the mouse or touch
   let isMouseHold = false;
   let isLongPress = false;
@@ -46,23 +47,26 @@ export function addAction(configItem: HTMLElement, action: () => void): void {
   // Function to handle the common logic for both touch and mouse down events
   const handleDownEvent = (e: Event) => {
     e.stopPropagation();
+    // Check if it's a mouse event and ensure it's the left button (button 0)
+    if (e instanceof MouseEvent && e.button !== 0) return;
+
     isMouseHold = true;
     isLongPress = false;
 
     // Set a timeout for 300ms to trigger the long press action
     timeoutref = setTimeout(() => {
-      if (isMouseHold) {
+      if (isMouseHold && action) {
         isLongPress = true;
         action(); // Trigger long-press action
         // console.log('Long press detected');
       }
-    }, 300);
+    }, HOLD_DURATION);
   };
 
   const handleUpEvent = (e: Event) => {
     e.stopPropagation();
-    // e.preventDefault();
-    // Clear the timeout if the user releases the touch or mouse before 300ms
+
+    // Clear the timeout if the user releases
     if (timeoutref) clearTimeout(timeoutref);
     isMouseHold = false;
 
@@ -71,16 +75,12 @@ export function addAction(configItem: HTMLElement, action: () => void): void {
       e.preventDefault();
       isLongPress = false;
     }
+    // Trigger click action if hold was not a long press
+    if (!isLongPress && clickAction) {
+      clickAction();
+    }
   };
-  // Prevent the default click event on the <a> tag if long-press is detected
-  ['click', 'contextmenu'].forEach((eventType) => {
-    configItem.addEventListener(eventType, (e: Event) => {
-      if (isLongPress) {
-        e.preventDefault();
-        e.stopPropagation(); // Prevent navigation or default click action
-      }
-    });
-  });
+
   // Add event listeners for both mouse and touch
   ['touchstart', 'mousedown'].forEach((eventType) => {
     configItem.addEventListener(eventType, handleDownEvent);
