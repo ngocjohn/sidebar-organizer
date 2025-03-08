@@ -23,6 +23,9 @@ export class SidebarDialogGroups extends LitElement {
 
   static get styles(): CSSResult {
     return css`
+      :host *[hidden] {
+        display: none;
+      }
       .config-content {
         display: flex;
         flex-direction: column;
@@ -89,6 +92,10 @@ export class SidebarDialogGroups extends LitElement {
       .header-row.center {
         justify-content: center;
       }
+      .header-row.flex-end {
+        justify-content: flex-end;
+      }
+
       .header-row.flex-icon {
         justify-content: flex-end;
         background-color: var(--divider-color);
@@ -432,9 +439,10 @@ export class SidebarDialogGroups extends LitElement {
                 }
               )}
             </div>
-            <div class="header-row">${addBtn}</div>
+
             ${this._renderSpacer()}
           `}
+      <div class="header-row flex-end">${addBtn}</div>
     `;
   }
 
@@ -607,7 +615,7 @@ export class SidebarDialogGroups extends LitElement {
           </ha-selector>
           ${this._renderSpacer()}
         </div>
-        <div class="preview-container">${selectedItems.length ? renderItems : nothing}</div>
+        <div class="preview-container" ?hidden=${!selectedItems.length}>${renderItems}</div>
       </div>
     `;
   }
