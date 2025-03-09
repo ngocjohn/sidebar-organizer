@@ -31,7 +31,8 @@ export const DIVIDER_ADDED_STYLE = `
 			:host(:not([expanded])) .divider[added]  {
 				margin: 0 !important;
 			}
-			:host([expanded]) .ha-scrollbar .divider:not([added]) {
+
+			:host([expanded]) .ha-scrollbar .divider[ungrouped] {
 				padding-top: 0;
 			}
 
@@ -148,6 +149,7 @@ export const DIVIDER_ADDED_STYLE = `
 	`;
 
 export const DIALOG_STYLE = `
+
 		ha-dialog {
 			--mdc-dialog-min-width: 600px;
 			--mdc-dialog-max-width: 700px;
@@ -156,9 +158,13 @@ export const DIALOG_STYLE = `
 			--justify-action-buttons: space-between;
 			--dialog-content-padding: 1rem;
 		}
-
+		ha-dialog[large] {
+			--mdc-dialog-min-width: 90vw;
+			--mdc-dialog-max-width: 90vw;
+		}
 		@media all and (max-width: 600px), all and (max-height: 500px) {
-			ha-dialog {
+			ha-dialog,
+			ha-dialog[large] {
 				--mdc-dialog-min-width: 100vw;
 				--mdc-dialog-max-width: 100vw;
 				--mdc-dialog-min-height: 100%;

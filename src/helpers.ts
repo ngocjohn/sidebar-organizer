@@ -1,8 +1,9 @@
+import { applyThemesOnElement } from 'custom-card-helpers';
 import YAML from 'yaml';
 
 import { CONFIG_NAME, CONFIG_PATH, NAMESPACE_TITLE, PANEL_ICONS, STORAGE } from './const';
 import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from './types';
-import { color2rgba, randomId, setStorage } from './utils';
+import { color2rgba, getStorage, randomId, setStorage } from './utils';
 
 const HELPERS = (window as any).loadCardHelpers ? (window as any).loadCardHelpers() : undefined;
 let helpers: any;
@@ -53,6 +54,12 @@ export const fetchConfig = async (): Promise<SidebarConfig | undefined> => {
   return config;
 };
 
+export const getStoragePanelOrder = (): Boolean => {
+  const storagePanel = getStorage(STORAGE.PANEL_ORDER) || '[]';
+  if (!storagePanel || JSON.parse(storagePanel).length === 0) return false;
+  return true;
+};
+
 const _changeStorageConfig = (config: SidebarConfig): void => {
   if (sidebarUseConfigFile()) return;
   const currentConfig = getStorageConfig();
@@ -89,17 +96,6 @@ export const isColorMissing = (colors: DividerColorSettings): boolean => {
 const isStoragePanelEmpty = (): boolean => {
   const storagePanel = localStorage.getItem(STORAGE.PANEL_ORDER);
   return !storagePanel || JSON.parse(storagePanel).length === 0;
-};
-
-export const _handleFirstPanels = (paperListbox: HTMLElement): void => {
-  if (!isStoragePanelEmpty()) return;
-
-  const children = paperListbox.children;
-  const spacerIndex = Array.from(children).findIndex((child) => child.classList.contains('spacer'));
-  const panelOrder = Array.from(children)
-    .slice(0, spacerIndex)
-    .map((child) => child.getAttribute('data-panel'));
-  setStorage(STORAGE.PANEL_ORDER, panelOrder);
 };
 
 export const getCssValue = (cssKey: string, element?: HTMLElement): string => {
@@ -243,4 +239,82 @@ export const validateConfig = (config: SidebarConfig, hiddenPanels: string[]): S
   _config.bottom_items = _items;
   // console.log('validateConfig', _config);
   return _config;
+};
+
+export const applyTheme = (element: any, hass: HaExtened['hass'], theme: string, mode?: string): void => {
+  if (!element) return;
+  console.log('applyTheme', theme, mode);
+  const themeData = hass.themes.themes[theme];
+  if (themeData) {
+    // Filter out only top-level properties for CSS variables and the modes property
+    const filteredThemeData = Object.keys(themeData)
+      .filter((key) => key !== 'modes')
+      .reduce(
+        (obj, key) => {
+          obj[key] = themeData[key];
+          return obj;
+        },
+        {} as Record<string, string>
+      );
+
+    if (!mode) {
+      mode = hass.themes.darkMode ? 'dark' : 'light';
+      // Get the current mode (light or dark)
+    } else {
+      mode = mode;
+    }
+    const modeData = themeData.modes && typeof themeData.modes === 'object' ? themeData.modes[mode] : {};
+    // Merge the top-level and mode-specific variables
+    // const allThemeData = { ...filteredThemeData, ...modeData };
+    const allThemeData = { ...filteredThemeData, ...modeData };
+    const allTheme = { default_theme: hass.themes.default_theme, themes: { [theme]: allThemeData } };
+    applyThemesOnElement(element, allTheme, theme, false);
+  }
+};
+
+export const getCollapsedItems = (
+  customGroups: SidebarConfig['custom_groups'] = {},
+  defaultCollapsed: SidebarConfig['default_collapsed'] = []
+): Set<string> => {
+  const sidebarCollapsed = JSON.parse(getStorage(STORAGE.COLLAPSE) || '[]');
+  const groupKeys = Object.keys(customGroups);
+
+  // Filter out collapsed items that don't exist in the group keys
+  const validCollapsedItems = sidebarCollapsed.filter((key: string) => groupKeys.includes(key));
+
+  // Update storage if the filtered items are different
+  if (validCollapsedItems.length !== sidebarCollapsed.length) {
+    setStorage(STORAGE.COLLAPSE, validCollapsedItems);
+  }
+  const collapsedItems = new Set([...validCollapsedItems, ...defaultCollapsed]);
+  // console.log('getCollapsedItems', collapsedItems);
+  return collapsedItems;
+};
+
+export const getInitPanelOrder = (paperListBox: HTMLElement): string[] | null => {
+  if (!isStoragePanelEmpty()) {
+    // console.log('panel order already set');
+    return null;
+  } else {
+    const children = paperListBox.children;
+    const spacerIndex = Array.from(children).findIndex((child) => child.classList.contains('spacer'));
+    const panelOrder = Array.from(children)
+      .slice(0, spacerIndex)
+      .map((child) => child.getAttribute('data-panel'))
+      .filter((panel) => panel !== null);
+    setStorage(STORAGE.PANEL_ORDER, panelOrder);
+    return panelOrder;
+  }
+};
+
+export const resetPanelOrder = (paperListBox: HTMLElement): void => {
+  const scrollbarItems = paperListBox!.querySelectorAll('a') as NodeListOf<HTMLElement>;
+  const bottomItems = Array.from(scrollbarItems).filter((item) => item.hasAttribute('moved'));
+  bottomItems.forEach((item) => {
+    const nextItem = item.nextElementSibling;
+    if (nextItem && nextItem.classList.contains('divider')) {
+      paperListBox.removeChild(nextItem);
+    }
+    paperListBox.removeChild(item);
+  });
 };

@@ -8,7 +8,12 @@ import { showAlertDialog, showConfirmDialog, showPromptDialog, validateConfig } 
 import { SidebarConfig, HaExtened } from '../types';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
-type PANEL_TABS = 'bottomPanel' | 'customGroups' | 'hiddenItems';
+// type PANEL_TABS = 'bottomPanel' | 'customGroups' | 'hiddenItems';
+enum PANEL {
+  BOTTOM_PANEL = 'bottomPanel',
+  CUSTOM_GROUPS = 'customGroups',
+  HIDDEN_ITEMS = 'hiddenItems',
+}
 
 @customElement('sidebar-dialog-groups')
 export class SidebarDialogGroups extends LitElement {
@@ -16,7 +21,7 @@ export class SidebarDialogGroups extends LitElement {
   @property({ attribute: false }) _dialog!: SidebarConfigDialog;
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
-  @state() private _selectedTab: PANEL_TABS = 'bottomPanel';
+  @state() private _selectedTab: PANEL = PANEL.BOTTOM_PANEL;
   @state() private _selectedGroup: string | null = null;
   @state() private _reloadItems = false;
   @state() private _sortable: Sortable | null = null;
@@ -26,6 +31,19 @@ export class SidebarDialogGroups extends LitElement {
       :host *[hidden] {
         display: none;
       }
+      :host #customSelectorHidden {
+        --grid-flex-columns: repeat(auto-fill, minmax(30.5%, 1fr));
+      }
+      :host #customSelector {
+        --grid-flex-columns: repeat(auto-fill, minmax(40.5%, 1fr));
+      }
+      @media all and (max-width: 700px), all and (max-height: 500px) {
+        :host #customSelectorHidden,
+        :host #customSelector {
+          --grid-flex-columns: repeat(auto-fill, minmax(30.5%, 1fr));
+        }
+      }
+
       .config-content {
         display: flex;
         flex-direction: column;
@@ -176,7 +194,7 @@ export class SidebarDialogGroups extends LitElement {
 
   protected updated(_changedProperties: PropertyValues) {
     if (
-      (_changedProperties.has('_selectedTab') && this._selectedTab !== 'customGroups') ||
+      (_changedProperties.has('_selectedTab') && this._selectedTab !== PANEL.CUSTOM_GROUPS) ||
       (_changedProperties.has('_selectedGroup') && this._selectedGroup !== undefined)
     ) {
       setTimeout(() => {
@@ -184,7 +202,11 @@ export class SidebarDialogGroups extends LitElement {
       }, 50); // Small delay to ensure the ha-selector shadow DOM is rendered
     }
 
-    if (_changedProperties.has('_selectedTab') && this._selectedTab !== 'bottomPanel') {
+    if (
+      _changedProperties.has('_selectedTab') &&
+      this._selectedTab !== PANEL.BOTTOM_PANEL &&
+      this._selectedTab !== PANEL.HIDDEN_ITEMS
+    ) {
       this._initSortable();
     }
 
@@ -194,7 +216,8 @@ export class SidebarDialogGroups extends LitElement {
     } else if (
       _changedProperties.has('_selectedGroup') &&
       this._selectedGroup === null &&
-      this._selectedTab !== 'bottomPanel'
+      this._selectedTab !== PANEL.BOTTOM_PANEL &&
+      this._selectedTab !== PANEL.HIDDEN_ITEMS
     ) {
       this._initSortable();
     }
@@ -213,25 +236,20 @@ export class SidebarDialogGroups extends LitElement {
           this._handleSortEnd(evt);
         },
       });
-      // console.log('sortable initialized');
+      console.log('sortable initialized');
     }
   };
 
   private _setGridSelector = (): void => {
-    const customSelector = this.shadowRoot?.getElementById('customSelector');
-    const customSelectorHidden = this.shadowRoot?.getElementById('customSelectorHidden');
-    let gridTemplateColumns = customSelectorHidden
-      ? 'repeat(auto-fit, minmax(30.5%, 1fr))'
-      : 'repeat(auto-fit, minmax(40.5%, 1fr)';
-    if (customSelector || customSelectorHidden) {
-      const selector =
-        customSelectorHidden?.shadowRoot?.querySelector('ha-selector-select') ||
-        customSelector?.shadowRoot?.querySelector('ha-selector-select');
+    const selectorEl =
+      this.shadowRoot?.getElementById('customSelector') || this.shadowRoot?.getElementById('customSelectorHidden');
+    if (selectorEl) {
+      const selector = selectorEl?.shadowRoot?.querySelector('ha-selector-select');
       if (selector) {
         const div = selector.shadowRoot?.querySelector('div');
         if (div) {
           div.style.display = 'grid';
-          div.style.gridTemplateColumns = gridTemplateColumns;
+          div.style.gridTemplateColumns = 'var(--grid-flex-columns)';
         }
       }
     }
