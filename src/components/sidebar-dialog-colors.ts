@@ -1,12 +1,11 @@
 import iro from '@jaames/iro';
-import { applyThemesOnElement } from 'custom-card-helpers';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import { styleMap } from 'lit/directives/style-map.js';
 import tinycolor from 'tinycolor2';
 
 import { COLOR_CONFIG_KEYS } from '../const';
-import { getDefaultThemeColors } from '../helpers';
+import { applyTheme, getDefaultThemeColors } from '../helpers';
 import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '../types';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
@@ -41,7 +40,7 @@ export class SidebarDialogColors extends LitElement {
       return true;
     }
     if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode) {
-      this.applyTheme(this._colorConfigMode);
+      this._setTheme(this._colorConfigMode);
       return true;
     }
 
@@ -175,35 +174,10 @@ export class SidebarDialogColors extends LitElement {
   }
 
   /* --------------------------- THEME CONFIGURATION -------------------------- */
-  private applyTheme(mode: string): void {
+  private _setTheme(mode: string): void {
     const theme = this.hass.themes.theme;
-    const themeData = this.hass.themes.themes[theme];
-
-    if (themeData) {
-      // Filter out only top-level properties for CSS variables and the modes property
-      const filteredThemeData = Object.keys(themeData)
-        .filter((key) => key !== 'modes')
-        .reduce(
-          (obj, key) => {
-            obj[key] = themeData[key];
-            return obj;
-          },
-          {} as Record<string, string>
-        );
-
-      // Get the current mode (light or dark)
-      const modeData = themeData.modes && typeof themeData.modes === 'object' ? themeData.modes[mode] : {};
-      // Merge the top-level and mode-specific variables
-      // const allThemeData = { ...filteredThemeData, ...modeData };
-      const allThemeData = { ...filteredThemeData, ...modeData };
-      const themeContainer = this.shadowRoot?.getElementById('theme-container');
-      applyThemesOnElement(
-        themeContainer,
-        { default_theme: this.hass.themes.default_theme, themes: { [theme]: allThemeData } },
-        theme,
-        false
-      );
-    }
+    const themeContainer = this.shadowRoot?.getElementById('theme-container');
+    applyTheme(themeContainer, this.hass, theme, mode);
     setTimeout(() => {
       this._getDefaultColors();
     }, 0);
