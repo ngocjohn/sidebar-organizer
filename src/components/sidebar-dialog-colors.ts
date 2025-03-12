@@ -1,13 +1,21 @@
 import iro from '@jaames/iro';
+import { mdiRefresh } from '@mdi/js';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import { styleMap } from 'lit/directives/style-map.js';
 import tinycolor from 'tinycolor2';
 
-import { COLOR_CONFIG_KEYS } from '../const';
+import { COLOR_CONFIG_KEYS, PREVIEW_MOCK_PANELS } from '../const';
 import { applyTheme, getDefaultThemeColors } from '../helpers';
 import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '../types';
+import { convertPreviewCustomStyles, createExpansionPanel } from '../utils';
 import { SidebarConfigDialog } from './sidebar-dialog';
+
+enum THEME_STATE {
+  LOADING = 1,
+  READY = 2,
+  ERROR = 3,
+}
 
 @customElement('sidebar-dialog-colors')
 export class SidebarDialogColors extends LitElement {
@@ -20,19 +28,29 @@ export class SidebarDialogColors extends LitElement {
   @state() private _currentConfigValue: string | undefined;
   @state() private _baseColorFromTheme: DividerColorSettings = {};
 
+  @state() private _state: THEME_STATE = THEME_STATE.LOADING;
+
   private _colorHelper: tinycolor = tinycolor;
   private _initColor: string = '';
+  @state() private _initCustomStyles: Array<Record<string, string>> = [];
+  @state() private _yamlEditor: any;
 
   connectedCallback(): void {
     super.connectedCallback();
-
-    window.SidebarDialogColors = this;
   }
 
-  protected firstUpdated(): void {
+  protected firstUpdated(_changedProperties: PropertyValues): void {
+    super.firstUpdated(_changedProperties);
     const colorMode = this.hass.themes.darkMode ? 'dark' : 'light';
     // console.log('colorMode', colorMode);
     this._colorConfigMode = colorMode;
+    setTimeout(() => {
+      const yamlEditor = this.shadowRoot?.querySelector('ha-yaml-editor');
+      if (yamlEditor) {
+        this._yamlEditor = yamlEditor;
+        console.log('yamlEditor', this._yamlEditor);
+      }
+    }, 0);
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
@@ -41,6 +59,8 @@ export class SidebarDialogColors extends LitElement {
     }
     if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode) {
       this._setTheme(this._colorConfigMode);
+      this._initCustomStyles = this._sidebarConfig.color_config?.[this._colorConfigMode]?.custom_styles || [];
+      // console.log('initCustomStyles', this._initCustomStyles);
       return true;
     }
 
@@ -48,10 +68,27 @@ export class SidebarDialogColors extends LitElement {
       return true;
     }
 
+    if (_changedProperties.has('_yamlEditor') && this._yamlEditor !== undefined) {
+      this._yamlEditor._codeEditor.linewrap = true;
+      const cardActions = this._yamlEditor.shadowRoot?.querySelector('.card-actions');
+      const actionStyles = {
+        display: 'flex',
+        justifyContent: 'space-between',
+        width: '100%',
+        padding: '0',
+        border: 'none',
+      };
+      if (cardActions) {
+        Object.assign(cardActions.style, actionStyles);
+      }
+      return true;
+    }
+
     return true;
   }
 
   protected updated(_changedProperties: PropertyValues): void {
+    super.updated(_changedProperties);
     if (_changedProperties.has('_currentConfigValue') && this._currentConfigValue !== undefined) {
       setTimeout(() => {
         this._initColorPicker();
@@ -184,32 +221,17 @@ export class SidebarDialogColors extends LitElement {
   }
 
   protected render() {
-    const colorSelector = html`
-      <ha-control-select
-        .value=${this._colorConfigMode}
-        .options=${[
-          { value: 'light', label: 'Light Mode' },
-          { value: 'dark', label: 'Dark Mode' },
-        ]}
-        @value-changed=${(ev: CustomEvent) => {
-          this._colorConfigMode = ev.detail.value;
-        }}
-        ?hidden=${this.singleMode}
-      ></ha-control-select>
+    return html`
+      <div id="theme-container"></div>
+      <div id="color-preview-container">
+        <div class="color-container">${this._renderHeaderConfigFields()} ${this._renderColorConfigFields()}</div>
+        <div class="preview-container">${this._renderPreview()}</div>
+      </div>
     `;
+  }
 
-    const headerInfo = html`<div class="header-row">
-      <div class="title">Selected theme: ${this.hass.themes.theme}</div>
-      <ha-button @click=${() => this._resetColorConfig('currentMode')}>RESET ALL</ha-button>
-    </div> `;
-
-    const pickerActive = html` <div class="header-row">
-      <ha-button @click=${() => this._picker?.color.reset()}>Reset</ha-button>
-      <ha-button @click=${() => this._handleColorPicker('cancel')}>Cancel</ha-button>
-      <ha-button @click=${() => this._handleColorPicker('save')}>Save</ha-button>
-    </div>`;
-
-    const borderRadius = html`
+  private _renderBorderRadiusField() {
+    return html`
       <div class="color-item">
         <div class="header-row">
           <ha-icon
@@ -228,23 +250,91 @@ export class SidebarDialogColors extends LitElement {
         </div>
       </div>
     `;
-    return html`
-      <div id="color-preview-container">
-        <div class="color-container">
-          <div class="header-row center primary">Color Configuration</div>
-          ${colorSelector} ${headerInfo}
-          <div id="theme-container"></div>
-          <div class="config-colors">
-            ${COLOR_CONFIG_KEYS.map((item) => this._renderDividerColor(item.value, item.label))} ${borderRadius}
-          </div>
-          <div class="picker-wrapper" hidden>
-            <div id="picker"></div>
-            ${pickerActive}
-          </div>
-        </div>
-        <div class="preview-container">${this._renderPreview()}</div>
+  }
+
+  private _renderHeaderConfigFields(): TemplateResult {
+    const headerTitle = this._sidebarConfig?.header_title ?? '';
+    const headerToggle = this._sidebarConfig?.hide_header_toggle ?? false;
+
+    const headerConfig = [
+      {
+        value: headerTitle,
+        configValue: 'header_title',
+        label: 'Header Title',
+        placeholder: 'Sidebar Organizer',
+        pickerType: 'text' as 'text',
+      },
+      {
+        value: headerToggle,
+        label: 'Hide Header Toggle',
+        configValue: 'hide_header_toggle',
+        pickerType: 'boolean' as 'boolean',
+      },
+    ];
+
+    const content = html`
+      <div class="config-colors header">${headerConfig.map((item) => this._createPicker(item))}</div>
+    `;
+
+    return createExpansionPanel({
+      content,
+      options: {
+        expanded: true,
+        header: 'Header Configuration',
+        icon: 'mdi:format-text',
+        secondary: 'Customize the header of the sidebar',
+      },
+    });
+  }
+
+  private _renderColorConfigFields(): TemplateResult {
+    const configKeySelected = this._currentConfigValue !== undefined;
+    const colorSelector = html`
+      <ha-control-select
+        .value=${this._colorConfigMode}
+        .options=${[
+          { value: 'light', label: 'Light Mode' },
+          { value: 'dark', label: 'Dark Mode' },
+        ]}
+        @value-changed=${(ev: CustomEvent) => {
+          this._colorConfigMode = ev.detail.value;
+        }}
+        ?hidden=${this.singleMode}
+      ></ha-control-select>
+    `;
+    const headerInfo = html`<div class="header-row" ?hidden=${configKeySelected}>
+      <div class="title">Theme: ${this.hass.themes.theme}</div>
+      <ha-button @click=${() => this._resetColorConfig('currentMode')}>RESET ALL</ha-button>
+    </div> `;
+
+    const pickerActive = html` <div class="header-row">
+      <ha-button @click=${() => this._picker?.color.reset()}>Reset</ha-button>
+      <ha-button @click=${() => this._handleColorPicker('cancel')}>Cancel</ha-button>
+      <ha-button @click=${() => this._handleColorPicker('save')}>Save</ha-button>
+    </div>`;
+
+    const content = html`
+      ${colorSelector} ${headerInfo}
+
+      <div class="config-colors">
+        ${COLOR_CONFIG_KEYS.map((item) => this._renderDividerColor(item.value, item.label))}
+        ${this._renderBorderRadiusField()} ${this._renderCustomStylesField()}
+      </div>
+      <div class="picker-wrapper" hidden>
+        <div id="picker"></div>
+        ${pickerActive}
       </div>
     `;
+
+    return createExpansionPanel({
+      content,
+      options: {
+        expanded: false,
+        header: 'Color Configuration',
+        icon: 'mdi:palette',
+        secondary: 'Customize the colors of the sidebar',
+      },
+    });
   }
 
   private _handleColorPicker(action: string) {
@@ -273,25 +363,24 @@ export class SidebarDialogColors extends LitElement {
         this._picker?.color.set(rgbColor);
         this._handleConfigChange(currentConfigValue, rgbColor);
         console.log('hexColor', rgbColor);
-
         break;
     }
   }
 
   private _renderDividerColor(configValue: string, label: string): TemplateResult {
-    const mode = this._colorConfigMode;
+    if (!this._sidebarConfig) return html``;
+
+    const mode = this._colorConfigMode as 'light' | 'dark';
     const colorSettings = this._sidebarConfig?.color_config || {};
-    const colorModeConfig = colorSettings?.[mode] || {};
+    const colorModeConfig = colorSettings[mode] || {};
     const baseColorFromTheme = this._baseColorFromTheme;
 
     const baseValue = colorModeConfig[configValue] ?? baseColorFromTheme[configValue];
-
-    const placeholder = baseColorFromTheme[configValue];
     const value = colorModeConfig[configValue] || '';
-
     const isDefault =
       colorModeConfig[configValue] === undefined || colorModeConfig[configValue] === baseColorFromTheme[configValue];
 
+    // Function to determine text color based on background
     const getTextColor = (color: string) => {
       if (!color) return;
       let colorObj = tinycolor(color);
@@ -299,24 +388,9 @@ export class SidebarDialogColors extends LitElement {
       const backgroundColor =
         colorModeConfig['custom_sidebar_background_color'] || baseColorFromTheme['custom_sidebar_background_color'];
 
-      if (isTransparent) {
-        colorObj = tinycolor(backgroundColor);
-      }
-
-      const isLight = colorObj.isLight();
-      return isLight ? '#000' : '#fff';
+      if (isTransparent) colorObj = tinycolor(backgroundColor);
+      return colorObj.isLight() ? '#000' : '#fff';
     };
-
-    const colorScheme = [
-      {
-        label: label,
-        value: value,
-        configValue: configValue,
-        placeHolder: placeholder,
-        modeConfig: mode as 'light' | 'dark',
-        pickerType: 'text' as 'text',
-      },
-    ];
 
     const colorPickerBoxStyle = {
       backgroundColor: baseValue,
@@ -324,34 +398,84 @@ export class SidebarDialogColors extends LitElement {
       borderColor: tinycolor(getTextColor(baseValue)).setAlpha(0.2).toString(),
     };
 
-    const defaultConfigBox = html`
-      <a
-        href="#"
-        class="color-picker-box"
-        style=${styleMap(colorPickerBoxStyle)}
-        @click=${() => this._toggleColorPicker(configValue)}
-        ><ha-icon icon="mdi:format-color-fill"></ha-icon
-      ></a>
-    `;
-    const changeFormat = html`<div class="change-format">
-      <ha-button @click=${() => this._handleColorPicker('hex')}>HEX</ha-button>
-      <ha-button @click=${() => this._handleColorPicker('rgb')}>RGBA</ha-button>
-    </div>`;
-
     return html`
       <div class="color-item" id=${configValue}>
         <div class="header-row config-item">
-          <ha-icon
+          <ha-icon-button
             ?hidden=${isDefault || this._currentConfigValue !== undefined}
-            icon="mdi:refresh"
+            .path=${mdiRefresh}
             color="var(--sidebar-text-color)"
             @click=${() => this._resetColorConfig(configValue)}
-          ></ha-icon>
-          ${colorScheme.map((item) => this._createPicker(item))}
-          ${this._currentConfigValue === configValue ? changeFormat : defaultConfigBox}
+          ></ha-icon-button>
+
+          ${this._createPicker({
+            label,
+            value,
+            configValue,
+            placeHolder: baseColorFromTheme[configValue],
+            modeConfig: mode,
+            pickerType: 'text',
+          })}
+          ${this._currentConfigValue === configValue
+            ? html` <div class="change-format">
+                <ha-button @click=${() => this._handleColorPicker('hex')}>HEX</ha-button>
+                <ha-button @click=${() => this._handleColorPicker('rgb')}>RGBA</ha-button>
+              </div>`
+            : html` <a
+                href="#"
+                class="color-picker-box"
+                style=${styleMap(colorPickerBoxStyle)}
+                @click=${() => this._toggleColorPicker(configValue)}
+              >
+                <ha-icon icon="mdi:format-color-fill"></ha-icon>
+              </a>`}
         </div>
       </div>
     `;
+  }
+
+  private _renderCustomStylesField(): TemplateResult {
+    if (!this._sidebarConfig || !this._colorConfigMode) return html``;
+
+    return html`
+      <div class="color-item" id="custom_styles">
+          <ha-yaml-editor
+            .hass=${this.hass}
+            .defaultValue=${this._initCustomStyles}
+            .copyClipboard=${true}
+            .configValue=${'custom_styles'}
+            .hasExtraActions=${true}
+            .label=${'Custom Styles'}
+            .required=${false}
+            @value-changed=${this._handleYamlChange}
+            style="flex: 1;"
+          >
+            <ha-button slot="extra-actions" @click=${() => this._resetColorConfig('custom_styles')}>Reset</ha-button>
+          </ha-yaml-editor>
+        </div>
+      </div>
+    `;
+  }
+
+  private _handleYamlChange(ev: CustomEvent): void {
+    ev.stopPropagation();
+    const detail = ev.detail;
+    const { isValid, value } = detail;
+    if (!isValid) return;
+
+    const currentColorMode = this._colorConfigMode;
+    const colorConfig = { ...(this._sidebarConfig.color_config || {}) };
+    const currentModeConfig = { ...(colorConfig[currentColorMode] || {}) };
+    currentModeConfig['custom_styles'] = value;
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      color_config: {
+        ...colorConfig,
+        [currentColorMode]: currentModeConfig,
+      },
+    };
+    this._dispatchConfig(this._sidebarConfig);
+    console.log('Updated custom styles:', value);
   }
 
   private _toggleColorPicker(configValue: string) {
@@ -380,23 +504,21 @@ export class SidebarDialogColors extends LitElement {
     value,
     configValue,
     placeHolder,
-    modeConfig,
     pickerType,
+    modeConfig,
   }: {
     label?: string;
     value: any;
     configValue: string;
     placeHolder?: string | number;
-    modeConfig: 'light' | 'dark';
-    pickerType: 'text' | 'border_radius';
+    pickerType: 'text' | 'border_radius' | 'boolean';
+    modeConfig?: 'light' | 'dark';
   }) {
     const pickerTypeMap = {
       text: {
         selector: { text: { selector: { text: {} } } },
         flexStyle: true,
         required: true,
-        classList: 'color-picker',
-        helper: 'Enter a color (hex, rgb, rgba)',
       },
       border_radius: {
         selector: { number: { min: 0, max: 100, step: 1, mode: 'box' } },
@@ -405,16 +527,17 @@ export class SidebarDialogColors extends LitElement {
         classList: 'color-picker',
         helper: 'Enter a value for border radius (px)',
       },
+      boolean: {
+        selector: { boolean: {} },
+      },
     };
 
     const configType = `${configValue}_${pickerType}`;
-    const labelConfig =
-      pickerType === 'text' || pickerType === 'border_radius' ? label : pickerType === 'rgb_color' ? 'RGB' : 'Alpha';
     return html`
       <ha-selector
         style="width: 100%;"
         .hass=${this.hass}
-        .label=${labelConfig}
+        .label=${label}
         .placeholder=${placeHolder}
         .selector=${pickerTypeMap[pickerType].selector}
         .required=${false}
@@ -428,40 +551,39 @@ export class SidebarDialogColors extends LitElement {
     `;
   }
 
-  private _resetColorConfig(configValue: string) {
+  private _resetColorConfig(configValue: string): void {
     if (!this._sidebarConfig.color_config) return;
-    const currentMode = this._colorConfigMode;
-    const colorConfig = { ...(this._sidebarConfig.color_config || {}) };
-    const currentModeConfig = { ...(colorConfig[currentMode] || {}) };
+
+    let colorConfig = { ...(this._sidebarConfig.color_config || {}) };
+    let currentModeConfig = { ...(colorConfig[this._colorConfigMode] || {}) };
 
     if (configValue === 'border_radius') {
-      delete colorConfig?.border_radius;
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        color_config: colorConfig,
-      };
+      delete colorConfig.border_radius;
     } else if (configValue === 'currentMode') {
-      delete colorConfig[currentMode];
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        color_config: colorConfig,
-      };
-      console.log('colorConfig', colorConfig);
+      delete colorConfig[this._colorConfigMode];
+    } else if (configValue === 'custom_styles') {
+      delete currentModeConfig.custom_styles;
+      this._initCustomStyles = [];
+      this._yamlEditor._codeEditor.value = '';
+      colorConfig[this._colorConfigMode] = currentModeConfig;
     } else {
       delete currentModeConfig[configValue];
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        color_config: {
-          ...colorConfig,
-          [currentMode]: currentModeConfig,
-        },
-      };
-      console.log('colorConfig', colorConfig);
+      colorConfig[this._colorConfigMode] = currentModeConfig;
     }
 
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      color_config: colorConfig,
+    };
     this._dispatchConfig(this._sidebarConfig);
+
+    console.log('Updated colorConfig:', this._sidebarConfig.color_config);
   }
 
+  private _dispatchConfig(config: SidebarConfig) {
+    const event = new CustomEvent('sidebar-changed', { detail: config, bubbles: true, composed: true });
+    this.dispatchEvent(event);
+  }
   private _handleColorChange(ev: any) {
     ev.stopPropagation();
     const configValue = ev.target.configValue;
@@ -469,6 +591,10 @@ export class SidebarDialogColors extends LitElement {
     const configMode = ev.target.modeConfig;
     const value = ev.detail.value;
     console.log('configValue', configValue, 'configType', configType, 'value', value, 'configMode', configMode);
+    if (['header_title', 'hide_header_toggle'].includes(configValue)) {
+      this._handleHeaderConfigChange(configValue, value);
+      return;
+    }
 
     const updates: Partial<SidebarConfig['color_config']> = {};
 
@@ -507,19 +633,32 @@ export class SidebarDialogColors extends LitElement {
     this._dispatchConfig(this._sidebarConfig);
   }
 
+  private _handleHeaderConfigChange(configValue: string, value: string | boolean) {
+    const updates: Partial<SidebarConfig> = {};
+    if (configValue === 'header_title') {
+      if (!value || value === '' || value === undefined) {
+        delete this._sidebarConfig.header_title;
+      } else {
+        updates.header_title = value as string;
+      }
+    } else if (configValue === 'hide_header_toggle') {
+      updates.hide_header_toggle = value as boolean;
+    }
+
+    console.log('headerConfig', updates);
+    this._sidebarConfig = { ...this._sidebarConfig, ...updates };
+    this._dispatchConfig(this._sidebarConfig);
+  }
+
   private _renderPreview(): TemplateResult {
+    const { mockCustomGroups, mockDefaultPage } = PREVIEW_MOCK_PANELS;
     const _paperListbox = this._dialog._paperListbox;
-    const pseudoGroups = {
-      first_group: [
-        { title: 'Item 1', icon: 'mdi:numeric-1' },
-        { title: 'Item 2', icon: 'mdi:numeric-2' },
-      ],
-      second_group: [
-        { title: 'Item 3', icon: 'mdi:numeric-3' },
-        { title: 'Item 4', icon: 'mdi:numeric-4' },
-      ],
-    };
-    const groups = Object.keys(this._sidebarConfig?.custom_groups || pseudoGroups);
+
+    const groups =
+      Object.keys(this._sidebarConfig?.custom_groups || {}).length >= 2
+        ? Object.keys(this._sidebarConfig.custom_groups!)
+        : Object.keys(mockCustomGroups);
+
     const _toggleClick = (ev: Event) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -540,7 +679,8 @@ export class SidebarDialogColors extends LitElement {
       </a>`;
     };
 
-    const lovelacePanel = _paperListbox['defaultPage'][0] || { title: 'Home', icon: 'mdi:home' };
+    // const lovelacePanel = _paperListbox['defaultPage'][0] || { title: 'Home', icon: 'mdi:home' };
+    const lovelacePanel = _renderPanelItem(_paperListbox['defaultPage'][0] || mockDefaultPage[0]);
     const bottomSys = _paperListbox['bottomSystem'].map((item: PanelInfo) => {
       return _renderPanelItem(item);
     });
@@ -548,14 +688,14 @@ export class SidebarDialogColors extends LitElement {
       return _renderPanelItem(item);
     });
 
-    return html` <div class="header-row center primary">Preview</div>
+    return html` <div class="header-row center primary">Preview - ${this._colorConfigMode}</div>
       <div class="divider-preview" style=${this._computePreviewStyle()} id="divider-preview">
         <div class="groups-container">
-          ${_renderPanelItem(lovelacePanel)}
+          ${lovelacePanel}
           ${Array.from({ length: groups.length }, (_, i) => {
             const collapsed = i === 0 ? true : false;
             const title = groups[i].replace('_', ' ');
-            const someGroupItems = _paperListbox[groups[i]] ?? pseudoGroups[groups[i]] ?? [];
+            const someGroupItems = _paperListbox[groups[i]] ?? mockCustomGroups[groups[i]] ?? [];
 
             return html`<div class="divider-container" @click=${(ev: Event) => _toggleClick(ev)} group=${groups[i]}>
                 <div class=${collapsed ? 'added-content' : 'added-content collapsed'}>
@@ -585,28 +725,27 @@ export class SidebarDialogColors extends LitElement {
     const color_config = this._sidebarConfig?.color_config || {};
     const borderRadius = color_config?.border_radius || 0;
     const colorConfig = color_config?.[colorMode] || {};
+    const customStyles = colorConfig.custom_styles || [];
+    const styleAddedCustom = convertPreviewCustomStyles(customStyles);
+    console.log('Converted Custom Styles:', styleAddedCustom);
 
     const getColor = (key: string): string => {
       return colorConfig?.[key] ?? this._baseColorFromTheme[key];
     };
 
-    const lineColor = getColor('divider_color');
-    const background = getColor('background_color');
-    const borderTopColor = getColor('border_top_color');
-    const scrollbarThumbColor = getColor('scrollbar_thumb_color');
-    const sidebarBackgroundColor = getColor('custom_sidebar_background_color');
-    const textColor = getColor('divider_text_color');
-
     const styleAdded = {
-      '--divider-color': `${lineColor}`,
-      '--divider-bg-color': `${background}`,
-      '--divider-border-top-color': `${borderTopColor}`,
-      '--scrollbar-thumb-color': `${scrollbarThumbColor}`,
-      '--sidebar-background-color': `${sidebarBackgroundColor}`,
+      '--divider-color': getColor('divider_color'),
+      '--divider-bg-color': getColor('background_color'),
+      '--divider-border-top-color': getColor('border_top_color'),
+      '--scrollbar-thumb-color': getColor('scrollbar_thumb_color'),
+      '--sidebar-background-color': getColor('custom_sidebar_background_color'),
       '--divider-border-radius': `${borderRadius}px`,
-      '--sidebar-text-color': `${textColor}`,
+      '--sidebar-text-color': getColor('divider_text_color'),
+      '--sidebar-icon-color': getColor('sidebar_icon_color'),
+      ...styleAddedCustom,
     };
 
+    console.log('styleAdded', styleAdded);
     return styleMap(styleAdded);
   }
 
@@ -616,6 +755,7 @@ export class SidebarDialogColors extends LitElement {
         :host *[hidden] {
           display: none !important;
         }
+
         #color-preview-container {
           display: flex;
           flex-direction: row;
@@ -629,7 +769,7 @@ export class SidebarDialogColors extends LitElement {
         }
         .color-container {
           display: block;
-          border: 1px solid var(--divider-color);
+          /* border: 1px solid var(--divider-color); */
           flex: auto;
           height: 100%;
         }
@@ -680,16 +820,16 @@ export class SidebarDialogColors extends LitElement {
         .config-colors {
           display: flex;
           flex-direction: column;
-          /* padding: 0.5rem; */
+          gap: var(--side-dialog-gutter);
+          padding-block: var(--side-dialog-gutter);
+        }
+
+        .config-colors.header {
+          flex-direction: row;
         }
 
         .config-colors .color-item {
           display: flex;
-          /* flex-direction: column; */
-          padding: var(--side-dialog-gutter);
-          align-items: stretch;
-          gap: var(--side-dialog-gutter);
-          justify-content: space-evenly;
         }
 
         .change-format {
@@ -871,10 +1011,6 @@ export class SidebarDialogColors extends LitElement {
         }
       `,
     ];
-  }
-  private _dispatchConfig(config: SidebarConfig) {
-    const event = new CustomEvent('sidebar-changed', { detail: config, bubbles: true, composed: true });
-    this.dispatchEvent(event);
   }
 }
 

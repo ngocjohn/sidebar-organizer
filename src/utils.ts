@@ -1,11 +1,10 @@
-import { mdiClose, mdiInformation } from '@mdi/js';
+import { mdiClose } from '@mdi/js';
 import { HomeAssistant } from 'custom-card-helpers';
 import { html, TemplateResult } from 'lit';
 import tinycolor from 'tinycolor2';
 
-import { repository, version, description, name } from '../package.json';
+import { CustomStyles } from './types';
 
-const repoLink = `${repository.url}`;
 export const randomId = (): string => Math.random().toString(16).slice(2);
 const HOLD_DURATION = 300;
 
@@ -13,19 +12,46 @@ export const createCloseHeading = (
   hass: HomeAssistant | undefined,
   title: string | TemplateResult,
   addedContent?: TemplateResult
-) => html`
-  <div class="header_title">
-    <ha-icon-button
-      .label=${hass?.localize('ui.dialogs.generic.close') ?? 'Close'}
-      .path=${mdiClose}
-      dialogAction="close"
+) => {
+  const headerStyle = `
+    display: flex;
+    align-items: center;
+    direction: var(--direction);
+    `;
+  return html`
+    <div style=${headerStyle}>
+      <ha-icon-button
+        .label=${hass?.localize('ui.dialogs.generic.close') ?? 'Close'}
+        .path=${mdiClose}
+        dialogAction="close"
+      >
+      </ha-icon-button>
+      ${title} ${addedContent}
+    </div>
+  `;
+};
+
+export const createExpansionPanel = ({
+  content,
+  options,
+}: {
+  content: TemplateResult;
+  options: { expanded?: boolean; header: string; icon?: string; secondary?: string };
+}): TemplateResult => {
+  const styles = 'margin-bottom: var(--side-dialog-padding);';
+  return html`
+    <ha-expansion-panel
+      style=${styles}
+      .outlined=${true}
+      .expanded=${options?.expanded || false}
+      .header=${options.header}
+      .secondary=${options?.secondary || ''}
+      .leftChevron=${true}
     >
-    </ha-icon-button>
-    <span style="flex: 1;">${title}</span>
-    ${addedContent}
-    <ha-icon-button .path=${mdiInformation} @click=${() => window.open(repoLink)}> </ha-icon-button>
-  </div>
-`;
+      ${options.icon ? html`<div slot="icons"><ha-icon icon=${options.icon}></ha-icon></div>` : ''} ${content}
+    </ha-expansion-panel>
+  `;
+};
 
 export const color2rgba = (color: string, alpha: number = 1): string | void => {
   const colorObj = tinycolor(color);
@@ -103,22 +129,43 @@ export const removeStorage = (key: string): void => {
   return localStorage.removeItem(key);
 };
 
-export const logConsoleInfo = () => {
-  const repo = repository.url;
-  const namepsace = name.toUpperCase();
-  const sponsor = 'https://github.com/sponsors/ngocjohn';
-  const line1 = `   🗂️ ${namepsace} 🧹 v${version} 🗄️`;
-  const line2 = `   ${repo}`;
-  const length = Math.max(line1.length, line2.length) + 3;
-  const pad = (text: string, length: number) => text + ' '.repeat(length - text.length);
+const cleanCss = (cssString: string): string => {
+  const cleanedString = cssString
+    .replace(/\s*!important/g, '')
+    .replace(/;/g, '')
+    .replace(/:/g, '');
+  return cleanedString;
+};
 
-  console.groupCollapsed(
-    `%c${pad(line1, length)}\n%c${pad(line2, length)}`,
-    'color: orange; font-weight: bold; background: transparent',
-    'font-weight: bold; background: dimgray'
-  );
-  console.info(`${description}`);
-  console.info(`Github: ${repo}`);
-  console.info(`If you like the project, consider supporting the developer: ${sponsor}`);
-  console.groupEnd();
+export const convertCustomStyles = (customStyles: CustomStyles[]): string | null => {
+  if (!customStyles || customStyles.length === 0) {
+    return null;
+  }
+  let cssString = ':host {';
+
+  customStyles.forEach((styleObj) => {
+    Object.entries(styleObj).forEach(([key, value]) => {
+      cssString += `${key}: ${cleanCss(value)} !important;`;
+    });
+  });
+
+  cssString += '}';
+  console.log(cssString);
+  return cssString;
+};
+
+export const convertPreviewCustomStyles = (customStyles: CustomStyles[]): { [key: string]: string } | null => {
+  if (!customStyles || customStyles.length === 0) {
+    return null;
+  }
+
+  const styleObj: { [key: string]: string } = {};
+
+  customStyles.forEach((style) => {
+    Object.entries(style).forEach(([key, value]) => {
+      styleObj[key] = `${cleanCss(value)}`;
+    });
+  });
+
+  return styleObj;
 };

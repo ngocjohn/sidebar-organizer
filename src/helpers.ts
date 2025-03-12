@@ -120,6 +120,7 @@ export const getDefaultThemeColors = (element?: HTMLElement): DividerColorSettin
   const scrollbarColor = getCssValue('--scrollbar-thumb-color');
   const custom_sidebar_background_color = getCssValue('--sidebar-background-color');
   const textColor = getCssValue('--sidebar-text-color');
+  const iconColor = getCssValue('--sidebar-icon-color');
 
   const background_color = color2rgba(divider_color, 3) || divider_color;
   const border_top_color = divider_color;
@@ -132,6 +133,7 @@ export const getDefaultThemeColors = (element?: HTMLElement): DividerColorSettin
     scrollbar_thumb_color,
     custom_sidebar_background_color,
     divider_text_color: textColor,
+    sidebar_icon_color: iconColor,
   };
 };
 

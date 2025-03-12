@@ -66,6 +66,12 @@ export interface DividerColorSettings {
   divider_color?: string;
   divider_text_color?: string;
   scrollbar_thumb_color?: string;
+  sidebar_icon_color?: string;
+  custom_styles?: Array<CustomStyles>;
+}
+
+export interface CustomStyles {
+  [key: string]: string;
 }
 
 export interface SidebarConfig {
