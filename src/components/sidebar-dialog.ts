@@ -1,5 +1,5 @@
 import { html, css, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup } from 'lit';
-import { customElement, property, state } from 'lit/decorators';
+import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
 
 import { STORAGE } from '../const';
@@ -9,6 +9,8 @@ import { getStorage, setStorage } from '../utils';
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
 import './sidebar-dialog-code-editor';
+import { SidebarDialogColors } from './sidebar-dialog-colors';
+import { SidebarDialogGroups } from './sidebar-dialog-groups';
 
 type TAB_STATE = 'base' | 'panelConfig' | 'codeEditor';
 
@@ -27,6 +29,8 @@ export class SidebarConfigDialog extends LitElement {
   @state() public _initCombiPanels: string[] = [];
 
   @state() public _paperListbox: Record<string, PanelInfo[]> = {};
+  @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
+  @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -151,36 +155,13 @@ export class SidebarConfigDialog extends LitElement {
 
   private _renderBaseConfig() {
     if (this._tabState !== 'base') return nothing;
-    const headerTitle = this._sidebarConfig?.header_title ?? '';
-    const headerToggle = this._sidebarConfig?.hide_header_toggle ?? false;
-    const headerMenu = html` <div class="header-row">
-      <ha-textfield
-        class="flex"
-        .placeholder=${'Home Assistant'}
-        .label=${'Header Title'}
-        .value=${headerTitle}
-        .configValue=${'header_title'}
-        .required=${false}
-        @change=${this._handleValueChange}
-      ></ha-textfield>
-      <ha-formfield label="Hide Header Toggle">
-        <ha-switch
-          class="flex"
-          .label=${'Hide Header Toggle'}
-          .checked=${headerToggle}
-          .configValue=${'hide_header_toggle'}
-          @change=${this._handleValueChange}
-        ></ha-switch>
-      </ha-formfield>
-    </div>`;
 
-    return html` ${headerMenu}
-      <sidebar-dialog-colors
-        .hass=${this.hass}
-        ._dialog=${this}
-        ._sidebarConfig=${this._sidebarConfig}
-        @sidebar-changed=${this._handleSidebarChanged}
-      ></sidebar-dialog-colors>`;
+    return html` <sidebar-dialog-colors
+      .hass=${this.hass}
+      ._dialog=${this}
+      ._sidebarConfig=${this._sidebarConfig}
+      @sidebar-changed=${this._handleSidebarChanged}
+    ></sidebar-dialog-colors>`;
   }
 
   private _renderPanelConfig() {
