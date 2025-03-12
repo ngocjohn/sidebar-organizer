@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-[![hacs][hacs-validate]][hacs-url] ![Github last commit][git-last-commit-badge] ![git-download-all][git-download-all-badge] ![git-download-latest][git-download-latest-badge]
+[![hacs][hacs-validate]][hacs-url] ![Github last commit][git-last-commit-badge] ![git-download-all][git-download-all-badge] ![git-download-latest][git-download-latest-badge] [![forum][forum-badge]][forum-url] 
 
 # 🗄️ Sidebar Organizer
 
@@ -233,7 +233,8 @@ In this section, you can organize the layout of the sidebar panels by customizin
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!--Badges-->
-
+[forum-url]: https://community.home-assistant.io/t/sidebar-organizer
+[forum-badge]:https://img.shields.io/badge/forum-community?style=flat&logo=homeassistant&label=community&color=blue
 [hacs-validate]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yaml/badge.svg
 [hacs-url]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yaml
 [git-last-commit-badge]: https://img.shields.io/github/last-commit/ngocjohn/sidebar-organizer
