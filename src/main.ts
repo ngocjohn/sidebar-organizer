@@ -1,4 +1,4 @@
-import { mdiInformation } from '@mdi/js';
+import { mdiInformation, mdiArrowExpand } from '@mdi/js';
 import { HAQuerySelector, HAQuerySelectorEvent } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html } from 'lit';
@@ -17,7 +17,7 @@ import {
 import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
 import './components/sidebar-dialog';
 import { HaExtened, SidebarConfig, ThemeSettings } from './types';
-import { addAction, createCloseHeading, setStorage } from './utils';
+import { addAction, convertCustomStyles, createCloseHeading, setStorage } from './utils';
 
 class SidebarOrganizer {
   constructor() {
@@ -257,7 +257,13 @@ class SidebarOrganizer {
   }
 
   private async _setupConfig(config: SidebarConfig) {
-    const { color_config, bottom_items = [], custom_groups = {}, hidden_items = [], default_collapsed = [] } = config;
+    const {
+      color_config = {},
+      bottom_items = [],
+      custom_groups = {},
+      hidden_items = [],
+      default_collapsed = [],
+    } = config;
 
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
     this._addAdditionalStyles(color_config);
@@ -336,6 +342,7 @@ class SidebarOrganizer {
     >`;
 
     const rightHeaderBtns = html`<div>
+      <ha-icon-button .label=${'Toggle large'} .path=${mdiArrowExpand} @click=${toggleLarge}></ha-icon-button>
       <ha-icon-button
         .label=${'Documentation'}
         .path=${mdiInformation}
@@ -376,7 +383,7 @@ class SidebarOrganizer {
 
     // Append dialog and actions
     haDialog.append(sidebarDialog, primaryAction, secondaryAction);
-    this._styleManager.addStyle(DIALOG_STYLE, haDialog);
+    this._styleManager.addStyle(DIALOG_STYLE.toString(), haDialog);
     this.main.appendChild(haDialog);
   }
 
@@ -444,14 +451,14 @@ class SidebarOrganizer {
   }
 
   private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
-    if (!mode) {
-      mode = this.darkMode ? 'dark' : 'light';
-    } else {
-      mode = mode;
-    }
+    mode = mode ? mode : this.darkMode ? 'dark' : 'light';
     const colorConfig = color_config?.[mode] || {};
     const borderRadius = color_config?.border_radius ? `${color_config.border_radius}px` : undefined;
     const marginRadius = borderRadius ? '4px 4px' : '1px 4px 0px';
+
+    // Custom Styles
+    const customStyles = colorConfig.custom_styles || [];
+    const CUSTOM_STYLES = convertCustomStyles(customStyles) || '';
 
     const defaultColors = getDefaultThemeColors();
     // console.log('theme', theme, 'colorConfig', colorConfig, 'defaultColors', defaultColors);
@@ -459,24 +466,24 @@ class SidebarOrganizer {
       return colorConfig?.[key] ?? defaultColors[key];
     };
 
-    const lineColor = getColor('divider_color');
-    const background = getColor('background_color');
-    const borderTopColor = getColor('border_top_color');
-    const scrollbarThumbColor = getColor('scrollbar_thumb_color');
-    const sidebarBackgroundColor = getColor('custom_sidebar_background_color');
+    const colorCssConfig = {
+      '--divider-color': getColor('divider_color'),
+      '--divider-bg-color': getColor('background_color'),
+      '--divider-border-top-color': getColor('border_top_color'),
+      '--scrollbar-thumb-color': getColor('scrollbar_thumb_color'),
+      '--sidebar-background-color': getColor('custom_sidebar_background_color'),
+      '--divider-border-radius': borderRadius,
+      '--divider-margin-radius': marginRadius,
+    };
 
-    const dividerConfigColor = `
-			:host {
-				--divider-color: ${lineColor};
-				--divider-bg-color: ${background};
-				--divider-border-top-color: ${borderTopColor};
-        --scrollbar-thumb-color: ${scrollbarThumbColor};
-        --sidebar-background-color: ${sidebarBackgroundColor};
-				--divider-border-radius: ${borderRadius};
-				--divider-margin-radius: ${marginRadius};
-		}`;
+    const CUSTOM_COLOR_CONFIG = `:host {${Object.entries(colorCssConfig)
+      .map(([key, value]) => `${key}: ${value};`)
+      .join('')}}`;
 
-    this._styleManager.addStyle([dividerConfigColor, DIVIDER_ADDED_STYLE], this.sideBarRoot!);
+    this._styleManager.addStyle(
+      [CUSTOM_COLOR_CONFIG, CUSTOM_STYLES, DIVIDER_ADDED_STYLE.toString()],
+      this.sideBarRoot!
+    );
   }
 
   private _handleItemsGroup(customGroups: { [key: string]: string[] }) {
