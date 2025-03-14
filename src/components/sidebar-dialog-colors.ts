@@ -1,14 +1,14 @@
 import iro from '@jaames/iro';
 import { mdiRefresh } from '@mdi/js';
-import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
+import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import { styleMap } from 'lit/directives/style-map.js';
 import tinycolor from 'tinycolor2';
 
-import { COLOR_CONFIG_KEYS, PREVIEW_MOCK_PANELS } from '../const';
+import { COLOR_CONFIG_KEYS } from '../const';
 import { applyTheme, getDefaultThemeColors } from '../helpers';
-import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '../types';
-import { convertPreviewCustomStyles, createExpansionPanel } from '../utils';
+import { DividerColorSettings, HaExtened, SidebarConfig } from '../types';
+import { createExpansionPanel } from '../utils';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
 enum THEME_STATE {
@@ -44,13 +44,6 @@ export class SidebarDialogColors extends LitElement {
     const colorMode = this.hass.themes.darkMode ? 'dark' : 'light';
     // console.log('colorMode', colorMode);
     this._colorConfigMode = colorMode;
-    setTimeout(() => {
-      const yamlEditor = this.shadowRoot?.querySelector('ha-yaml-editor');
-      if (yamlEditor) {
-        this._yamlEditor = yamlEditor;
-        console.log('yamlEditor', this._yamlEditor);
-      }
-    }, 0);
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
@@ -59,12 +52,12 @@ export class SidebarDialogColors extends LitElement {
     }
     if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode) {
       this._setTheme(this._colorConfigMode);
+      this._state = THEME_STATE.LOADING;
       this._initCustomStyles = this._sidebarConfig.color_config?.[this._colorConfigMode]?.custom_styles || [];
-      // console.log('initCustomStyles', this._initCustomStyles);
-      return true;
-    }
+      setTimeout(() => {
+        this._state = THEME_STATE.READY;
+      }, 500);
 
-    if (_changedProperties.has('_dialog') && this._dialog._paperListbox) {
       return true;
     }
 
@@ -95,6 +88,17 @@ export class SidebarDialogColors extends LitElement {
       }, 50);
     } else if (_changedProperties.has('_currentConfigValue') && this._currentConfigValue === undefined) {
       this._destroyColorPicker();
+    }
+
+    if (_changedProperties.has('_state') && this._state === THEME_STATE.READY) {
+      this._getYamlEditor();
+    }
+  }
+
+  private _getYamlEditor() {
+    const yamlEditor = this.shadowRoot?.querySelector('ha-yaml-editor');
+    if (yamlEditor) {
+      this._yamlEditor = yamlEditor;
     }
   }
 
@@ -217,16 +221,14 @@ export class SidebarDialogColors extends LitElement {
     applyTheme(themeContainer, this.hass, theme, mode);
     setTimeout(() => {
       this._getDefaultColors();
+      this._initCustomStyles = this._sidebarConfig.color_config?.[mode]?.custom_styles || [];
     }, 0);
   }
 
-  protected render() {
+  protected render(): TemplateResult {
     return html`
       <div id="theme-container"></div>
-      <div id="color-preview-container">
-        <div class="color-container">${this._renderHeaderConfigFields()} ${this._renderColorConfigFields()}</div>
-        <div class="preview-container">${this._renderPreview()}</div>
-      </div>
+      <div class="color-container">${this._renderHeaderConfigFields()} ${this._renderColorConfigFields()}</div>
     `;
   }
 
@@ -272,9 +274,7 @@ export class SidebarDialogColors extends LitElement {
       },
     ];
 
-    const content = html`
-      <div class="config-colors header">${headerConfig.map((item) => this._createPicker(item))}</div>
-    `;
+    const content = html` <div class="config-colors">${headerConfig.map((item) => this._createPicker(item))}</div> `;
 
     return createExpansionPanel({
       content,
@@ -316,7 +316,7 @@ export class SidebarDialogColors extends LitElement {
     const content = html`
       ${colorSelector} ${headerInfo}
 
-      <div class="config-colors">
+      <div class="config-colors grid">
         ${COLOR_CONFIG_KEYS.map((item) => this._renderDividerColor(item.value, item.label))}
         ${this._renderBorderRadiusField()} ${this._renderCustomStylesField()}
       </div>
@@ -436,6 +436,9 @@ export class SidebarDialogColors extends LitElement {
 
   private _renderCustomStylesField(): TemplateResult {
     if (!this._sidebarConfig || !this._colorConfigMode) return html``;
+    if (this._state === THEME_STATE.LOADING) {
+      return html`<ha-circular-progress .indeterminate=${true} .size=${'small'}></ha-circular-progress>`;
+    }
 
     return html`
       <div class="color-item" id="custom_styles">
@@ -462,7 +465,8 @@ export class SidebarDialogColors extends LitElement {
     const detail = ev.detail;
     const { isValid, value } = detail;
     if (!isValid) return;
-
+    const isArray = Array.isArray(value);
+    if (!isArray) return;
     const currentColorMode = this._colorConfigMode;
     const colorConfig = { ...(this._sidebarConfig.color_config || {}) };
     const currentModeConfig = { ...(colorConfig[currentColorMode] || {}) };
@@ -475,7 +479,6 @@ export class SidebarDialogColors extends LitElement {
       },
     };
     this._dispatchConfig(this._sidebarConfig);
-    console.log('Updated custom styles:', value);
   }
 
   private _toggleColorPicker(configValue: string) {
@@ -553,31 +556,32 @@ export class SidebarDialogColors extends LitElement {
 
   private _resetColorConfig(configValue: string): void {
     if (!this._sidebarConfig.color_config) return;
-
-    let colorConfig = { ...(this._sidebarConfig.color_config || {}) };
-    let currentModeConfig = { ...(colorConfig[this._colorConfigMode] || {}) };
+    const colorMode = this._colorConfigMode as 'light' | 'dark';
+    const colorConfig = { ...(this._sidebarConfig.color_config || {}) };
+    const currentModeConfig = { ...(colorConfig[colorMode] || {}) };
 
     if (configValue === 'border_radius') {
       delete colorConfig.border_radius;
     } else if (configValue === 'currentMode') {
-      delete colorConfig[this._colorConfigMode];
+      delete colorConfig[colorMode];
     } else if (configValue === 'custom_styles') {
-      delete currentModeConfig.custom_styles;
       this._initCustomStyles = [];
       this._yamlEditor._codeEditor.value = '';
-      colorConfig[this._colorConfigMode] = currentModeConfig;
+      // Explicitly set custom_styles to an empty array before spreading
+      currentModeConfig.custom_styles = [];
+      colorConfig[colorMode] = currentModeConfig;
+      console.log('Reset custom styles:', colorConfig[colorMode]);
     } else {
       delete currentModeConfig[configValue];
-      colorConfig[this._colorConfigMode] = currentModeConfig;
+      colorConfig[colorMode] = currentModeConfig;
     }
 
     this._sidebarConfig = {
       ...this._sidebarConfig,
       color_config: colorConfig,
     };
+    console.log('Reset color config:', this._sidebarConfig.color_config);
     this._dispatchConfig(this._sidebarConfig);
-
-    console.log('Updated colorConfig:', this._sidebarConfig.color_config);
   }
 
   private _dispatchConfig(config: SidebarConfig) {
@@ -650,105 +654,6 @@ export class SidebarDialogColors extends LitElement {
     this._dispatchConfig(this._sidebarConfig);
   }
 
-  private _renderPreview(): TemplateResult {
-    const { mockCustomGroups, mockDefaultPage } = PREVIEW_MOCK_PANELS;
-    const _paperListbox = this._dialog._paperListbox;
-
-    const groups =
-      Object.keys(this._sidebarConfig?.custom_groups || {}).length >= 2
-        ? Object.keys(this._sidebarConfig.custom_groups!)
-        : Object.keys(mockCustomGroups);
-
-    const _toggleClick = (ev: Event) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const target = ev.target as HTMLElement;
-      const isActive = target.classList.contains('collapsed');
-      const targetParent = target.parentElement;
-      const itemsEl = targetParent?.nextElementSibling as HTMLElement;
-      if (itemsEl && targetParent?.getAttribute('group') === itemsEl.getAttribute('group')) {
-        itemsEl.classList.toggle('collapsed', !isActive);
-      }
-      target.classList.toggle('collapsed', !isActive);
-    };
-
-    const _renderPanelItem = (item: PanelInfo) => {
-      const { icon, title } = item;
-      return html`<a href="#">
-        <div class="icon-item"><ha-icon icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
-      </a>`;
-    };
-
-    // const lovelacePanel = _paperListbox['defaultPage'][0] || { title: 'Home', icon: 'mdi:home' };
-    const lovelacePanel = _renderPanelItem(_paperListbox['defaultPage'][0] || mockDefaultPage[0]);
-    const bottomSys = _paperListbox['bottomSystem'].map((item: PanelInfo) => {
-      return _renderPanelItem(item);
-    });
-    const bottomPanel = _paperListbox['bottomItems'].map((item: PanelInfo) => {
-      return _renderPanelItem(item);
-    });
-
-    return html` <div class="header-row center primary">Preview - ${this._colorConfigMode}</div>
-      <div class="divider-preview" style=${this._computePreviewStyle()} id="divider-preview">
-        <div class="groups-container">
-          ${lovelacePanel}
-          ${Array.from({ length: groups.length }, (_, i) => {
-            const collapsed = i === 0 ? true : false;
-            const title = groups[i].replace('_', ' ');
-            const someGroupItems = _paperListbox[groups[i]] ?? mockCustomGroups[groups[i]] ?? [];
-
-            return html`<div class="divider-container" @click=${(ev: Event) => _toggleClick(ev)} group=${groups[i]}>
-                <div class=${collapsed ? 'added-content' : 'added-content collapsed'}>
-                  <ha-icon icon="mdi:chevron-down"></ha-icon>
-                  <span>${title}</span>
-                </div>
-              </div>
-              ${someGroupItems.length !== 0
-                ? html`<div group=${groups[i]} class=${collapsed ? 'group-items' : 'group-items collapsed'}>
-                    ${someGroupItems.map((item: PanelInfo) => {
-                      return _renderPanelItem(item);
-                    })}
-                  </div>`
-                : nothing} `;
-          })}
-          <div class="spacer"></div>
-          ${bottomPanel}
-          <div class="divider"></div>
-          ${bottomSys}
-        </div>
-      </div>`;
-  }
-
-  private _computePreviewStyle() {
-    if (!this._sidebarConfig) return;
-    const colorMode = this._colorConfigMode;
-    const color_config = this._sidebarConfig?.color_config || {};
-    const borderRadius = color_config?.border_radius || 0;
-    const colorConfig = color_config?.[colorMode] || {};
-    const customStyles = colorConfig.custom_styles || [];
-    const styleAddedCustom = convertPreviewCustomStyles(customStyles);
-    console.log('Converted Custom Styles:', styleAddedCustom);
-
-    const getColor = (key: string): string => {
-      return colorConfig?.[key] ?? this._baseColorFromTheme[key];
-    };
-
-    const styleAdded = {
-      '--divider-color': getColor('divider_color'),
-      '--divider-bg-color': getColor('background_color'),
-      '--divider-border-top-color': getColor('border_top_color'),
-      '--scrollbar-thumb-color': getColor('scrollbar_thumb_color'),
-      '--sidebar-background-color': getColor('custom_sidebar_background_color'),
-      '--divider-border-radius': `${borderRadius}px`,
-      '--sidebar-text-color': getColor('divider_text_color'),
-      '--sidebar-icon-color': getColor('sidebar_icon_color'),
-      ...styleAddedCustom,
-    };
-
-    console.log('styleAdded', styleAdded);
-    return styleMap(styleAdded);
-  }
-
   static get styles(): CSSResultGroup {
     return [
       css`
@@ -756,17 +661,6 @@ export class SidebarDialogColors extends LitElement {
           display: none !important;
         }
 
-        #color-preview-container {
-          display: flex;
-          flex-direction: row;
-          gap: var(--side-dialog-gutter);
-          justify-content: center;
-        }
-        @media all and (max-width: 700px), all and (max-height: 500px) {
-          #color-preview-container {
-            flex-wrap: wrap;
-          }
-        }
         .color-container {
           display: block;
           /* border: 1px solid var(--divider-color); */
@@ -774,16 +668,6 @@ export class SidebarDialogColors extends LitElement {
           height: 100%;
         }
 
-        .preview-container {
-          min-width: 260px;
-          flex: 0;
-          display: flex;
-          flex-direction: column;
-          width: 100%;
-          background-color: var(--primary-background-color);
-          border: 1px solid var(--divider-color);
-          /* display: block; */
-        }
         .header-row {
           display: inline-flex;
           justify-content: space-between;
@@ -818,14 +702,14 @@ export class SidebarDialogColors extends LitElement {
         }
 
         .config-colors {
-          display: flex;
-          flex-direction: column;
+          display: grid;
           gap: var(--side-dialog-gutter);
           padding-block: var(--side-dialog-gutter);
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         }
 
-        .config-colors.header {
-          flex-direction: row;
+        .config-colors.grid > *:nth-last-child(1) {
+          grid-column: 1 / -1; /* Spans all columns */
         }
 
         .config-colors .color-item {
@@ -872,142 +756,6 @@ export class SidebarDialogColors extends LitElement {
           width: 100%;
           justify-content: space-around;
           align-items: center;
-        }
-
-        .divider-preview {
-          display: block;
-          align-items: center;
-          justify-content: center;
-          flex-direction: column;
-          height: 100%;
-          width: 100%;
-          background-color: var(--sidebar-background-color);
-          max-height: 580px;
-        }
-
-        .groups-container {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-          width: 100%;
-          overflow-y: auto;
-          scrollbar-color: var(--scrollbar-thumb-color) transparent;
-          scrollbar-width: thin;
-        }
-
-        .divider-container {
-          padding: 0;
-          margin-top: 1px;
-          box-sizing: border-box;
-          box-sizing: border-box;
-          margin: 1px 4px 0px;
-          /* width: 248px; */
-        }
-
-        .added-content {
-          display: flex;
-          justify-content: flex-start;
-          align-items: center;
-          color: var(--sidebar-text-color);
-          background-color: var(--divider-bg-color);
-          letter-spacing: 1px;
-          font-size: 1.1rem;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          border-top: 1px solid var(--divider-border-top-color);
-          border-radius: var(--divider-border-radius, none);
-          box-sizing: border-box;
-          padding-left: 12px;
-          padding-inline-end: initial;
-          min-height: 40px;
-          text-transform: capitalize;
-          &:hover {
-            color: var(--primary-color);
-            background-color: rgb(from var(--primary-color) r g b / 0.1);
-          }
-        }
-
-        .added-content > span,
-        .added-content > ha-icon {
-          pointer-events: none;
-          transition: all 150ms ease;
-        }
-
-        .divider-container:hover .added-content > span {
-          transform: translateX(30px);
-          transition: all 150ms ease;
-        }
-
-        .added-content > span {
-          transform: translateX(30px);
-        }
-        .added-content.collapsed > span {
-          transform: translateX(10px);
-        }
-
-        .added-content.collapsed > ha-icon {
-          transform: rotate(-90deg);
-        }
-
-        .group-items {
-          max-height: 1000px;
-          display: block;
-          transition: all 0.3s ease;
-        }
-
-        .group-items.collapsed {
-          max-height: 0px;
-          overflow: hidden;
-        }
-
-        .divider {
-          /* padding: 10px 0; */
-          display: block;
-        }
-
-        .divider::before {
-          content: '';
-          display: block;
-          height: 1px;
-          background-color: var(--divider-color);
-        }
-        .spacer {
-          flex: 1;
-        }
-        a {
-          text-decoration: none;
-          color: var(--sidebar-text-color);
-          font-weight: 500;
-          font-size: 14px;
-          position: relative;
-          display: block;
-          outline: 0;
-          &:hover {
-            color: var(--primary-color);
-            background-color: rgb(from var(--primary-color) r g b / 0.1);
-          }
-          /* width: 248px; */
-        }
-
-        .icon-item {
-          box-sizing: border-box;
-          margin: 4px;
-          padding-left: 12px;
-          padding-inline-start: 12px;
-          padding-inline-end: initial;
-          border-radius: 4px;
-          display: flex;
-          min-height: 40px;
-          align-items: center;
-          padding: 0 16px;
-        }
-        .icon-item > ha-icon {
-          width: 56px;
-          color: var(--sidebar-icon-color);
-        }
-        .icon-item span.item-text {
-          display: block;
-          max-width: calc(100% - 56px);
         }
       `,
     ];

@@ -170,6 +170,13 @@ export const getPreviewItems = (hass: HaExtened['hass'], config: SidebarConfig) 
     _panelItems[lastGroup[0]] = createPanelItems(lastGroup[1]);
   }
 
+  let moreGroups = Object.entries(config.custom_groups || {}).slice(1, -1);
+  if (moreGroups.length > 0) {
+    moreGroups.forEach((group) => {
+      _panelItems[group[0]] = createPanelItems(group[1]);
+    });
+  }
+
   // Bottom panels
   _panelItems['bottomItems'] = createPanelItems(config.bottom_items || []);
   _panelItems['bottomSystem'] = createPanelItems(['developer-tools', 'config']);
@@ -245,7 +252,7 @@ export const validateConfig = (config: SidebarConfig, hiddenPanels: string[]): S
 
 export const applyTheme = (element: any, hass: HaExtened['hass'], theme: string, mode?: string): void => {
   if (!element) return;
-  console.log('applyTheme', theme, mode);
+  // console.log('applyTheme', theme, mode);
   const themeData = hass.themes.themes[theme];
   if (themeData) {
     // Filter out only top-level properties for CSS variables and the modes property
@@ -318,5 +325,29 @@ export const resetPanelOrder = (paperListBox: HTMLElement): void => {
       paperListBox.removeChild(nextItem);
     }
     paperListBox.removeChild(item);
+  });
+};
+
+export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
+  const listItems = paperListbox?.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
+  const activeLink = paperListbox?.querySelector<HTMLAnchorElement>(`a[href="${path}"]`);
+  const configEl = paperListbox?.querySelector('a[data-panel="config"]') as HTMLElement;
+  configEl?.setAttribute('aria-selected', configEl === activeLink ? 'true' : 'false');
+
+  if (listItems.length) {
+    listItems.forEach((item: HTMLAnchorElement) => {
+      const isActive = item === activeLink;
+      item.classList.toggle('iron-selected', isActive);
+      item.setAttribute('aria-selected', isActive.toString());
+    });
+  }
+
+  const dividers = paperListbox?.querySelectorAll('div.divider') as NodeListOf<HTMLElement>;
+  dividers.forEach((divider) => {
+    const group = divider.getAttribute('group');
+    const items = paperListbox?.querySelectorAll(`a[group="${group}"]`) as NodeListOf<HTMLAnchorElement>;
+    const ariaSelected = Object.values(items).some((item) => item.getAttribute('aria-selected') === 'true');
+    divider.classList.toggle('child-selected', ariaSelected);
+    divider.setAttribute('aria-selected', ariaSelected.toString());
   });
 };
