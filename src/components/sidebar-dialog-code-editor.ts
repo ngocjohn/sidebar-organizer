@@ -1,7 +1,7 @@
 const HELPERS = (window as any).loadCardHelpers ? (window as any).loadCardHelpers() : undefined;
 
-import { html, css, LitElement, TemplateResult, CSSResultGroup } from 'lit';
-import { customElement, property, state } from 'lit/decorators';
+import { html, css, LitElement, TemplateResult, CSSResultGroup, nothing } from 'lit';
+import { customElement, property } from 'lit/decorators';
 import YAML from 'yaml';
 /* eslint-disable */
 import { NAMESPACE, STORAGE } from '../const';
@@ -17,10 +17,11 @@ export class SidebarDialogCodeEditor extends LitElement {
   @property({ attribute: false }) _dialog!: SidebarConfigDialog;
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
-  @state() private _codeErorr = false;
-
   static get styles(): CSSResultGroup {
     return css`
+      :host {
+        --code-mirror-max-height: 500px;
+      }
       :host *[hidden] {
         display: none;
       }
@@ -34,65 +35,45 @@ export class SidebarDialogCodeEditor extends LitElement {
       .header-row.center {
         justify-content: center;
       }
-
-      .json-viewer {
-        position: relative;
-        border: 0.5px solid var(--divider-color);
-        --code-mirror-max-height: 500px;
-      }
     `;
   }
 
   protected render(): TemplateResult {
-    const configEmpty = Object.keys(this._sidebarConfig).length === 0;
-    const info = `You dont have any configuration yet.`;
-    const yamlStr = YAML.stringify(this._sidebarConfig);
+    const initConfig = this._sidebarConfig || {};
+    const isConfigEmpty = Object.keys(initConfig).length === 0;
+    const emptyConfig = html`<ha-alert alertType="info">You dont have any configuration yet.</ha-alert>`;
 
-    const haCodeEditor = html`<ha-code-editor
-      .value=${yamlStr}
-      .error=${this._codeErorr}
-      @value-changed=${(ev: CustomEvent) => {
-        this._handleYamlChange(ev);
-      }}
-    ></ha-code-editor>`;
-    return html`
-      <div class="json-viewer">
-        ${configEmpty
-          ? html`<ha-alert alertType="info">${info}</ha-alert>`
-          : html`
-              <div class="header-row">
-                <ha-button @click=${() => this._handleBtnAction('download')}>Download Config</ha-button>
-                <ha-button @click=${() => this._handleBtnAction('copy')}>Copy to Clipboard</ha-button>
-              </div>
-            `}
-        ${haCodeEditor}
+    const editor = html` ${isConfigEmpty ? emptyConfig : nothing}
+      <ha-yaml-editor
+        .hass=${this.hass}
+        .defaultValue=${initConfig}
+        .copyToClipboard=${true}
+        .hasExtraActions=${true}
+        .required=${true}
+        @value-changed=${this._handleConfigChange}
+      >
+        <div class="header-row" slot="extra-actions" ?hidden=${isConfigEmpty}>
+          <div>
+            <ha-button @click=${() => this._handleBtnAction('download')}>Download Config</ha-button>
+            <ha-button @click=${() => this._handleBtnAction('copy')}>Copy to Clipboard</ha-button>
+          </div>
+          <ha-button style="--mdc-theme-primary: var(--error-color);" @click=${() => this._handleBtnAction('delete')}
+            >Delete Config</ha-button
+          >
+        </div>
+      </ha-yaml-editor>`;
 
-        <ha-button
-          ?hidden=${configEmpty}
-          style="--mdc-theme-primary: var(--error-color); float: inline-end;"
-          @click=${() => this._handleBtnAction('delete')}
-          >Delete Config</ha-button
-        >
-      </div>
-    `;
+    return editor;
   }
 
-  private _handleYamlChange(ev: CustomEvent) {
-    ev.stopPropagation();
-    const yamlStr = ev.detail.value;
-
-    try {
-      // Directly parse YAML into JavaScript object
-      const newConfig = YAML.parse(yamlStr);
-
-      // Assign the parsed object to _sidebarConfig
-      this._sidebarConfig = newConfig;
-      this._codeErorr = false;
+  private _handleConfigChange(ev: CustomEvent) {
+    const { isValid, value } = ev.detail;
+    if (isValid) {
       console.log('YAML parsed successfully');
+      this._sidebarConfig = value;
       this._dispatchConfig(this._sidebarConfig);
-    } catch (e) {
-      this._codeErorr = true;
-      console.error('Failed to parse YAML:', e);
+    } else {
+      console.error('Failed to parse YAML');
     }
   }
 
