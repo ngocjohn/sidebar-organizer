@@ -8,6 +8,11 @@ export const REPO_URL = `${repository.url}`;
 export const CONFIG_NAME = 'sidebar-organizer';
 export const CONFIG_PATH = '/local/sidebar-organizer.yaml';
 
+export enum TAB_STATE {
+  BASE = 'base',
+  CODE = 'codeEditor',
+}
+
 export enum STORAGE {
   UI_CONFIG = 'sidebarOrganizerConfig',
   USE_CONFIG_FILE = 'sidebarOrganizerUseConfigFile',

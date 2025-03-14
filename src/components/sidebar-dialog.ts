@@ -1,18 +1,20 @@
-import { html, css, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup } from 'lit';
+import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
 
-import { STORAGE } from '../const';
-import { sidebarUseConfigFile, getStorageConfig, getPreviewItems, getHiddenPanels } from '../helpers';
-import { SidebarConfig, HaExtened, PanelInfo } from '../types';
+import { STORAGE, TAB_STATE } from '../const';
+import { sidebarUseConfigFile, getStorageConfig, getHiddenPanels } from '../helpers';
+import { SidebarConfig, HaExtened } from '../types';
 import { getStorage, setStorage } from '../utils';
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
 import './sidebar-dialog-code-editor';
+import './sidebar-dialog-preview';
 import { SidebarDialogColors } from './sidebar-dialog-colors';
 import { SidebarDialogGroups } from './sidebar-dialog-groups';
+import { SidebarDialogPreview } from './sidebar-dialog-preview';
 
-type TAB_STATE = 'base' | 'panelConfig' | 'codeEditor';
+const tabs = ['appearance', 'panels'] as const;
 
 @customElement('sidebar-config-dialog')
 export class SidebarConfigDialog extends LitElement {
@@ -20,17 +22,19 @@ export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) _sideBarRoot!: ShadowRoot;
   @state() public _sidebarConfig = {} as SidebarConfig;
 
-  @state() private _tabState: TAB_STATE = 'base';
+  @state() public _tabState: TAB_STATE = TAB_STATE.BASE;
+
   @state() private _configLoaded = false;
+  @state() private _currTab: (typeof tabs)[number] = tabs[0];
 
   @state() public _useConfigFile = false;
 
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
 
-  @state() public _paperListbox: Record<string, PanelInfo[]> = {};
   @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
+  @query('sidebar-dialog-preview') _dialogPreview!: SidebarDialogPreview;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -56,6 +60,62 @@ export class SidebarConfigDialog extends LitElement {
         :host {
           --side-dialog-gutter: 0.5rem;
           --side-dialog-padding: 1rem;
+        }
+
+        #sidebar-dialog-wrapper {
+          display: flex;
+          flex-direction: row;
+          gap: var(--side-dialog-padding);
+          justify-content: center;
+          position: relative;
+          width: 100%;
+        }
+        @media all and (max-width: 800px), all and (max-height: 500px) {
+          #sidebar-dialog-wrapper {
+            flex-direction: column;
+          }
+          #sidebar-preview {
+            max-width: none !important;
+            width: 100%;
+          }
+        }
+        .dialog-content > * {
+          flex-basis: 0;
+          flex-grow: 1;
+          flex-shrink: 1;
+          min-width: 0;
+        }
+
+        #sidebar-config {
+          display: block;
+        }
+
+        #tabbar {
+          display: flex;
+          font-size: 1rem;
+          overflow: hidden;
+          text-transform: uppercase;
+          margin-bottom: var(--side-dialog-padding);
+          align-content: stretch;
+          justify-content: space-around;
+          align-items: stretch;
+          font-weight: 500;
+        }
+        .tab-item {
+          width: 100%;
+          flex: 1;
+        }
+        .tab-item[active] {
+          background-color: #9b9b9b10;
+        }
+
+        #sidebar-preview {
+          position: sticky;
+          top: 0px;
+          padding: 0px;
+          justify-items: center;
+          max-width: 260px;
+          max-height: fit-content;
         }
 
         .config-content {
@@ -108,54 +168,77 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   private _setupInitConfig() {
-    this._tabState = this._useConfigFile === true ? 'codeEditor' : 'base';
+    this._tabState = this._useConfigFile === true ? TAB_STATE.CODE : TAB_STATE.BASE;
     this._sidebarConfig = getStorageConfig() || {};
-    this._paperListbox = getPreviewItems(this.hass, this._sidebarConfig);
     this._updateSidebarItems();
+
     this._configLoaded = true;
   }
 
-  protected render() {
-    const notReady = html`<ha-circular-progress .indeterminate=${true} .size=${'medium'}></ha-circular-progress>`;
+  protected render(): TemplateResult {
+    if (!this._configLoaded) {
+      return html`<ha-circular-progress .indeterminate=${true} .size=${'medium'}></ha-circular-progress>`;
+    }
+    const mainContent = this._renderMainConfig();
+    const sidebarPreview = this._renderSidebarPreview();
 
-    const mainContent = this._renderMainContent();
-
-    return html` <div id="sidebar-config">${!this._configLoaded ? notReady : mainContent}</div>`;
+    return html` <div id="sidebar-dialog-wrapper" class="dialog-content">${mainContent} ${sidebarPreview}</div> `;
   }
 
-  private _renderMainContent(): TemplateResult {
-    const tabsOpts = [
-      { value: 'base', label: 'Appearance' },
-      { value: 'panelConfig', label: 'Panels' },
-      { value: 'codeEditor', label: 'Code' },
+  private _renderMainConfig(): TemplateResult {
+    if (this._tabState !== TAB_STATE.BASE) {
+      return this._renderCodeEditor();
+    }
+    const tabsContent = [
+      { key: 'appearance', label: 'Appearance', content: this._renderBaseConfig() },
+      { key: 'panels', label: 'Panels', content: this._renderPanelConfig() },
     ];
 
-    const baseConfig = this._renderBaseConfig();
-    const panelConfig = this._renderPanelConfig();
-    const codeEditor = this._renderCodeEditor();
+    const activeTabIndex = tabs.indexOf(this._currTab);
 
-    const tabSelector = html` <ha-control-select
-      .value=${this._tabState}
-      .options=${tabsOpts}
-      .disabled=${this._useConfigFile}
-      @value-changed=${(ev: CustomEvent) => {
-        this._tabState = ev.detail.value;
-      }}
-    ></ha-control-select>`;
-
-    const tabContentMap = {
-      base: baseConfig,
-      panelConfig: panelConfig,
-      codeEditor: codeEditor,
-    };
-
-    return html` <div class="header-row">${tabSelector}</div>
-      <div class="config-content">${tabContentMap[this._tabState]}</div>`;
+    return html`
+      <div id="sidebar-config">
+        <div id="tabbar">
+          ${tabsContent.map(
+            (tab) =>
+              html`<ha-tab
+                .name=${tab.label}
+                .active=${this._currTab === tab.key}
+                class="tab-item"
+                @click=${() => this._changeTab(tab.key)}
+              ></ha-tab>`
+          )}
+        </div>
+        <div>${tabsContent[activeTabIndex]?.content || html`<p>Error: Invalid tab</p>`}</div>
+      </div>
+    `;
   }
 
-  private _renderBaseConfig() {
-    if (this._tabState !== 'base') return nothing;
+  private _changeTab(tab: string): void {
+    if (this._currTab === tab) return;
+    this._currTab = tab as (typeof tabs)[number];
+  }
 
+  private _renderSidebarPreview(): TemplateResult {
+    if (!this._sidebarConfig || !this._configLoaded) {
+      return html`<ha-circular-progress .indeterminate=${true} .size=${'medium'}></ha-circular-progress>`;
+    }
+
+    return html`
+      <div id="sidebar-preview">
+        <sidebar-dialog-preview
+          .hass=${this.hass}
+          ._dialog=${this}
+          ._sidebarConfig=${this._sidebarConfig}
+        ></sidebar-dialog-preview>
+      </div>
+    `;
+  }
+
+  public _toggleCodeEditor() {
+    this._tabState = this._tabState === TAB_STATE.BASE ? TAB_STATE.CODE : TAB_STATE.BASE;
+  }
+  private _renderBaseConfig(): TemplateResult {
     return html` <sidebar-dialog-colors
       .hass=${this.hass}
       ._dialog=${this}
@@ -164,8 +247,7 @@ export class SidebarConfigDialog extends LitElement {
     ></sidebar-dialog-colors>`;
   }
 
-  private _renderPanelConfig() {
-    if (this._tabState !== 'panelConfig') return nothing;
+  private _renderPanelConfig(): TemplateResult {
     return html` <sidebar-dialog-groups
       .hass=${this.hass}
       ._dialog=${this}
@@ -174,32 +256,18 @@ export class SidebarConfigDialog extends LitElement {
     ></sidebar-dialog-groups>`;
   }
 
-  private _renderCodeEditor(): TemplateResult | typeof nothing {
-    if (this._tabState !== 'codeEditor') return nothing;
+  private _renderCodeEditor(): TemplateResult {
     return html`
-      <sidebar-dialog-code-editor
-        .hass=${this.hass}
-        ._sidebarConfig=${this._sidebarConfig}
-        @sidebar-changed=${this._handleSidebarChanged}
-      ></sidebar-dialog-code-editor>
+      <div class="config-content">
+        <sidebar-dialog-code-editor
+          .hass=${this.hass}
+          ._sidebarConfig=${this._sidebarConfig}
+          @sidebar-changed=${this._handleSidebarChanged}
+        ></sidebar-dialog-code-editor>
 
-      ${this._renderUseConfigFile()}
+        ${this._renderUseConfigFile()}
+      </div>
     `;
-  }
-
-  private _handleValueChange(ev: any) {
-    ev.stopPropagation();
-    const target = ev.target;
-    const configValue = target.configValue;
-    const value = target.checked !== undefined ? target.checked : target.value;
-
-    console.log('configValue', configValue, 'value', value);
-    if (configValue) {
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        [configValue]: value,
-      };
-    }
   }
 
   private _renderUseConfigFile() {

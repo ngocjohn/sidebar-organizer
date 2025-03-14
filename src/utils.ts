@@ -129,7 +129,9 @@ export const removeStorage = (key: string): void => {
   return localStorage.removeItem(key);
 };
 
-const cleanCss = (cssString: string): string => {
+const cleanCss = (cssString: string): string | void => {
+  if (!cssString) return;
+
   const cleanedString = cssString
     .replace(/\s*!important/g, '')
     .replace(/;/g, '')
@@ -138,7 +140,7 @@ const cleanCss = (cssString: string): string => {
 };
 
 export const convertCustomStyles = (customStyles: CustomStyles[]): string | null => {
-  if (!customStyles || customStyles.length === 0) {
+  if (!customStyles || customStyles.length === 0 || !Array.isArray(customStyles)) {
     return null;
   }
   let cssString = ':host {';
@@ -155,7 +157,7 @@ export const convertCustomStyles = (customStyles: CustomStyles[]): string | null
 };
 
 export const convertPreviewCustomStyles = (customStyles: CustomStyles[]): { [key: string]: string } | null => {
-  if (!customStyles || customStyles.length === 0) {
+  if (!customStyles || customStyles.length === 0 || !Array.isArray(customStyles)) {
     return null;
   }
 

@@ -1,21 +1,23 @@
 import { mdiInformation, mdiArrowExpand } from '@mdi/js';
+import { navigate } from 'custom-card-helpers';
 import { HAQuerySelector, HAQuerySelectorEvent } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html } from 'lit';
 
 import { SidebarConfigDialog } from './components/sidebar-dialog';
-import { NAMESPACE, NAMESPACE_TITLE, REPO_URL, STORAGE } from './const';
+import { NAMESPACE, NAMESPACE_TITLE, REPO_URL, STORAGE, VERSION } from './const';
 import {
   fetchConfig,
   getCollapsedItems,
   getDefaultThemeColors,
   getHiddenPanels,
   getInitPanelOrder,
+  onPanelLoaded,
   resetPanelOrder,
   validateConfig,
 } from './helpers';
-import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
 import './components/sidebar-dialog';
+import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
 import { HaExtened, SidebarConfig, ThemeSettings } from './types';
 import { addAction, convertCustomStyles, createCloseHeading, setStorage } from './utils';
 
@@ -23,10 +25,11 @@ class SidebarOrganizer {
   constructor() {
     const instance = new HAQuerySelector();
     instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, async (event) => {
-      const { HOME_ASSISTANT, HOME_ASSISTANT_MAIN, HA_SIDEBAR, PARTIAL_PANEL_RESOLVER } = event.detail;
+      const { HOME_ASSISTANT, HOME_ASSISTANT_MAIN, HA_DRAWER, HA_SIDEBAR, PARTIAL_PANEL_RESOLVER } = event.detail;
       this.ha = (await HOME_ASSISTANT.element) as HaExtened;
       this._partialPanelResolver = await PARTIAL_PANEL_RESOLVER.element;
       this.main = (await HOME_ASSISTANT_MAIN.selector.$.element) as ShadowRoot;
+      this._haDrawer = await HA_DRAWER.element;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
       this.run();
@@ -54,6 +57,7 @@ class SidebarOrganizer {
   private main!: ShadowRoot;
   private sideBarRoot!: ShadowRoot;
   private _partialPanelResolver?: any;
+  private _haDrawer: any;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
   private _styleManager: HomeAssistantStylesManager;
@@ -79,28 +83,7 @@ class SidebarOrganizer {
     if (!this._partialPanelResolver) return;
     const panelResolver = this._partialPanelResolver as any;
     const path = panelResolver?.__route?.path || window.location.pathname;
-    const paperListbox = this.paperListbox;
-    const listItems = paperListbox?.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
-    const activeLink = paperListbox?.querySelector<HTMLAnchorElement>(`a[href="${path}"]`);
-    const configEl = paperListbox?.querySelector('a[data-panel="config"]') as HTMLElement;
-    configEl?.setAttribute('aria-selected', configEl === activeLink ? 'true' : 'false');
-
-    if (listItems.length) {
-      listItems.forEach((item: HTMLAnchorElement) => {
-        const isActive = item === activeLink;
-        item.classList.toggle('iron-selected', isActive);
-        item.setAttribute('aria-selected', isActive.toString());
-      });
-    }
-
-    const dividers = paperListbox?.querySelectorAll('div.divider') as NodeListOf<HTMLElement>;
-    dividers.forEach((divider) => {
-      const group = divider.getAttribute('group');
-      const items = paperListbox?.querySelectorAll(`a[group="${group}"]`) as NodeListOf<HTMLAnchorElement>;
-      const ariaSelected = Object.values(items).some((item) => item.getAttribute('aria-selected') === 'true');
-      divider.classList.toggle('child-selected', ariaSelected);
-      divider.setAttribute('aria-selected', ariaSelected.toString());
-    });
+    onPanelLoaded(path, this.paperListbox);
   }
 
   public async run() {
@@ -317,11 +300,18 @@ class SidebarOrganizer {
   }
 
   private _addConfigDialog() {
-    // Close menu if in narrow mode
-    if (this.HaSidebar.narrow) {
-      this.main.dispatchEvent(new Event('hass-toggle-menu', { bubbles: true, composed: true }));
+    // check if is in profile page, if not change to profile page first
+    if (this.hass.panelUrl !== 'profile') {
+      const path = '/profile';
+
+      navigate(this, path);
+      setTimeout(() => {
+        this._addConfigDialog();
+      }, 0);
+      return;
     }
 
+    this._haDrawer.open!! = false;
     // Remove any existing dialog
     const existingDialog = this.main.querySelector('#sidebar-config-dialog');
     existingDialog?.remove();
@@ -338,7 +328,7 @@ class SidebarOrganizer {
       haDialog.toggleAttribute('large', this._dialogLarge);
     };
     const dialogTitle = html`<span slot="heading" style="flex: 1;" .title=${NAMESPACE} @click=${toggleLarge}
-      >${NAMESPACE_TITLE} Configuration</span
+      >${NAMESPACE_TITLE} <span style="font-size: small; text-wrap-mode: nowrap;"> (${VERSION})</span></span
     >`;
 
     const rightHeaderBtns = html`<div>
@@ -364,25 +354,37 @@ class SidebarOrganizer {
     haDialog.addEventListener('closed', () => haDialog.remove());
 
     // Create action buttons
-    const createActionButton = (slot: string, text: string, handler: () => void) => {
+    const createActionButton = (text: string, handler: () => void, slot?: string) => {
       const button = document.createElement('ha-button') as any;
-      button.slot = slot;
+      if (slot) button.slot = slot;
       button.innerText = text;
       button.addEventListener('click', handler);
       return button;
     };
 
-    const primaryAction = createActionButton('primaryAction', 'Save', () => {
+    const saveBtn = createActionButton('Save', () => {
       const sidebarConfig = this._sidebarDialog!._sidebarConfig;
       const sidebarUseConfigFile = this._sidebarDialog!._useConfigFile;
       this._handleNewConfig(sidebarConfig, sidebarUseConfigFile);
       haDialog.remove();
     });
+    const cancelBtn = createActionButton('Cancel', () => haDialog.remove());
 
-    const secondaryAction = createActionButton('secondaryAction', 'Cancel', () => haDialog.remove());
+    const primaryActionBtn = document.createElement('div');
+    primaryActionBtn.slot = 'primaryAction';
+    primaryActionBtn.appendChild(cancelBtn);
+    primaryActionBtn.appendChild(saveBtn);
+
+    const codeEditorBtn = createActionButton(
+      'CODE EDITOR',
+      () => {
+        this._sidebarDialog?._toggleCodeEditor();
+      },
+      'secondaryAction'
+    );
 
     // Append dialog and actions
-    haDialog.append(sidebarDialog, primaryAction, secondaryAction);
+    haDialog.append(sidebarDialog, codeEditorBtn, primaryActionBtn);
     this._styleManager.addStyle(DIALOG_STYLE.toString(), haDialog);
     this.main.appendChild(haDialog);
   }
@@ -546,8 +548,8 @@ class SidebarOrganizer {
       contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.replace(/_/g, ' ')}</span>`;
 
       newDivider.appendChild(contentDiv);
-      // newDivider.addEventListener('click', this._toggleGroup.bind(this));
-      addAction(newDivider, undefined, this._toggleGroup.bind(this, newDivider));
+      newDivider.addEventListener('click', this._toggleGroup.bind(this));
+      // addAction(newDivider, undefined, this._toggleGroup.bind(this, newDivider));
       return newDivider;
     };
 
@@ -617,8 +619,11 @@ class SidebarOrganizer {
     }
   };
 
-  private _toggleGroup(target: HTMLElement) {
+  private _toggleGroup(event: Event) {
+    event.stopPropagation();
+    const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
+    console.log('Toggle Group', group, target);
     const items = this.paperListbox!.querySelectorAll(`a[group="${group}"]:not([moved])`) as NodeListOf<HTMLElement>;
 
     if (!items.length) {

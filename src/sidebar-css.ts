@@ -151,7 +151,7 @@ export const DIVIDER_ADDED_STYLE = css`
 export const DIALOG_STYLE = css`
   ha-dialog {
     --mdc-dialog-max-width: 90vw;
-    --mdc-dialog-min-height: 450px;
+    --mdc-dialog-min-height: 700px;
     --dialog-backdrop-filter: blur(2px);
     --justify-action-buttons: space-between;
     --dialog-content-padding: 1rem;
