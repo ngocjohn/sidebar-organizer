@@ -1,3 +1,27 @@
+<a id="v1.1.0"></a>
+# [v1.1.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.1.0) - 2025-03-15
+
+<!-- Release notes generated using configuration in .github/release.yml at v1.1.0 -->
+
+## What's Changed
+### New Features 🎉
+* Add hidden panels support by [@ngocjohn](https://github.com/ngocjohn) in [#1](https://github.com/ngocjohn/sidebar-organizer/pull/1)
+* Add custom styles support by [@ngocjohn](https://github.com/ngocjohn) in [#5](https://github.com/ngocjohn/sidebar-organizer/pull/5)
+
+![custom-styles](https://github.com/user-attachments/assets/08d8342d-0522-427b-b8e7-2baa3afa9f77)
+
+
+### Fixes 🐛
+* Fix: Add button visibility by [@ngocjohn](https://github.com/ngocjohn) in [#3](https://github.com/ngocjohn/sidebar-organizer/pull/3)
+
+## New Contributors
+* [@ngocjohn](https://github.com/ngocjohn) made their first contribution in [#1](https://github.com/ngocjohn/sidebar-organizer/pull/1)
+
+**Full Changelog**: https://github.com/ngocjohn/sidebar-organizer/compare/v1.0.2...v1.1.0
+
+[Changes][v1.1.0]
+
+
 <a id="v1.0.2"></a>
 # [v1.0.2](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.0.2) - 2025-03-07
 
@@ -35,6 +59,7 @@ With Sidebar Organizer, managing the sidebar in Home Assistant becomes easy and 
 [Changes][v1.0.0]
 
 
+[v1.1.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.0.2...v1.1.0
 [v1.0.2]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.0.0...v1.0.2
 [v1.0.0]: https://github.com/ngocjohn/sidebar-organizer/tree/v1.0.0
 
