@@ -139,35 +139,47 @@ const cleanCss = (cssString: string): string | void => {
   return cleanedString;
 };
 
-export const convertCustomStyles = (customStyles: CustomStyles[]): string | null => {
-  if (!customStyles || customStyles.length === 0 || !Array.isArray(customStyles)) {
+export const convertCustomStyles = (customStyles: CustomStyles[] | null | undefined): string | null => {
+  if (!Array.isArray(customStyles) || customStyles.length === 0) {
     return null;
   }
   let cssString = ':host {';
 
-  customStyles.forEach((styleObj) => {
-    Object.entries(styleObj).forEach(([key, value]) => {
-      cssString += `${key}: ${cleanCss(value)} !important;`;
+  customStyles
+    .filter((style) => style && typeof style === 'object') // Filter out null, undefined, or non-objects
+    .forEach((style) => {
+      Object.entries(style).forEach(([key, value]) => {
+        if (value != null) {
+          // Ensure value is not null or undefined
+          cssString += `${key}: ${cleanCss(value)} !important;`;
+        }
+      });
     });
-  });
 
   cssString += '}';
   console.log(cssString);
   return cssString;
 };
 
-export const convertPreviewCustomStyles = (customStyles: CustomStyles[]): { [key: string]: string } | null => {
-  if (!customStyles || customStyles.length === 0 || !Array.isArray(customStyles)) {
+export const convertPreviewCustomStyles = (
+  customStyles: CustomStyles[] | null | undefined
+): { [key: string]: string } | null => {
+  if (!Array.isArray(customStyles) || customStyles.length === 0) {
     return null;
   }
 
   const styleObj: { [key: string]: string } = {};
 
-  customStyles.forEach((style) => {
-    Object.entries(style).forEach(([key, value]) => {
-      styleObj[key] = `${cleanCss(value)}`;
+  customStyles
+    .filter((style) => style && typeof style === 'object') // Filter out null, undefined, or non-objects
+    .forEach((style) => {
+      Object.entries(style).forEach(([key, value]) => {
+        if (value != null) {
+          // Ensure value is not null or undefined
+          styleObj[key] = `${cleanCss(value)}`;
+        }
+      });
     });
-  });
 
   return styleObj;
 };

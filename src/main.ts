@@ -5,7 +5,7 @@ import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html } from 'lit';
 
 import { SidebarConfigDialog } from './components/sidebar-dialog';
-import { NAMESPACE, NAMESPACE_TITLE, REPO_URL, STORAGE, VERSION } from './const';
+import { HA_EVENT, NAMESPACE, NAMESPACE_TITLE, REPO_URL, STORAGE, VERSION } from './const';
 import {
   fetchConfig,
   getCollapsedItems,
@@ -47,8 +47,11 @@ class SidebarOrganizer {
     });
 
     window.addEventListener('storage', this._storageListener.bind(this));
-    window.addEventListener('settheme', this._handleThemeChange.bind(this));
-    window.addEventListener('hass-default-panel', this._handleDefaultPanelChange.bind(this));
+
+    // Listen for HA Events
+    [HA_EVENT.SETTHEME, HA_EVENT.DEFAULT_PANEL].forEach((event) => {
+      window.addEventListener(event, this._handleHaEvents.bind(this));
+    });
   }
 
   private ha?: HaExtened;
@@ -143,19 +146,23 @@ class SidebarOrganizer {
     }
   }
 
-  private _handleThemeChange(event: any) {
+  private _handleHaEvents(event: any) {
     event.stopPropagation();
-    const themeSetting = event.detail as ThemeSettings;
-    console.log('Theme Changed', themeSetting);
-    this._addAdditionalStyles(this._config.color_config);
+    const { type, detail } = event;
+    switch (type) {
+      case HA_EVENT.SETTHEME:
+        const themeSetting = detail as ThemeSettings;
+        console.log('Theme Changed', themeSetting);
+        this._addAdditionalStyles(this._config.color_config);
+        break;
+      case HA_EVENT.DEFAULT_PANEL:
+        this._handleDefaultPanelChange(detail.defaultPanel);
+        break;
+    }
   }
 
-  private _handleDefaultPanelChange(event: any) {
-    event.stopPropagation();
-    const defaultPanel = event.detail.defaultPanel;
-
+  private _handleDefaultPanelChange(defaultPanel: string) {
     const customGroups = this._config?.custom_groups || {};
-
     let defaultInGroup = false;
 
     // Remove the default panel from any custom group if it exists
@@ -619,7 +626,7 @@ class SidebarOrganizer {
     }
   };
 
-  private _toggleGroup(event: Event) {
+  private _toggleGroup(event: MouseEvent) {
     event.stopPropagation();
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');

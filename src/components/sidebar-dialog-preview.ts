@@ -93,7 +93,7 @@ export class SidebarDialogPreview extends LitElement {
     const _renderPanelItem = (item: PanelInfo) => {
       const { icon, title } = item;
       return html`<a href="#">
-        <div class="icon-item"><ha-icon icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
+        <div class="icon-item"><ha-icon .icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
       </a>`;
     };
 
@@ -139,7 +139,6 @@ export class SidebarDialogPreview extends LitElement {
   }
 
   private _computePreviewStyle() {
-    if (!this._sidebarConfig) return;
     const colorMode = this._colorConfigMode;
     const color_config = this._sidebarConfig?.color_config || {};
     const borderRadius = color_config?.border_radius || 0;

@@ -21,6 +21,11 @@ export enum STORAGE {
   HIDDEN_PANELS = 'sidebarHiddenPanels',
 }
 
+export enum HA_EVENT {
+  SETTHEME = 'settheme',
+  DEFAULT_PANEL = 'hass-default-panel',
+}
+
 export const PANEL_ICONS = {
   'developer-tools': 'mdi:hammer',
   config: 'mdi:cog',

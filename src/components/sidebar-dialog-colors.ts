@@ -464,21 +464,33 @@ export class SidebarDialogColors extends LitElement {
     ev.stopPropagation();
     const detail = ev.detail;
     const { isValid, value } = detail;
-    if (!isValid) return;
     const isArray = Array.isArray(value);
-    if (!isArray) return;
-    const currentColorMode = this._colorConfigMode;
-    const colorConfig = { ...(this._sidebarConfig.color_config || {}) };
-    const currentModeConfig = { ...(colorConfig[currentColorMode] || {}) };
-    currentModeConfig['custom_styles'] = value;
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      color_config: {
-        ...colorConfig,
-        [currentColorMode]: currentModeConfig,
-      },
-    };
-    this._dispatchConfig(this._sidebarConfig);
+
+    const updates: Partial<SidebarConfig['color_config']> = {};
+
+    const currentColorMode = this._colorConfigMode as 'light' | 'dark';
+    let colorConfig = { ...(this._sidebarConfig.color_config || {}) };
+    let currentModeConfig = { ...(colorConfig[currentColorMode] || {}) };
+
+    if (!isValid) {
+      return;
+    } else if (!isArray) {
+      console.error('Invalid custom styles:', value);
+      updates[currentColorMode] = { ...currentModeConfig, custom_styles: [] };
+    } else {
+      updates[currentColorMode] = { ...currentModeConfig, custom_styles: value };
+    }
+
+    if (Object.keys(updates).length > 0) {
+      this._sidebarConfig = {
+        ...this._sidebarConfig,
+        color_config: {
+          ...colorConfig,
+          ...updates,
+        },
+      };
+      this._dispatchConfig(this._sidebarConfig);
+    }
   }
 
   private _toggleColorPicker(configValue: string) {
