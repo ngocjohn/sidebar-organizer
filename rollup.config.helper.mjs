@@ -1,42 +1,51 @@
+import typescript from 'rollup-plugin-typescript2';
+import nodeResolve from 'rollup-plugin-node-resolve';
+import commonjs from 'rollup-plugin-commonjs';
+import json from '@rollup/plugin-json';
+import postcss from 'rollup-plugin-postcss';
+import postcssPresetEnv from 'postcss-preset-env';
+import postcssLit from 'rollup-plugin-postcss-lit';
+
 import { description, repository } from './package.json';
 
 export function logCardInfo(version) {
-  const verText = version;
-  const repo = repository.url;
-  const sponsor = 'https://github.com/sponsors/ngocjohn';
-
-  const line1Part1 = '🗄️ SIDEBAR-ORGANIZER 🗄️';
-  const line1Part2 = `${verText}`;
-  const line2 = `${repo}`;
-
-  const line1FullText = `${line1Part1} ${line1Part2}`;
-
-  const maxLength = Math.max(Array.from(line1FullText).length, line2.length);
-
-  // Center-align text with spaces at the start and end
-  const centerWithPadding = (text, maxLength) => {
-    const totalPadding = maxLength - Array.from(text).length;
-    const sidePadding = Math.floor(totalPadding / 2); // Split padding evenly for centering
-    const paddedText = ' '.repeat(1 + sidePadding) + text + ' '.repeat(1 + totalPadding - sidePadding);
-    return paddedText;
-  };
-
-  const spaceBetween = ' ';
-  const paddedLine1Part1 = centerWithPadding(
-    line1Part1,
-    maxLength - Array.from(line1Part2).length - spaceBetween.repeat(2).length
-  );
-  const paddedLine2 = centerWithPadding(line2, maxLength);
+  const part1 = '🗄️ SIDEBAR-ORGANIZER 🗄️';
+  const part2 = `${version}`;
+  const part1Style =
+    'background-color: #83818f;color: #fff;padding: 2px 4px;border: 1px solid #83818f;border-radius: 2px 0 0 2px;font-family: Roboto,Verdana,Geneva,sans-serif;text-shadow: 0 1px 0 rgba(1, 1, 1, 0.3)';
+  const part2Style =
+    'background-color: transparent;color: #83818f;padding: 2px 3px;border: 1px solid #83818f; border-radius: 0 2px 2px 0;font-family: Roboto,Verdana,Geneva,sans-serif';
+  const repo = `Github: ${repository.url}`;
+  const sponsor = 'If you like the card, consider supporting the developer: https://github.com/sponsors/ngocjohn';
 
   return `
     console.groupCollapsed(
-      "%c${paddedLine1Part1}%c${spaceBetween}${line1Part2}${spaceBetween}\\n%c${paddedLine2}",
-      "color: cyan; background: black; font-weight: bold;",
-      "color: darkblue; background: white; font-weight: bold;",
-      ' background: dimgray'
+      "%c${part1}%c${part2}",
+      '${part1Style}',
+      '${part2Style}',
     );
     console.info('${description}');
-    console.info('If you like the project, consider supporting the developer: ${sponsor}');
+    console.info('${repo}');
+    console.info('${sponsor}');
     console.groupEnd();
   `;
 }
+export const defaultPlugins = [
+  nodeResolve({}),
+  commonjs(),
+  typescript({}),
+  json(),
+  postcss({
+    plugins: [
+      postcssPresetEnv({
+        stage: 1,
+        features: {
+          'nesting-rules': true,
+        },
+      }),
+    ],
+    extract: false,
+    inject: false,
+  }),
+  postcssLit(),
+];
