@@ -1,11 +1,18 @@
+import { STORAGE, TAB_STATE } from '@constants';
+import { SidebarConfig, HaExtened } from '@types';
+import { isItemsValid } from '@utilities/configs';
+import { showAlertDialog } from '@utilities/show-dialog-box';
+import {
+  getStorage,
+  setStorage,
+  sidebarUseConfigFile,
+  getStorageConfig,
+  getHiddenPanels,
+} from '@utilities/storage-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
 
-import { STORAGE, TAB_STATE } from '../const';
-import { sidebarUseConfigFile, getStorageConfig, getHiddenPanels } from '../helpers';
-import { SidebarConfig, HaExtened } from '../types';
-import { getStorage, setStorage } from '../utils';
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
 import './sidebar-dialog-code-editor';
@@ -124,6 +131,8 @@ export class SidebarConfigDialog extends LitElement {
           gap: var(--side-dialog-gutter);
           margin-top: 1rem;
           min-height: 250px;
+          flex: 1;
+          justify-content: space-between;
         }
 
         .header-row {
@@ -306,10 +315,18 @@ export class SidebarConfigDialog extends LitElement {
         return;
       }
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         try {
           const content = ev.target?.result as string;
           const newConfig = YAML.parse(content);
+
+          if (!isItemsValid(newConfig, this.hass)) {
+            await showAlertDialog(
+              this,
+              'Items in the config file do not match the current panel order, check the file'
+            );
+            return;
+          }
           this._sidebarConfig = newConfig;
         } catch (e) {
           console.error('Error parsing YAML file', e);
@@ -327,6 +344,14 @@ export class SidebarConfigDialog extends LitElement {
 
     const newConfig = event.detail;
     this._sidebarConfig = newConfig;
+  }
+
+  private _validateConfig(config: SidebarConfig) {
+    const items = [...Object.values(config?.custom_groups || {}).flat(), ...(config?.bottom_items || [])];
+    const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
+    console.log('validateConfig', items, 'currentPanelOrder', currentPanelOrder);
+    const isValid = items.every((item: string) => currentPanelOrder.includes(item));
+    return isValid;
   }
   private _updateSidebarItems = () => {
     const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');

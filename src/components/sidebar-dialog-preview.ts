@@ -1,11 +1,12 @@
+import { PREVIEW_MOCK_PANELS } from '@constants';
+import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '@types';
+import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
+import { applyTheme } from '@utilities/dom-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
-import { PREVIEW_MOCK_PANELS } from '../const';
-import { applyTheme, getDefaultThemeColors, getPreviewItems } from '../helpers';
-import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '../types';
-import { convertPreviewCustomStyles } from '../utils';
+import { getPreviewItems } from '../utilities/preview-items';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
 @customElement('sidebar-dialog-preview')

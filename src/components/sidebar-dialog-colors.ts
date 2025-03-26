@@ -1,14 +1,15 @@
+import { COLOR_CONFIG_KEYS } from '@constants';
 import iro from '@jaames/iro';
 import { mdiRefresh } from '@mdi/js';
+import { DividerColorSettings, HaExtened, SidebarConfig } from '@types';
+import { getDefaultThemeColors } from '@utilities/custom-styles';
+import { createExpansionPanel } from '@utilities/dom-utils';
+import { applyTheme } from '@utilities/dom-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import { styleMap } from 'lit/directives/style-map.js';
 import tinycolor from 'tinycolor2';
 
-import { COLOR_CONFIG_KEYS } from '../const';
-import { applyTheme, getDefaultThemeColors } from '../helpers';
-import { DividerColorSettings, HaExtened, SidebarConfig } from '../types';
-import { createExpansionPanel } from '../utils';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
 enum THEME_STATE {

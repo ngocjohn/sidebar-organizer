@@ -4,11 +4,11 @@ import { html, css, LitElement, TemplateResult, CSSResultGroup, nothing } from '
 import { customElement, property } from 'lit/decorators';
 import YAML from 'yaml';
 /* eslint-disable */
-import { NAMESPACE, STORAGE } from '../const';
-import { removeStorage } from '../utils';
-import { SidebarConfig, HaExtened } from '../types';
+import { NAMESPACE, STORAGE } from '@constants';
+import { removeStorage } from '@utilities/storage-utils';
+import { SidebarConfig, HaExtened } from '@types';
 import { SidebarConfigDialog } from './sidebar-dialog';
-import { showConfirmDialog } from '../helpers';
+import { showConfirmDialog } from '@utilities/show-dialog-box';
 
 @customElement('sidebar-dialog-code-editor')
 export class SidebarDialogCodeEditor extends LitElement {
