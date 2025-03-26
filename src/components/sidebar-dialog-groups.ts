@@ -1,11 +1,12 @@
 import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
+import { SidebarConfig, HaExtened } from '@types';
+import { validateConfig } from '@utilities/configs/validators';
+import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { html, css, LitElement, TemplateResult, nothing, PropertyValues, CSSResult } from 'lit';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { customElement, property, state } from 'lit/decorators';
 import Sortable from 'sortablejs';
 
-import { showAlertDialog, showConfirmDialog, showPromptDialog, validateConfig } from '../helpers';
-import { SidebarConfig, HaExtened } from '../types';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
 // type PANEL_TABS = 'bottomPanel' | 'customGroups' | 'hiddenItems';
@@ -778,7 +779,7 @@ export class SidebarDialogGroups extends LitElement {
     ev.stopPropagation();
     const value = ev.detail.value;
     console.log('new value', value);
-    const { custom_groups, bottom_items } = validateConfig(this._sidebarConfig, value);
+    const { custom_groups, bottom_items } = validateConfig(this._sidebarConfig);
     this._updatePanels(value);
     const updates: Partial<SidebarConfig> = {};
 

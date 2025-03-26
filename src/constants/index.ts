@@ -1,4 +1,6 @@
-import { version, repository } from '../package.json';
+import { SidebarConfig } from '@types';
+
+import { version, repository } from '../../package.json';
 
 export const NAMESPACE = 'sidebar-organizer';
 export const NAMESPACE_TITLE = 'Sidebar Organizer';
@@ -43,13 +45,21 @@ export const COLOR_CONFIG_KEYS = [
 export const PREVIEW_MOCK_PANELS = {
   mockDefaultPage: [{ icon: 'mdi:home', title: 'Home' }],
   mockCustomGroups: {
-    first_group: [
-      { title: 'Item 1', icon: 'mdi:numeric-1' },
-      { title: 'Item 2', icon: 'mdi:numeric-2' },
+    first_test_group: [
+      { title: 'Example Item 1', icon: 'mdi:numeric-1' },
+      { title: 'Example Item 2', icon: 'mdi:numeric-2' },
     ],
-    second_group: [
-      { title: 'Item 3', icon: 'mdi:numeric-3' },
-      { title: 'Item 4', icon: 'mdi:numeric-4' },
+    second_test_group: [
+      { title: 'Example Item 3', icon: 'mdi:numeric-3' },
+      { title: 'Example Item 4', icon: 'mdi:numeric-4' },
     ],
   },
+};
+
+export const DEFAULT_CONFIG: SidebarConfig = {
+  bottom_items: [],
+  custom_groups: {},
+  hide_header_toggle: false,
+  default_collapsed: [],
+  hidden_items: [],
 };
