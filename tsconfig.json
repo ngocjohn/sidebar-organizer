@@ -15,8 +15,15 @@
     "experimentalDecorators": true,
     "esModuleInterop": true,
     "allowJs": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "baseUrl": "./src",
+    "rootDir": "src",
+    "paths": {
+      "@types": ["types"],
+      "@constants": ["constants"],
+      "@utilities/*": ["utilities/*"]
+    }
   },
-  "include": ["**/*.ts"],
+  "include": ["src/**/*.ts", "packages.json"],
   "exclude": ["node_modules", "dist", "build"]
 }
