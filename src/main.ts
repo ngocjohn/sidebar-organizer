@@ -409,6 +409,7 @@ class SidebarOrganizer {
       }, 200);
       return;
     }
+
     console.log('New Config:', config);
     const isChanged = JSON.stringify(config) !== JSON.stringify(this._config);
     if (!isChanged) {
@@ -418,7 +419,7 @@ class SidebarOrganizer {
       console.log('Changes Detected');
       // remove empty custom group or alert to abort
 
-      // setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
+      setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
       setStorage(STORAGE.UI_CONFIG, config);
       setTimeout(() => {
         window.location.reload();
