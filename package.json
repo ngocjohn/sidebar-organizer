@@ -34,6 +34,7 @@
     "eslint": "^9.21.0",
     "eslint-plugin-perfectionist": "^4.9.0",
     "eslint-plugin-unused-imports": "^4.1.4",
+    "memoize-one": "^6.0.0",
     "postcss-preset-env": "^10.1.5",
     "prettier": "3.5.3",
     "rollup": "^4.34.9",

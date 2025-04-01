@@ -3,7 +3,7 @@ import { HaExtened, SidebarConfig } from '@types';
 import YAML from 'yaml';
 
 import { sidebarUseConfigFile, getStorageConfig } from '../storage-utils';
-import { _changeStorageConfig, isItemsValid, validateConfig } from './validators';
+import { _changeStorageConfig, isItemsValid, tryCorrectConfig, validateConfig } from './validators';
 
 const randomId = (): string => Math.random().toString(16).slice(2);
 
@@ -26,14 +26,21 @@ export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfi
   let config = sidebarUseConfigFile() ? await fetchFileConfig() : getStorageConfig();
   if (config) {
     config = { ...DEFAULT_CONFIG, ...config };
-    console.log('Added with init config', config);
+    // console.log('Added with init config defaults', config);
     const isValid = isItemsValid(config, hass);
-    if (!isValid) {
+    if (!isValid && sidebarUseConfigFile()) {
       config = DEFAULT_CONFIG;
+    } else if (!isValid) {
+      config = tryCorrectConfig(config, hass);
       return config;
+    } else {
+      config = validateConfig(config);
+      _changeStorageConfig(config);
     }
-    config = validateConfig(config);
-    _changeStorageConfig(config);
+  }
+  if (!config) {
+    config = DEFAULT_CONFIG;
+    console.log('No config found. Using default config', config);
   }
   return config;
 };

@@ -4,14 +4,15 @@ import { HaExtened, SidebarConfig, ThemeSettings } from '@types';
 import { fetchConfig, validateConfig } from '@utilities/configs';
 import { getCollapsedItems, getInitPanelOrder } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
+import { fetchDashboards } from '@utilities/dashboard';
 import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 import { navigate } from 'custom-card-helpers';
 import { HAQuerySelector, HAQuerySelectorEvent } from 'home-assistant-query-selector';
-import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
 import './components/sidebar-dialog';
 
+import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html } from 'lit';
 
 import { SidebarConfigDialog } from './components/sidebar-dialog';
@@ -45,7 +46,7 @@ class SidebarOrganizer {
     window.addEventListener('storage', this._storageListener.bind(this));
 
     // Listen for HA Events
-    [HA_EVENT.SETTHEME, HA_EVENT.DEFAULT_PANEL].forEach((event) => {
+    [HA_EVENT.SETTHEME, HA_EVENT.DEFAULT_PANEL, HA_EVENT.DIALOG_CLOSED].forEach((event) => {
       window.addEventListener(event, this._handleHaEvents.bind(this));
     });
   }
@@ -65,6 +66,7 @@ class SidebarOrganizer {
   private firstSetUpDone = false;
   private _bottomItems: string[] = [];
   private _dialogLarge: boolean = false;
+  private _notInSidebarCount: number = 0;
 
   get hass(): HaExtened['hass'] {
     return this.ha!.hass;
@@ -130,6 +132,79 @@ class SidebarOrganizer {
           _thisInstace._refreshSidebar();
           return;
         }
+      } else if (changedProperties.has('hass') && this.hass && this.hass.panels) {
+        const oldHass = changedProperties.get('hass');
+        const oldPanels = oldHass.panels;
+        const newPanels = this.hass.panels;
+        // Compare old and new panels
+        // check if is new panel added or removed
+        const addedPanels = Object.keys(newPanels).filter((panel) => !oldPanels[panel]);
+        const removedPanels = Object.keys(oldPanels).filter((panel) => !newPanels[panel]);
+        if (addedPanels.length > 0) {
+          console.log('Added Panels:', addedPanels);
+          // Handle added panel
+          const panelOrder = [..._thisInstace._baseOrder];
+          const bottomItems = [..._thisInstace._bottomItems];
+          // place the new panels before the bottom items
+          console.log('Bottom Items:', bottomItems, 'Panel Order:', panelOrder);
+          addedPanels.forEach((panel) => {
+            const index = bottomItems.indexOf(panel);
+            if (index !== -1) {
+              panelOrder.splice(index, 0, panel);
+            } else {
+              panelOrder.push(panel);
+            }
+          });
+          _thisInstace.HaSidebar._panelOrder = panelOrder;
+          _thisInstace._baseOrder = panelOrder;
+          console.log('New Panel Order:', panelOrder);
+          return;
+        } else if (removedPanels.length > 0) {
+          console.log('Removed Panels:', removedPanels);
+          // Handle removed panel
+          // remove from config if exists
+          const config = { ..._thisInstace._config };
+          const customGroups = { ...(config.custom_groups || {}) };
+          const bottomItems = [...(_thisInstace._bottomItems || [])];
+          const hiddenItems = [...(_thisInstace._hiddenPanels || [])];
+          removedPanels.forEach((panel) => {
+            // remove from custom groups
+            Object.entries(customGroups).forEach(([key, value]) => {
+              if (value.includes(panel)) {
+                customGroups[key] = value.filter((item) => item !== panel);
+              }
+            });
+            // remove from bottom items
+            const index = bottomItems.indexOf(panel);
+            if (index !== -1) {
+              bottomItems.splice(index, 1);
+            }
+            // remove from hidden items
+            const indexHidden = hiddenItems.indexOf(panel);
+            if (indexHidden !== -1) {
+              hiddenItems.splice(indexHidden, 1);
+            }
+          });
+          // remove from panel order
+          const panelOrder = [..._thisInstace._baseOrder];
+          removedPanels.forEach((panel) => {
+            const index = panelOrder.indexOf(panel);
+            if (index !== -1) {
+              panelOrder.splice(index, 1);
+            }
+          });
+          _thisInstace.HaSidebar._panelOrder = panelOrder;
+          _thisInstace._baseOrder = panelOrder;
+          _thisInstace._config.custom_groups = customGroups;
+          _thisInstace._config.bottom_items = bottomItems;
+          _thisInstace._config.hidden_items = hiddenItems;
+          setStorage(STORAGE.UI_CONFIG, _thisInstace._config);
+          setStorage(STORAGE.HIDDEN_PANELS, hiddenItems);
+          console.log('New Panel Order:', panelOrder);
+          console.log('New Config:', _thisInstace._config);
+          // _thisInstace._refreshSidebar();
+          return;
+        }
       }
     };
   }
@@ -143,7 +218,8 @@ class SidebarOrganizer {
   }
 
   private _handleHaEvents(event: any) {
-    event.stopPropagation();
+    // event.stopPropagation();
+    event.stopImmediatePropagation();
     const { type, detail } = event;
     switch (type) {
       case HA_EVENT.SETTHEME:
@@ -185,7 +261,7 @@ class SidebarOrganizer {
     }
   }
 
-  private _handleFirstConfig() {
+  private async _handleFirstConfig() {
     const _panelOrder = this.HaSidebar._panelOrder;
     if (!isStoragePanelEmpty() && !_panelOrder) {
       localStorage.removeItem(STORAGE.PANEL_ORDER);
@@ -200,6 +276,9 @@ class SidebarOrganizer {
       }
     }
     this._hiddenPanels = getHiddenPanels();
+    this._notInSidebarCount = await fetchDashboards(this.hass).then((dashboards) => {
+      return dashboards.filter((item) => item.show_in_sidebar === false).length;
+    });
   }
 
   private async _getConfig() {
@@ -632,6 +711,10 @@ class SidebarOrganizer {
       this._handleCollapsed(this.collapsedItems);
     }
   };
+
+  private async _fetchDashboards() {
+    return fetchDashboards(this.hass);
+  }
 
   private _toggleGroup(event: MouseEvent) {
     event.stopPropagation();
