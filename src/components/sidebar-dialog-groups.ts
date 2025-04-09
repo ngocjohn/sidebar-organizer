@@ -707,7 +707,7 @@ export class SidebarDialogGroups extends LitElement {
     const hassPanels = this.hass?.panels;
 
     const options = items.map((panel) => {
-      const panelName = this.hass.localize(`panel.${hassPanels[panel].title}`) || hassPanels[panel].title || panel;
+      const panelName = this.hass.localize(`panel.${hassPanels[panel].title}`) || hassPanels[panel]?.title || panel;
       return { value: panel, label: panelName };
     });
 

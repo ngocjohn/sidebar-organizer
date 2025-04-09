@@ -1,9 +1,9 @@
 import { PANEL_ICONS } from '@constants';
 
-import { HaExtened, SidebarConfig, PanelInfo } from '../types';
+import { HaExtened, SidebarConfig, PanelInfo, Panels } from '../types';
 
 export const getPreviewItems = (hass: HaExtened['hass'], config: SidebarConfig) => {
-  const hassPanels = hass?.panels;
+  const hassPanels = hass?.panels as Panels;
   const defaultPanel = hass.defaultPanel;
 
   // Helper function to create PanelInfo items
