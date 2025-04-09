@@ -1,6 +1,7 @@
 import { STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, HaExtened } from '@types';
 import { isItemsValid } from '@utilities/configs';
+import { fetchDashboards } from '@utilities/dashboard';
 import { showAlertDialog } from '@utilities/show-dialog-box';
 import {
   getStorage,
@@ -11,12 +12,14 @@ import {
 } from '@utilities/storage-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators';
-import YAML from 'yaml';
 
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
 import './sidebar-dialog-code-editor';
 import './sidebar-dialog-preview';
+
+import YAML from 'yaml';
+
 import { SidebarDialogColors } from './sidebar-dialog-colors';
 import { SidebarDialogGroups } from './sidebar-dialog-groups';
 import { SidebarDialogPreview } from './sidebar-dialog-preview';
@@ -176,13 +179,10 @@ export class SidebarConfigDialog extends LitElement {
     ];
   }
 
-  private _setupInitConfig() {
+  private _setupInitConfig = async () => {
     this._tabState = this._useConfigFile === true ? TAB_STATE.CODE : TAB_STATE.BASE;
-    this._sidebarConfig = getStorageConfig() || {};
-    this._updateSidebarItems();
-
-    this._configLoaded = true;
-  }
+    this._validateStoragePanels();
+  };
 
   protected render(): TemplateResult {
     if (!this._configLoaded) {
@@ -346,15 +346,39 @@ export class SidebarConfigDialog extends LitElement {
     this._sidebarConfig = newConfig;
   }
 
-  private _validateConfig(config: SidebarConfig) {
-    const items = [...Object.values(config?.custom_groups || {}).flat(), ...(config?.bottom_items || [])];
+  private _validateStoragePanels = async (): Promise<void> => {
     const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
-    console.log('validateConfig', items, 'currentPanelOrder', currentPanelOrder);
-    const isValid = items.every((item: string) => currentPanelOrder.includes(item));
-    return isValid;
-  }
-  private _updateSidebarItems = () => {
-    const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
+    const _dasboards = await fetchDashboards(this.hass).then((dashboards) => {
+      const notInSidebar: string[] = [];
+      const inSidebar: string[] = [];
+      dashboards.forEach((dashboard) => {
+        if (dashboard.show_in_sidebar) {
+          inSidebar.push(dashboard.url_path);
+        } else {
+          notInSidebar.push(dashboard.url_path);
+        }
+      });
+      return { inSidebar, notInSidebar };
+    });
+    // console.log('currentPanelOrder', currentPanelOrder, '_dasboards', _dasboards);
+    // Check if the current panel order has extra or missing items
+    const extraPanels = _dasboards.notInSidebar.filter((panel: string) => currentPanelOrder.includes(panel));
+    const missingPanels = _dasboards.inSidebar.filter((panel: string) => !currentPanelOrder.includes(panel));
+
+    if (extraPanels.length > 0 || missingPanels.length > 0) {
+      // If there are extra or missing items, show an alert dialog
+      console.log('Sidebar panels are not up to date, reloading...');
+      window.location.reload();
+      return;
+    } else {
+      // If there are no changes, update the sidebar items
+      console.log('Sidebar panels are up to date');
+      this._sidebarConfig = getStorageConfig() || {};
+      this._updateSidebarItems(currentPanelOrder);
+    }
+  };
+
+  private _updateSidebarItems = (currentPanelOrder: string[]) => {
     const initHiddenItems = getHiddenPanels();
     const defaultPanel = this.hass.defaultPanel;
 
@@ -390,6 +414,7 @@ export class SidebarConfigDialog extends LitElement {
     // Initialize panel combinations
     this._initCombiPanels = [..._sidebarItems, ...initHiddenItems];
     this._initPanelOrder = [..._sidebarItems];
+    this._configLoaded = true;
   };
 }
 
