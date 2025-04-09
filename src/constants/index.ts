@@ -27,6 +27,7 @@ export enum HA_EVENT {
   SETTHEME = 'settheme',
   DEFAULT_PANEL = 'hass-default-panel',
   DIALOG_CLOSED = 'dialog-closed',
+  LOCATION_CHANGED = 'location-changed',
 }
 
 export const PANEL_ICONS = {

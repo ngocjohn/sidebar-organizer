@@ -1,17 +1,18 @@
 import { HA_EVENT, NAMESPACE, NAMESPACE_TITLE, REPO_URL, STORAGE, VERSION } from '@constants';
 import { mdiInformation, mdiArrowExpand } from '@mdi/js';
-import { HaExtened, SidebarConfig, ThemeSettings } from '@types';
+import { HaExtened, Panels, PartialPanelResolver, SidebarConfig, ThemeSettings } from '@types';
 import { fetchConfig, validateConfig } from '@utilities/configs';
 import { getCollapsedItems, getInitPanelOrder } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
 import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
+import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 import { navigate } from 'custom-card-helpers';
-import { HAQuerySelector, HAQuerySelectorEvent } from 'home-assistant-query-selector';
 
 import './components/sidebar-dialog';
 
+import { HAQuerySelector, HAQuerySelectorEvent } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html } from 'lit';
 
@@ -21,14 +22,15 @@ import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
 class SidebarOrganizer {
   constructor() {
     const instance = new HAQuerySelector();
+
     instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, async (event) => {
       const { HOME_ASSISTANT, HOME_ASSISTANT_MAIN, HA_DRAWER, HA_SIDEBAR, PARTIAL_PANEL_RESOLVER } = event.detail;
       this.ha = (await HOME_ASSISTANT.element) as HaExtened;
-      this._partialPanelResolver = await PARTIAL_PANEL_RESOLVER.element;
       this.main = (await HOME_ASSISTANT_MAIN.selector.$.element) as ShadowRoot;
       this._haDrawer = await HA_DRAWER.element;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
+      this._partialPanelResolver = (await PARTIAL_PANEL_RESOLVER.element) as PartialPanelResolver;
       this.run();
     });
 
@@ -44,9 +46,8 @@ class SidebarOrganizer {
     });
 
     window.addEventListener('storage', this._storageListener.bind(this));
-
     // Listen for HA Events
-    [HA_EVENT.SETTHEME, HA_EVENT.DEFAULT_PANEL, HA_EVENT.DIALOG_CLOSED].forEach((event) => {
+    [HA_EVENT.SETTHEME, HA_EVENT.DEFAULT_PANEL, HA_EVENT.DIALOG_CLOSED, HA_EVENT.LOCATION_CHANGED].forEach((event) => {
       window.addEventListener(event, this._handleHaEvents.bind(this));
     });
   }
@@ -56,7 +57,7 @@ class SidebarOrganizer {
   private HaSidebar: any;
   private main!: ShadowRoot;
   private sideBarRoot!: ShadowRoot;
-  private _partialPanelResolver?: any;
+  private _partialPanelResolver: PartialPanelResolver | undefined;
   private _haDrawer: any;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
@@ -66,7 +67,7 @@ class SidebarOrganizer {
   private firstSetUpDone = false;
   private _bottomItems: string[] = [];
   private _dialogLarge: boolean = false;
-  private _notInSidebarCount: number = 0;
+  private _dashboards: Record<string, string[]> = {};
 
   get hass(): HaExtened['hass'] {
     return this.ha!.hass;
@@ -80,9 +81,20 @@ class SidebarOrganizer {
     return this.sideBarRoot?.querySelector('paper-listbox') as HTMLElement;
   }
 
+  get customPanels(): Panels {
+    const panels = this.hass.panels;
+    const customPanels = Object.entries(panels)
+      .filter(([, panel]) => panel.component_name === 'custom')
+      .reduce((acc, [key, panel]) => {
+        acc[key] = panel;
+        return acc;
+      }, {});
+    return customPanels;
+  }
+
   private _panelLoaded() {
     if (!this._partialPanelResolver) return;
-    const panelResolver = this._partialPanelResolver as any;
+    const panelResolver = this._partialPanelResolver;
     const path = panelResolver?.__route?.path || window.location.pathname;
     onPanelLoaded(path, this.paperListbox);
   }
@@ -230,6 +242,16 @@ class SidebarOrganizer {
       case HA_EVENT.DEFAULT_PANEL:
         this._handleDefaultPanelChange(detail.defaultPanel);
         break;
+      case HA_EVENT.LOCATION_CHANGED:
+        // this._panelLoaded();
+        const changed = detail.replace;
+        if (changed) {
+          const path = this._partialPanelResolver?.__route?.path || window.location.pathname;
+          const paperListbox = this.paperListbox;
+          onPanelLoaded(path, paperListbox);
+          console.log('Location Changed', changed, path);
+        }
+        break;
     }
   }
 
@@ -276,9 +298,6 @@ class SidebarOrganizer {
       }
     }
     this._hiddenPanels = getHiddenPanels();
-    this._notInSidebarCount = await fetchDashboards(this.hass).then((dashboards) => {
-      return dashboards.filter((item) => item.show_in_sidebar === false).length;
-    });
   }
 
   private async _getConfig() {
@@ -350,7 +369,6 @@ class SidebarOrganizer {
   }
 
   private _initSidebarOrdering() {
-    console.log('Init Sidebar Ordering');
     const currentPanel = this.HaSidebar._panelOrder;
     this._baseOrder = this._handleGroupedPanelOrder(currentPanel);
     this.HaSidebar._panelOrder = [...this._baseOrder];
@@ -368,10 +386,13 @@ class SidebarOrganizer {
       .map((child) => child.getAttribute('data-panel'))
       .filter((child) => child !== null);
     this.HaSidebar._panelOrder = panelOrder;
+
+    console.log('Hidden Items Setup Done');
   }
 
   private _handleBottomPanels(bottomItems: string[]) {
     if (!bottomItems || bottomItems.length === 0) return;
+    const customPanels = this.customPanels;
     const scrollbarItems = this.paperListbox.querySelectorAll('a') as NodeListOf<HTMLElement>;
     const spacer = this.paperListbox.querySelector('div.spacer') as HTMLElement;
     const divider = this.sideBarRoot!.querySelector('div.divider') as HTMLElement;
@@ -380,6 +401,11 @@ class SidebarOrganizer {
       const panel = Array.from(scrollbarItems).find((el) => el.getAttribute('data-panel') === item);
       if (panel) {
         panel.setAttribute('moved', '');
+        const configUrl = customPanels[item]?.config?.url || undefined;
+        const notSamePath = configUrl !== undefined && configUrl !== item;
+        if (notSamePath) {
+          panel.setAttribute('config-url', configUrl);
+        }
         this._bottomItems.push(item);
         this.paperListbox.insertBefore(panel, spacer.nextSibling);
         if (index === 0) {
@@ -388,6 +414,8 @@ class SidebarOrganizer {
         }
       }
     });
+
+    console.log('Bottom items setup done');
   }
 
   private _addConfigDialog() {
@@ -587,12 +615,19 @@ class SidebarOrganizer {
     const scrollbarItems = Array.from(this.paperListbox!.querySelectorAll('a')) as HTMLElement[];
 
     // Loop through each group and set the group attribute on matching items
-    Object.entries(customGroups).forEach(([group, panels]) => {
+    Object.entries(customGroups).forEach(([group, panel]) => {
       scrollbarItems
-        .filter((item) => panels.includes(item.getAttribute('data-panel')!))
-        .forEach((item) => item.setAttribute('group', group));
+        .filter((item) => panel.includes(item.getAttribute('data-panel')!))
+        .forEach((item) => {
+          item.setAttribute('group', group);
+          const configUrl = this.customPanels[item.getAttribute('data-panel')!]?.config?.url || undefined;
+          const notSamePath = configUrl !== undefined && configUrl !== item.getAttribute('data-panel');
+          if (notSamePath) {
+            item.setAttribute('config-url', configUrl);
+          }
+        });
     });
-    console.log('Grouped Items Done');
+    console.log('Custom Groups Setup Done');
   }
 
   private _handleGroupedPanelOrder(currentPanel: string[]) {
@@ -700,7 +735,7 @@ class SidebarOrganizer {
       JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed);
 
     if (hasDiff) {
-      console.log('Changes detected:', {
+      LOGGER.debug('Changes detected:', {
         bottomItemsDiff: JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems),
         dividerOrderDiff: JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder),
         panelOrderDiff: JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed),
@@ -720,7 +755,7 @@ class SidebarOrganizer {
     event.stopPropagation();
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
-    console.log('Toggle Group', group, target);
+    // console.log('Toggle Group', group, target);
     const items = this.paperListbox!.querySelectorAll(`a[group="${group}"]:not([moved])`) as NodeListOf<HTMLElement>;
 
     if (!items.length) {

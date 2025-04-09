@@ -149,16 +149,20 @@ export const resetPanelOrder = (paperListBox: HTMLElement): void => {
 
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
   const listItems = paperListbox?.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
+
   const activeLink = paperListbox?.querySelector<HTMLAnchorElement>(`a[href="${path}"]`);
+
   const configEl = paperListbox?.querySelector('a[data-panel="config"]') as HTMLElement;
   configEl?.setAttribute('aria-selected', configEl === activeLink ? 'true' : 'false');
 
-  if (listItems.length) {
-    listItems.forEach((item: HTMLAnchorElement) => {
-      const isActive = item === activeLink;
-      item.classList.toggle('iron-selected', isActive);
-      item.setAttribute('aria-selected', isActive.toString());
-    });
+  if (activeLink) {
+    setTimeout(() => {
+      listItems.forEach((item: HTMLAnchorElement) => {
+        const isActive = item === activeLink;
+        item.classList.toggle('iron-selected', isActive);
+        item.setAttribute('aria-selected', isActive.toString());
+      });
+    }, 0);
   }
 
   const dividers = paperListbox?.querySelectorAll('div.divider') as NodeListOf<HTMLElement>;

@@ -105,7 +105,7 @@ export const DIVIDER_ADDED_STYLE = css`
     max-height: 0px;
     overflow: hidden;
   }
-
+  :host a[aria-selected='false']::before,
   :host a.configuration-container[aria-selected='false']::before {
     display: none;
   }
