@@ -155,7 +155,7 @@ export const validateConfig = (config: SidebarConfig): SidebarConfig => {
   newConfig.custom_groups = updatedGroups;
   newConfig.bottom_items = updatedBottomItems;
 
-  console.log('validateConfig', newConfig);
+  // console.log('validateConfig', newConfig);
   return newConfig;
 };
 
@@ -182,7 +182,7 @@ export const isItemsValid = (config: SidebarConfig, hass: HaExtened['hass']): bo
 
   const configValid = invalidItems.length === 0 && noTitleItems.length === 0;
 
-  console.log('configValid', configValid);
+  // console.log('configValid', configValid);
   return configValid;
 };
 

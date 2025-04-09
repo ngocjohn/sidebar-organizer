@@ -4,6 +4,7 @@ export * from './show-dialog-box';
 export * from './colors';
 export * from './preview-items';
 export * from './storage-utils';
+export * from './logger';
 
 import memoizeOne from 'memoize-one';
 
