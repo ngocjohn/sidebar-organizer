@@ -1,3 +1,4 @@
+import { ALERT_MSG } from '@constants';
 import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
 import { SidebarConfig, HaExtened } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
@@ -23,7 +24,7 @@ export class SidebarDialogGroups extends LitElement {
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
   @state() private _selectedTab: PANEL = PANEL.BOTTOM_PANEL;
-  @state() private _selectedGroup: string | null = null;
+  @state() public _selectedGroup: string | null = null;
   @state() private _reloadItems = false;
   @state() private _sortable: Sortable | null = null;
 
@@ -41,6 +42,12 @@ export class SidebarDialogGroups extends LitElement {
       }, 50); // Small delay to ensure the ha-selector shadow DOM is rendered
     }
 
+    if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
+      this._dialog._dialogPreview._toggleBottomPanel(this._selectedTab === PANEL.BOTTOM_PANEL);
+      if (this._selectedTab !== PANEL.CUSTOM_GROUPS) {
+        this._selectedGroup = null;
+      }
+    }
     if (
       _changedProperties.has('_selectedTab') &&
       this._selectedTab !== PANEL.BOTTOM_PANEL &&
@@ -59,6 +66,10 @@ export class SidebarDialogGroups extends LitElement {
       this._selectedTab !== PANEL.HIDDEN_ITEMS
     ) {
       this._initSortable();
+    }
+
+    if (_changedProperties.has('_selectedGroup')) {
+      this._dialog._dialogPreview._toggleGroup(this._selectedGroup);
     }
   }
 
@@ -232,6 +243,7 @@ export class SidebarDialogGroups extends LitElement {
       const actions = [
         { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
         { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
+        { title: 'Show in preview', action: 'preview-item', icon: 'mdi:information-outline' },
         // Default 'collapsed-group' action
         {
           title: isCollapsed(key) ? 'Remove from collapsed by default' : 'Add to collapsed by default',
@@ -341,7 +353,7 @@ export class SidebarDialogGroups extends LitElement {
         newName = newName.trim().replace(/\s/g, '_').toLowerCase();
         const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
         if (Object.keys(customGroups).includes(newName)) {
-          await showAlertDialog(this, 'Group name already exists. Please choose a different one.');
+          await showAlertDialog(this, `${ALERT_MSG.NAME_EXISTS}`);
           return;
         }
         const inCollapsed = defaultCollapsed.includes(key) ?? false;
@@ -394,6 +406,12 @@ export class SidebarDialogGroups extends LitElement {
         delete currentGroups[key];
         updateConfig(currentGroups);
         break;
+      case 'preview':
+        this._dialog._dialogPreview._toggleGroup(key, 'show');
+        break;
+      case 'preview-item':
+        this._dialog._dialogPreview._toggleGroup(key);
+        break;
     }
   };
 
@@ -402,6 +420,7 @@ export class SidebarDialogGroups extends LitElement {
     const headerBack = html`<div class="header-row ">
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedGroup = null)}> </ha-icon-button>
       ${this._selectedGroup.toLocaleUpperCase()}
+      <ha-button @click=${() => this._handleGroupAction('preview', this._selectedGroup!)}> PREVIEW </ha-button>
     </div>`;
 
     const selectorElement = this._renderPanelSelector('customGroup', this._selectedGroup);
@@ -744,6 +763,7 @@ export class SidebarDialogGroups extends LitElement {
         align-items: center;
         width: 100%;
         --mdc-icon-button-size: 42px;
+        height: auto;
       }
       .header-row.center {
         justify-content: center;

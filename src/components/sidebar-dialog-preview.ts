@@ -67,7 +67,7 @@ export class SidebarDialogPreview extends LitElement {
 
   protected render(): TemplateResult {
     if (!this._ready) {
-      return html`<ha-circular-progress .indeterminate=${true} .size=${'medium'}></ha-circular-progress>`;
+      return html`<ha-spinner style="place-self: center;" .indeterminate=${true} .size=${'medium'}></ha-spinner>`;
     }
 
     const { mockCustomGroups, mockDefaultPage } = PREVIEW_MOCK_PANELS;
@@ -111,9 +111,15 @@ export class SidebarDialogPreview extends LitElement {
 
     return html` <div class="divider-preview" style=${this._computePreviewStyle()} id="divider-preview">
       <div class="groups-container">
+        <div class="menu-title">
+          ${this._sidebarConfig?.header_title || 'Home Assistant'}
+          ${this._sidebarConfig?.hide_header_toggle
+            ? nothing
+            : html`<ha-icon icon="mdi:plus" class="collapse-toggle" @click=${() => this._toggleGroup(null)}></ha-icon>`}
+        </div>
         ${_renderPanelItem(lovelacePanel)}
         ${Array.from({ length: groups.length }, (_, i) => {
-          const collapsed = i === 0 ? true : false;
+          const collapsed = groups.length >= 2 ? false : true;
           const title = groups[i].replace('_', ' ');
           const someGroupItems = _paperListbox[groups[i]] ?? mockCustomGroups[groups[i]] ?? [];
 
@@ -132,11 +138,64 @@ export class SidebarDialogPreview extends LitElement {
               : nothing} `;
         })}
         <div class="spacer"></div>
-        ${bottomPanel}
+        <div class="bottom-panel" ?hidden=${_paperListbox['bottomItems'].length === 0}>${bottomPanel}</div>
         <div class="divider"></div>
         ${bottomSys}
       </div>
     </div>`;
+  }
+
+  public _toggleGroup = (group: string | null, preview?: string) => {
+    console.log('toggleGroup', group);
+    const container = this.shadowRoot?.querySelector('div.groups-container') as HTMLElement;
+    const children = container.children;
+    const groups = this.shadowRoot?.querySelectorAll('div.divider-container') as NodeListOf<HTMLElement>;
+    const itemsEl = this.shadowRoot?.querySelectorAll('div.group-items') as NodeListOf<HTMLElement>;
+    groups.forEach((item) => {
+      const groupName = item.getAttribute('group');
+      item.classList.toggle('collapsed', groupName !== group);
+      const addedContent = item.querySelector('div.added-content') as HTMLElement;
+      addedContent.classList.toggle('collapsed', groupName !== group);
+    });
+
+    if (!itemsEl) return;
+    itemsEl.forEach((item) => {
+      const groupName = item.getAttribute('group');
+      item.classList.toggle('collapsed', groupName !== group);
+      if (groupName === group && !preview) {
+        item.classList.add('hight-light');
+        item.addEventListener('animationend', () => {
+          item.classList.remove('hight-light');
+        });
+      }
+    });
+
+    if (preview) {
+      const hightLightItem = () => {
+        const filteredItems = Array.from(children).filter((item) => item.getAttribute('group') !== group);
+        const itemGroup = container.querySelector(`div.group-items[group="${group}"]`) as HTMLElement;
+        const isSelected = itemGroup.hasAttribute('selected');
+        itemGroup.toggleAttribute('selected', !isSelected);
+        filteredItems.forEach((item) => ((item as HTMLElement).style.opacity = !isSelected ? '0.2' : '1'));
+      };
+      hightLightItem();
+    }
+
+    if (group === null) {
+      container.querySelectorAll('div.group-items').forEach((item) => item.removeAttribute('selected'));
+      Array.from(children).forEach((item) => ((item as HTMLElement).style.opacity = '1'));
+    }
+  };
+
+  public _toggleBottomPanel(bottomPanel: boolean, anime: boolean = true) {
+    const bottomPanelEl = this.shadowRoot?.querySelector('div.bottom-panel') as HTMLElement;
+    bottomPanelEl.toggleAttribute('selected', bottomPanel && !anime);
+    if (bottomPanel && anime) {
+      bottomPanelEl.classList.add('hight-light');
+      bottomPanelEl.addEventListener('animationend', () => {
+        bottomPanelEl.classList.remove('hight-light');
+      });
+    }
   }
 
   private _computePreviewStyle() {
@@ -173,6 +232,9 @@ export class SidebarDialogPreview extends LitElement {
       css`
         :host *[hidden] {
           display: none !important;
+        }
+        :host {
+          --selected-container-color: rgb(from var(--primary-color) r g b / 0.4);
         }
 
         .preview-container {
@@ -344,6 +406,13 @@ export class SidebarDialogPreview extends LitElement {
           display: block;
           transition: all 0.3s ease;
         }
+        .bottom-panel {
+          display: block;
+        }
+        .bottom-panel[selected],
+        .group-items[selected] {
+          border: 1px solid var(--selected-container-color);
+        }
 
         .group-items.collapsed {
           max-height: 0px;
@@ -398,6 +467,51 @@ export class SidebarDialogPreview extends LitElement {
         .icon-item span.item-text {
           display: block;
           max-width: calc(100% - 56px);
+        }
+
+        .hight-light {
+          animation: highLight 1s ease-in-out infinite;
+          animation-iteration-count: 3;
+          animation-fill-mode: forwards;
+        }
+
+        @keyframes highLight {
+          0% {
+            box-shadow: 0 0 10px 0 var(--selected-container-color);
+          }
+
+          50% {
+            box-shadow: 0 0 20px 0 var(--selected-container-color);
+          }
+
+          100% {
+            box-shadow: 0 0 10px 0 var(--selected-container-color);
+          }
+        }
+        .collapse-toggle {
+          color: var(--primary-color);
+          transition: transform 0.3s ease;
+          cursor: pointer;
+          opacity: 0.5;
+          margin-right: 4px;
+        }
+        .collapse-toggle.active {
+          color: var(--sidebar-icon-color);
+          transform: rotate(90deg);
+          transition: transform 0.3s ease;
+        }
+        .collapse-toggle:hover {
+          color: var(--primary-color);
+          opacity: 1;
+        }
+        .menu-title {
+          border-bottom: 1px solid var(--divider-color);
+          display: flex;
+          justify-content: space-between;
+          padding-inline: 0.5rem;
+          font-size: 20px;
+          min-height: 40px;
+          align-items: center;
         }
       `,
     ];
