@@ -628,7 +628,7 @@ class SidebarOrganizer {
     primaryActionBtn.appendChild(saveBtn);
 
     const codeEditorBtn = createActionButton(
-      'CODE EDITOR',
+      'Code / UI Editor',
       () => {
         this._sidebarDialog?._toggleCodeEditor();
       },

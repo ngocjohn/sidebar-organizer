@@ -69,3 +69,11 @@ export const DEFAULT_CONFIG: SidebarConfig = {
   default_collapsed: [],
   hidden_items: [],
 };
+
+export const ALERT_MSG = {
+  ITEMS_DIFFERENT: 'The items in config file do not match the items in the sidebar. Check console for more details.',
+  CONFIG_EMPTY: 'You dont have any configuration yet.',
+  USE_CONFIG_FILE:
+    'If enabled, the sidebar configuration will be loaded from a Config file and UI configuration will be disabled.',
+  NAME_EXISTS: 'The name already exists. Choose another name.',
+};
