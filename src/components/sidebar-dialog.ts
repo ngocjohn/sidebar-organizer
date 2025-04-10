@@ -1,4 +1,4 @@
-import { STORAGE, TAB_STATE } from '@constants';
+import { ALERT_MSG, STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, HaExtened } from '@types';
 import { isItemsValid } from '@utilities/configs';
 import { fetchDashboards } from '@utilities/dashboard';
@@ -21,6 +21,7 @@ import './sidebar-dialog-preview';
 import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
 
+import { SidebarDialogCodeEditor } from './sidebar-dialog-code-editor';
 import { SidebarDialogColors } from './sidebar-dialog-colors';
 import { SidebarDialogGroups } from './sidebar-dialog-groups';
 import { SidebarDialogPreview } from './sidebar-dialog-preview';
@@ -42,9 +43,12 @@ export class SidebarConfigDialog extends LitElement {
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
 
+  @state() private _uploading = false;
+
   @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
   @query('sidebar-dialog-preview') _dialogPreview!: SidebarDialogPreview;
+  @query('sidebar-dialog-code-editor') _dialogCodeEditor!: SidebarDialogCodeEditor;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -268,12 +272,15 @@ export class SidebarConfigDialog extends LitElement {
   private _renderCodeEditor(): TemplateResult {
     return html`
       <div class="config-content">
-        <sidebar-dialog-code-editor
-          .hass=${this.hass}
-          ._sidebarConfig=${this._sidebarConfig}
-          @sidebar-changed=${this._handleSidebarChanged}
-        ></sidebar-dialog-code-editor>
-
+        ${this._uploading
+          ? html`<ha-spinner .size=${'large'}></ha-spinner>`
+          : html`
+              <sidebar-dialog-code-editor
+                .hass=${this.hass}
+                ._sidebarConfig=${this._sidebarConfig}
+                @sidebar-changed=${this._handleSidebarChanged}
+              ></sidebar-dialog-code-editor>
+            `}
         ${this._renderUseConfigFile()}
       </div>
     `;
@@ -283,9 +290,7 @@ export class SidebarConfigDialog extends LitElement {
     const useJsonFile = this._useConfigFile;
     return html`
       <div class="overlay" ?expanded=${useJsonFile}>
-        <ha-alert alert-type="info" .hidden=${!useJsonFile}>
-          If enabled, the sidebar configuration will be loaded from a Config file and UI configuration will be disabled.
-        </ha-alert>
+        <ha-alert alert-type="info" .hidden=${!useJsonFile}> ${ALERT_MSG.USE_CONFIG_FILE} </ha-alert>
         <div class="header-row">
           <ha-button @click=${() => this._uploadConfigFile()}>Upload Config File</ha-button>
           <ha-formfield label="Use YAML File" style="min-height: 48px;">
@@ -305,6 +310,7 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   private _uploadConfigFile() {
+    this._uploading = true;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.yaml';
@@ -321,13 +327,13 @@ export class SidebarConfigDialog extends LitElement {
           const newConfig = YAML.parse(content);
 
           if (!isItemsValid(newConfig, this.hass)) {
-            await showAlertDialog(
-              this,
-              'Items in the config file do not match the current panel order, check the file'
-            );
+            await showAlertDialog(this, ALERT_MSG.ITEMS_DIFFERENT);
+            this._uploading = false;
             return;
+          } else {
+            this._sidebarConfig = newConfig;
+            this._uploading = false;
           }
-          this._sidebarConfig = newConfig;
         } catch (e) {
           console.error('Error parsing YAML file', e);
         }

@@ -1,10 +1,10 @@
 const HELPERS = (window as any).loadCardHelpers ? (window as any).loadCardHelpers() : undefined;
 
-import { html, css, LitElement, TemplateResult, CSSResultGroup, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators';
+import { html, css, LitElement, TemplateResult, CSSResultGroup, nothing, PropertyValues } from 'lit';
+import { customElement, property, query } from 'lit/decorators';
 import YAML from 'yaml';
 /* eslint-disable */
-import { NAMESPACE, STORAGE } from '@constants';
+import { ALERT_MSG, NAMESPACE, STORAGE } from '@constants';
 import { removeStorage } from '@utilities/storage-utils';
 import { SidebarConfig, HaExtened } from '@types';
 import { SidebarConfigDialog } from './sidebar-dialog';
@@ -15,7 +15,13 @@ export class SidebarDialogCodeEditor extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
 
   @property({ attribute: false }) _dialog!: SidebarConfigDialog;
-  @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
+  @property({ attribute: false }) _sidebarConfig: SidebarConfig = {};
+
+  @query('ha-yaml-editor') _yamlEditor!: any;
+
+  protected updated(_changedProperties: PropertyValues): void {
+    super.updated(_changedProperties);
+  }
 
   static get styles(): CSSResultGroup {
     return css`
@@ -39,14 +45,14 @@ export class SidebarDialogCodeEditor extends LitElement {
   }
 
   protected render(): TemplateResult {
-    const initConfig = this._sidebarConfig || {};
+    const initConfig = this._sidebarConfig;
     const isConfigEmpty = Object.keys(initConfig).length === 0;
-    const emptyConfig = html`<ha-alert alertType="info">You dont have any configuration yet.</ha-alert>`;
+    const emptyConfig = html`<ha-alert alertType="info">${ALERT_MSG.CONFIG_EMPTY}</ha-alert>`;
 
     const editor = html` ${isConfigEmpty ? emptyConfig : nothing}
       <ha-yaml-editor
         .hass=${this.hass}
-        .defaultValue=${initConfig}
+        .defaultValue=${this._sidebarConfig}
         .copyToClipboard=${true}
         .hasExtraActions=${true}
         .required=${true}
