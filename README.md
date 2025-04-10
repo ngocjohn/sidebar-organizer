@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-[![hacs][hacs-validate]][hacs-url] ![Github last commit][git-last-commit-badge] ![git-download-all][git-download-all-badge] ![git-download-latest][git-download-latest-badge] [![forum][forum-badge]][forum-url] 
+[![hacs][hacs-validate]][hacs-url] ![Github last commit][git-last-commit-badge] ![git-download-all][git-download-all-badge] ![git-download-latest][git-download-latest-badge] [![forum][forum-badge]][forum-url]
 
 # 🗄️ Sidebar Organizer
 
@@ -65,7 +65,7 @@ https://github.com/ngocjohn/sidebar-organizer
 1. Press add icon and search for `Sidebar Organizer`
 1. Select Sidebar Organizer repo and install
 1. Force refresh the Home Assistant page `Ctrl` + `F5` / `Shift` + `⌘` + `R`
-1. Add sidebar-organizer to your page
+1. Access the Sidebar Organizer Configuration menu by press and hold the Profile menu (the last item in the sidebar).
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngocjohn&repository=sidebar-organizer&category=plugin)
 
@@ -233,8 +233,9 @@ In this section, you can organize the layout of the sidebar panels by customizin
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!--Badges-->
+
 [forum-url]: https://community.home-assistant.io/t/sidebar-organizer
-[forum-badge]:https://img.shields.io/badge/forum-community?style=flat&logo=homeassistant&label=community&color=blue
+[forum-badge]: https://img.shields.io/badge/forum-community?style=flat&logo=homeassistant&label=community&color=blue
 [hacs-validate]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yaml/badge.svg
 [hacs-url]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yaml
 [git-last-commit-badge]: https://img.shields.io/github/last-commit/ngocjohn/sidebar-organizer
