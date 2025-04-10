@@ -235,10 +235,12 @@ class SidebarOrganizer {
         window.location.reload();
       }, 200);
     } else {
-      if (this._config.bottom_items && this._config.bottom_items.length > 0) {
-        this._bottomItems = [];
-        this._handleBottomPanels(this._config.bottom_items);
-      }
+      setTimeout(() => {
+        if (this._config.bottom_items && this._config.bottom_items.length > 0) {
+          this._bottomItems = [];
+          this._handleBottomPanels(this._config.bottom_items);
+        }
+      }, 0);
     }
   }
 
@@ -527,7 +529,7 @@ class SidebarOrganizer {
     const spacer = this.paperListbox.querySelector('div.spacer') as HTMLElement;
     const divider = this.sideBarRoot!.querySelector('div.divider:not([added]):not([ungrouped])') as HTMLElement;
 
-    Object.values(bottomItems.reverse()).forEach((item, index) => {
+    bottomItems.reverse().forEach((item, index) => {
       const panel = Array.from(scrollbarItems).find((el) => el.getAttribute('data-panel') === item);
       if (panel) {
         panel.setAttribute('moved', '');
@@ -536,7 +538,7 @@ class SidebarOrganizer {
         if (notSamePath) {
           panel.setAttribute('config-url', configUrl);
         }
-        this._bottomItems.push(item);
+
         this.paperListbox.insertBefore(panel, spacer.nextSibling);
         if (index === 0) {
           // console.log('Adding Divider', panel, item);
@@ -544,7 +546,7 @@ class SidebarOrganizer {
         }
       }
     });
-
+    this._bottomItems = [...bottomItems];
     console.log('Bottom items setup done');
   }
 
@@ -875,7 +877,6 @@ class SidebarOrganizer {
       window.location.reload();
       // this._refreshSidebar();
     } else {
-      LOGGER.debug('No changes detected');
       this._handleCollapsed(this.collapsedItems);
     }
   };

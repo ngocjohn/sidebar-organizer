@@ -152,13 +152,15 @@ export const resetPanelOrder = (paperListBox: HTMLElement): void => {
 
 export const resetBottomItems = (paperListBox: HTMLElement): void => {
   const bottomItems = Array.from(paperListBox.querySelectorAll('a[moved]')) as HTMLElement[];
-  const spacerEl = paperListBox.querySelector('.spacer') as HTMLElement;
+  if (bottomItems.length === 0) return;
+  const spacerEl = paperListBox.querySelector('div.spacer') as HTMLElement;
   bottomItems.forEach((item) => {
     const nextItem = item.nextElementSibling;
     if (nextItem && nextItem.classList.contains('divider')) {
       paperListBox.removeChild(nextItem);
     }
     paperListBox.removeChild(item);
+    item.removeAttribute('moved');
     paperListBox.insertBefore(item, spacerEl);
   });
 };
@@ -166,7 +168,6 @@ export const resetBottomItems = (paperListBox: HTMLElement): void => {
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
   if (path === PATH.LOVELACE_DASHBOARD) {
     resetBottomItems(paperListbox);
-    return;
   }
 
   const listItems = paperListbox?.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
