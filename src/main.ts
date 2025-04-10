@@ -151,6 +151,7 @@ class SidebarOrganizer {
 
   private async _checkDashboardChange(): Promise<void> {
     const _baseOrder = this._baseOrder;
+
     const dashboards = await fetchDashboards(this.hass).then((dashboards) => {
       const notInSidebar: string[] = [];
       const inSidebar: string[] = [];
@@ -169,6 +170,7 @@ class SidebarOrganizer {
     const missingPanels = dashboards.inSidebar.filter((panel) => !_baseOrder.includes(panel));
     if (extraPanels.length > 0) {
       console.log('Extra Panels:', extraPanels);
+      const _baseOrder = [...this._baseOrder];
       const config = { ...this._config };
       const { custom_groups = {}, bottom_items = [], hidden_items = [] } = config;
 
@@ -206,12 +208,32 @@ class SidebarOrganizer {
       changed = true;
     } else if (missingPanels.length > 0) {
       console.log('Missing Panels:', missingPanels);
-      _baseOrder.push(...missingPanels);
+      // check if is in  hidden panels
+      const hiddenPanels = this._hiddenPanels;
+      const _baseOrder = [...this._baseOrder];
+      const isHidden = missingPanels.filter((panel) => hiddenPanels.includes(panel));
+      console.log('Hidden Panels:', isHidden);
+      if (isHidden.length > 0) {
+        // remove from hidden panels
+        hiddenPanels.forEach((panel) => {
+          const i = hiddenPanels.indexOf(panel);
+          if (i !== -1) {
+            hiddenPanels.splice(i, 1);
+          }
+        });
+      }
+      this._config.hidden_items = hiddenPanels;
+      this._baseOrder = [..._baseOrder, ...missingPanels];
+      setStorage(STORAGE.UI_CONFIG, this._config);
+      setStorage(STORAGE.HIDDEN_PANELS, hiddenPanels);
       setStorage(STORAGE.PANEL_ORDER, _baseOrder);
+
       changed = true;
     }
     if (changed) {
-      window.location.reload();
+      setTimeout(() => {
+        window.location.reload();
+      }, 200);
     } else {
       if (this._config.bottom_items && this._config.bottom_items.length > 0) {
         this._bottomItems = [];
@@ -548,6 +570,7 @@ class SidebarOrganizer {
     sidebarDialog.hass = this.hass;
     sidebarDialog._sideBarRoot = this.sideBarRoot;
     this._sidebarDialog = sidebarDialog;
+    this._sidebarDialog.addEventListener('config-diff', () => this._checkDashboardChange());
 
     const haDialog = document.createElement('ha-dialog') as any;
     const toggleLarge = () => {

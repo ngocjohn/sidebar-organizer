@@ -2,6 +2,7 @@ import { STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, HaExtened } from '@types';
 import { isItemsValid } from '@utilities/configs';
 import { fetchDashboards } from '@utilities/dashboard';
+import * as LOGGER from '@utilities/logger';
 import { showAlertDialog } from '@utilities/show-dialog-box';
 import {
   getStorage,
@@ -11,19 +12,18 @@ import {
   getHiddenPanels,
 } from '@utilities/storage-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators';
 
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
 import './sidebar-dialog-code-editor';
 import './sidebar-dialog-preview';
 
+import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
 
 import { SidebarDialogColors } from './sidebar-dialog-colors';
 import { SidebarDialogGroups } from './sidebar-dialog-groups';
 import { SidebarDialogPreview } from './sidebar-dialog-preview';
-
 const tabs = ['appearance', 'panels'] as const;
 
 @customElement('sidebar-config-dialog')
@@ -360,7 +360,7 @@ export class SidebarConfigDialog extends LitElement {
       });
       return { inSidebar, notInSidebar };
     });
-    // console.log('currentPanelOrder', currentPanelOrder, '_dasboards', _dasboards);
+    LOGGER.debug('currentPanelOrder', currentPanelOrder, '_dasboards', _dasboards);
     // Check if the current panel order has extra or missing items
     const extraPanels = _dasboards.notInSidebar.filter((panel: string) => currentPanelOrder.includes(panel));
     const missingPanels = _dasboards.inSidebar.filter((panel: string) => !currentPanelOrder.includes(panel));
@@ -370,8 +370,18 @@ export class SidebarConfigDialog extends LitElement {
       console.log('Sidebar panels have changed');
       console.log('Extra panels:', extraPanels);
       console.log('Missing panels:', missingPanels);
-      this.remove();
-      window.location.reload();
+      // window.location.reload();
+      LOGGER.debug('Sidebar panels have changed', extraPanels, missingPanels);
+      const newEvent = new CustomEvent('config-diff', {
+        detail: {
+          extraPanels,
+          missingPanels,
+        },
+        bubbles: true,
+        composed: true,
+      });
+      this.dispatchEvent(newEvent);
+      return;
     } else {
       // If there are no changes, update the sidebar items
       console.log('Sidebar panels are up to date');
