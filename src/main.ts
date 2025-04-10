@@ -223,7 +223,7 @@ class SidebarOrganizer {
         });
       }
       this._config.hidden_items = hiddenPanels;
-      this._baseOrder = [..._baseOrder, ...missingPanels];
+      _baseOrder.push(...missingPanels);
       setStorage(STORAGE.UI_CONFIG, this._config);
       setStorage(STORAGE.HIDDEN_PANELS, hiddenPanels);
       setStorage(STORAGE.PANEL_ORDER, _baseOrder);
