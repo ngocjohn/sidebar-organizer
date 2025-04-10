@@ -366,10 +366,12 @@ export class SidebarConfigDialog extends LitElement {
     const missingPanels = _dasboards.inSidebar.filter((panel: string) => !currentPanelOrder.includes(panel));
 
     if (extraPanels.length > 0 || missingPanels.length > 0) {
-      // If there are extra or missing items, show an alert dialog
-      console.log('Sidebar panels are not up to date, reloading...');
+      // If there are changes, update the sidebar items
+      console.log('Sidebar panels have changed');
+      console.log('Extra panels:', extraPanels);
+      console.log('Missing panels:', missingPanels);
+      this.remove();
       window.location.reload();
-      return;
     } else {
       // If there are no changes, update the sidebar items
       console.log('Sidebar panels are up to date');

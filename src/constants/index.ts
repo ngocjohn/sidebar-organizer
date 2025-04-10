@@ -10,6 +10,10 @@ export const REPO_URL = `${repository.url}`;
 export const CONFIG_NAME = 'sidebar-organizer';
 export const CONFIG_PATH = '/local/sidebar-organizer.yaml';
 
+export enum PATH {
+  LOVELACE_DASHBOARD = '/config/lovelace/dashboards',
+}
+
 export enum TAB_STATE {
   BASE = 'base',
   CODE = 'codeEditor',

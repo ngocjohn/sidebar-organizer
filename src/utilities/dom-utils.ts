@@ -1,3 +1,4 @@
+import { PATH } from '@constants';
 import { mdiClose } from '@mdi/js';
 import { HomeAssistant, applyThemesOnElement } from 'custom-card-helpers';
 import { html, TemplateResult } from 'lit';
@@ -138,16 +139,36 @@ export const applyTheme = (element: any, hass: HaExtened['hass'], theme: string,
 export const resetPanelOrder = (paperListBox: HTMLElement): void => {
   const scrollbarItems = paperListBox!.querySelectorAll('a') as NodeListOf<HTMLElement>;
   const bottomItems = Array.from(scrollbarItems).filter((item) => item.hasAttribute('moved'));
+  if (bottomItems.length === 0) return;
+  bottomItems.forEach((item) => {
+    const nextItem = item.nextElementSibling;
+    if (nextItem && nextItem.classList.contains('divider')) {
+      paperListBox.removeChild(nextItem);
+    }
+    item.removeAttribute('moved');
+    paperListBox.removeChild(item);
+  });
+};
+
+export const resetBottomItems = (paperListBox: HTMLElement): void => {
+  const bottomItems = Array.from(paperListBox.querySelectorAll('a[moved]')) as HTMLElement[];
+  const spacerEl = paperListBox.querySelector('.spacer') as HTMLElement;
   bottomItems.forEach((item) => {
     const nextItem = item.nextElementSibling;
     if (nextItem && nextItem.classList.contains('divider')) {
       paperListBox.removeChild(nextItem);
     }
     paperListBox.removeChild(item);
+    paperListBox.insertBefore(item, spacerEl);
   });
 };
 
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
+  if (path === PATH.LOVELACE_DASHBOARD) {
+    resetBottomItems(paperListbox);
+    return;
+  }
+
   const listItems = paperListbox?.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
 
   const activeLink = paperListbox?.querySelector<HTMLAnchorElement>(`a[href="${path}"]`);
