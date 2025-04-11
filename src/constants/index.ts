@@ -76,4 +76,5 @@ export const ALERT_MSG = {
   USE_CONFIG_FILE:
     'If enabled, the sidebar configuration will be loaded from a Config file and UI configuration will be disabled.',
   NAME_EXISTS: 'The name already exists. Choose another name.',
+  CONFIRM_DELETE: 'Are you sure you want to delete the current configuration?',
 };
