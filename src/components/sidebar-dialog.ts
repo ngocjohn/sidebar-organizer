@@ -130,6 +130,7 @@ export class SidebarConfigDialog extends LitElement {
           justify-items: center;
           max-width: 260px;
           max-height: fit-content;
+          overflow: hidden;
         }
 
         .config-content {
@@ -366,7 +367,6 @@ export class SidebarConfigDialog extends LitElement {
       });
       return { inSidebar, notInSidebar };
     });
-    LOGGER.debug('currentPanelOrder', currentPanelOrder, '_dasboards', _dasboards);
     // Check if the current panel order has extra or missing items
     const extraPanels = _dasboards.notInSidebar.filter((panel: string) => currentPanelOrder.includes(panel));
     const missingPanels = _dasboards.inSidebar.filter((panel: string) => !currentPanelOrder.includes(panel));

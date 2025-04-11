@@ -94,6 +94,13 @@ export class SidebarDialogColors extends LitElement {
     if (_changedProperties.has('_state') && this._state === THEME_STATE.READY) {
       this._getYamlEditor();
     }
+
+    if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode) {
+      const previewColorMode = this._dialog._dialogPreview._colorConfigMode;
+      if (previewColorMode !== this._colorConfigMode) {
+        this._dialog._dialogPreview._colorConfigMode = this._colorConfigMode;
+      }
+    }
   }
 
   private _getYamlEditor() {

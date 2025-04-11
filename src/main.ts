@@ -117,7 +117,6 @@ class SidebarOrganizer {
         if (newPath !== this._currentPath) {
           this._prevPath = this._currentPath;
           this._currentPath = newPath;
-          console.log('Navigated>', this._prevPath, this._currentPath);
           if (
             this._prevPath !== null &&
             this._prevPath === PATH.LOVELACE_DASHBOARD &&

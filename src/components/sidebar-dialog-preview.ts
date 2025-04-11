@@ -16,7 +16,7 @@ export class SidebarDialogPreview extends LitElement {
   @property({ attribute: false }) _sidebarConfig: SidebarConfig = {};
 
   @state() public _paperListbox: Record<string, PanelInfo[]> = {};
-  @state() private _colorConfigMode: string = '';
+  @state() public _colorConfigMode: string = '';
   @state() private _baseColorFromTheme: DividerColorSettings = {};
 
   @state() private _ready = false;
@@ -41,33 +41,35 @@ export class SidebarDialogPreview extends LitElement {
       return true;
     }
 
+    return true;
+  }
+
+  protected updated(_changedProperties: PropertyValues): void {
     if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode) {
       this._setTheme(this._colorConfigMode);
-      return true;
+      setTimeout(() => {
+        this._getDefaultColors();
+      }, 100);
     }
-
-    return true;
   }
 
   private _setTheme(mode: string): void {
     const theme = this.hass.themes.theme;
-    const themeContainer = this.shadowRoot?.getElementById('preview-container');
+    const themeContainer = this.shadowRoot?.getElementById('theme-container');
     applyTheme(themeContainer, this.hass, theme, mode);
-    setTimeout(() => {
-      this._getDefaultColors();
-    }, 0);
   }
 
   private _getDefaultColors(): void {
-    const previewEl = this.shadowRoot?.getElementById('preview-container');
-    if (!previewEl) return;
-    const defaultColors = getDefaultThemeColors(previewEl);
+    const previewEl = this.shadowRoot?.getElementById('theme-container');
+
+    const defaultColors = getDefaultThemeColors(previewEl!);
+    // console.log('defaultColors', defaultColors);
     this._baseColorFromTheme = defaultColors;
   }
 
   protected render(): TemplateResult {
     if (!this._ready) {
-      return html`<ha-spinner style="place-self: center;" .indeterminate=${true} .size=${'medium'}></ha-spinner>`;
+      return html`<ha-spinner style="place-self: center;" .size=${'medium'}></ha-spinner>`;
     }
 
     const { mockCustomGroups, mockDefaultPage } = PREVIEW_MOCK_PANELS;
@@ -109,40 +111,41 @@ export class SidebarDialogPreview extends LitElement {
       return _renderPanelItem(item);
     });
 
-    return html` <div class="divider-preview" style=${this._computePreviewStyle()} id="divider-preview">
-      <div class="groups-container">
+    return html` <div id="theme-container"></div>
+      <div class="divider-preview" style=${this._computePreviewStyle()}>
         <div class="menu-title">
           ${this._sidebarConfig?.header_title || 'Home Assistant'}
           ${this._sidebarConfig?.hide_header_toggle
             ? nothing
             : html`<ha-icon icon="mdi:plus" class="collapse-toggle" @click=${() => this._toggleGroup(null)}></ha-icon>`}
         </div>
-        ${_renderPanelItem(lovelacePanel)}
-        ${Array.from({ length: groups.length }, (_, i) => {
-          const collapsed = groups.length >= 2 ? false : true;
-          const title = groups[i].replace('_', ' ');
-          const someGroupItems = _paperListbox[groups[i]] ?? mockCustomGroups[groups[i]] ?? [];
+        <div class="groups-container">
+          ${_renderPanelItem(lovelacePanel)}
+          ${Array.from({ length: groups.length }, (_, i) => {
+            const collapsed = groups.length >= 2 ? false : true;
+            const title = groups[i].replace('_', ' ');
+            const someGroupItems = _paperListbox[groups[i]] ?? mockCustomGroups[groups[i]] ?? [];
 
-          return html`<div class="divider-container" @click=${(ev: Event) => _toggleClick(ev)} group=${groups[i]}>
-              <div class=${collapsed ? 'added-content' : 'added-content collapsed'}>
-                <ha-icon icon="mdi:chevron-down"></ha-icon>
-                <span>${title}</span>
+            return html`<div class="divider-container" @click=${(ev: Event) => _toggleClick(ev)} group=${groups[i]}>
+                <div class=${collapsed ? 'added-content' : 'added-content collapsed'}>
+                  <ha-icon icon="mdi:chevron-down"></ha-icon>
+                  <span>${title}</span>
+                </div>
               </div>
-            </div>
-            ${someGroupItems.length !== 0
-              ? html`<div group=${groups[i]} class=${collapsed ? 'group-items' : 'group-items collapsed'}>
-                  ${someGroupItems.map((item: PanelInfo) => {
-                    return _renderPanelItem(item);
-                  })}
-                </div>`
-              : nothing} `;
-        })}
-        <div class="spacer"></div>
-        <div class="bottom-panel" ?hidden=${_paperListbox['bottomItems'].length === 0}>${bottomPanel}</div>
-        <div class="divider"></div>
-        ${bottomSys}
-      </div>
-    </div>`;
+              ${someGroupItems.length !== 0
+                ? html`<div group=${groups[i]} class=${collapsed ? 'group-items' : 'group-items collapsed'}>
+                    ${someGroupItems.map((item: PanelInfo) => {
+                      return _renderPanelItem(item);
+                    })}
+                  </div>`
+                : nothing} `;
+          })}
+          <div class="spacer"></div>
+          <div class="bottom-panel" ?hidden=${_paperListbox['bottomItems'].length === 0}>${bottomPanel}</div>
+          <div class="divider"></div>
+          <div class="system-panel">${bottomSys}</div>
+        </div>
+      </div>`;
   }
 
   public _toggleGroup = (group: string | null, preview?: string) => {
@@ -176,14 +179,14 @@ export class SidebarDialogPreview extends LitElement {
         const itemGroup = container.querySelector(`div.group-items[group="${group}"]`) as HTMLElement;
         const isSelected = itemGroup.hasAttribute('selected');
         itemGroup.toggleAttribute('selected', !isSelected);
-        filteredItems.forEach((item) => ((item as HTMLElement).style.opacity = !isSelected ? '0.2' : '1'));
+        filteredItems.forEach((item) => ((item as HTMLElement).style.opacity = !isSelected ? '0.1' : ''));
       };
       hightLightItem();
     }
 
     if (group === null) {
       container.querySelectorAll('div.group-items').forEach((item) => item.removeAttribute('selected'));
-      Array.from(children).forEach((item) => ((item as HTMLElement).style.opacity = '1'));
+      Array.from(children).forEach((item) => ((item as HTMLElement).style.opacity = ''));
     }
   };
 
@@ -512,6 +515,11 @@ export class SidebarDialogPreview extends LitElement {
           font-size: 20px;
           min-height: 40px;
           align-items: center;
+          color: var(--sidebar-text-color);
+        }
+        .system-panel {
+          display: block;
+          margin-bottom: 40px;
         }
       `,
     ];
