@@ -8,7 +8,7 @@ import { ALERT_MSG, NAMESPACE, STORAGE } from '@constants';
 import { removeStorage } from '@utilities/storage-utils';
 import { SidebarConfig, HaExtened } from '@types';
 import { SidebarConfigDialog } from './sidebar-dialog';
-import { showConfirmDialog } from '@utilities/show-dialog-box';
+import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 
 @customElement('sidebar-dialog-code-editor')
 export class SidebarDialogCodeEditor extends LitElement {
@@ -112,6 +112,11 @@ export class SidebarDialogCodeEditor extends LitElement {
   private _handleBtnAction = async (action: string) => {
     switch (action) {
       case 'download':
+        let filename = await showPromptDialog(this, 'Enter the filename', 'sidebar-organizer', 'Download');
+        if (!filename) {
+          filename = 'sidebar-organizer';
+        }
+
         const data = YAML.stringify(this._sidebarConfig);
 
         // Create a blob from the data
@@ -120,7 +125,7 @@ export class SidebarDialogCodeEditor extends LitElement {
 
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${NAMESPACE}.yaml`;
+        a.download = `${filename}.yaml`;
         a.click();
         URL.revokeObjectURL(url);
         console.log('Downloading Config');
@@ -132,9 +137,8 @@ export class SidebarDialogCodeEditor extends LitElement {
         break;
 
       case 'delete':
-        const message = 'Are you sure you want to delete the current configuration?';
         const confirmText = 'Delete';
-        const confirmDelete = await showConfirmDialog(this, message, confirmText);
+        const confirmDelete = await showConfirmDialog(this, ALERT_MSG.CONFIRM_DELETE, confirmText);
         console.log('Delete Config', confirmDelete);
         if (confirmDelete) {
           removeStorage(STORAGE.UI_CONFIG);
