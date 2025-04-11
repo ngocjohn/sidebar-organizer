@@ -1,3 +1,21 @@
+<a id="v1.2.0"></a>
+# [v1.2.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.2.0) - 2025-04-11
+
+<!-- Release notes generated using configuration in .github/release.yml at v1.2.0 -->
+
+## What's Changed
+
+Improved handling of plugin configuration changes to prevent unintended loops and ensure smoother updates. Includes minor bug fixes and internal improvements.
+
+### Fixes 🐛
+* Fix: Loop when changing configuration by [@ngocjohn](https://github.com/ngocjohn) in [#8](https://github.com/ngocjohn/sidebar-organizer/pull/8)
+
+
+**Full Changelog**: https://github.com/ngocjohn/sidebar-organizer/compare/v1.1.0...v1.2.0
+
+[Changes][v1.2.0]
+
+
 <a id="v1.1.0"></a>
 # [v1.1.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.1.0) - 2025-03-15
 
@@ -59,6 +77,7 @@ With Sidebar Organizer, managing the sidebar in Home Assistant becomes easy and 
 [Changes][v1.0.0]
 
 
+[v1.2.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.0.2...v1.1.0
 [v1.0.2]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.0.0...v1.0.2
 [v1.0.0]: https://github.com/ngocjohn/sidebar-organizer/tree/v1.0.0
