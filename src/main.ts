@@ -502,6 +502,7 @@ class SidebarOrganizer {
   private _initSidebarOrdering() {
     const currentPanel = this.HaSidebar._panelOrder;
     this._baseOrder = this._handleGroupedPanelOrder(currentPanel);
+    setStorage(STORAGE.PANEL_ORDER, this._baseOrder);
     this.HaSidebar._panelOrder = [...this._baseOrder];
     this._reorderGroupedSidebar();
   }
@@ -657,8 +658,8 @@ class SidebarOrganizer {
       console.log('Changes Detected');
       // remove empty custom group or alert to abort
 
-      setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
       setStorage(STORAGE.UI_CONFIG, config);
+      setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
       setTimeout(() => {
         window.location.reload();
       }, 100);
