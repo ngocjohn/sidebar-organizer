@@ -637,8 +637,9 @@ export class SidebarDialogGroups extends LitElement {
     ev.stopPropagation();
     const value = ev.detail.value;
     console.log('new value', value);
-    const { custom_groups, bottom_items } = validateConfig(this._sidebarConfig);
+    const { custom_groups, bottom_items } = validateConfig(this._sidebarConfig, value);
     this._updatePanels(value);
+
     const updates: Partial<SidebarConfig> = {};
 
     let customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
@@ -656,13 +657,13 @@ export class SidebarDialogGroups extends LitElement {
     hiddenItems = [...value];
     updates.hidden_items = hiddenItems;
 
-    console.log('updates', updates);
     if (Object.keys(updates).length > 0) {
       this._sidebarConfig = {
         ...this._sidebarConfig,
         ...updates,
       };
     }
+
     this._dispatchConfig(this._sidebarConfig);
   }
 

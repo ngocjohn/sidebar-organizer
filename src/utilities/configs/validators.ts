@@ -4,8 +4,14 @@ import { HaExtened, SidebarConfig } from '@types';
 import * as LOGGER from '../logger';
 import { getHiddenPanels, getStorageConfig, setStorage, sidebarUseConfigFile } from '../storage-utils';
 
-export const validateConfig = (config: SidebarConfig): SidebarConfig => {
-  const hiddenPanels = getHiddenPanels();
+export const validateConfig = (config: SidebarConfig, hidden?: string[]): SidebarConfig => {
+  let hiddenPanels: string[] = [];
+  if (!hidden) {
+    hiddenPanels = getHiddenPanels();
+  } else {
+    hiddenPanels = hidden;
+  }
+
   if (hiddenPanels.length === 0) return config;
 
   const newConfig = { ...config };
