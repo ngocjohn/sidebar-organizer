@@ -25,18 +25,12 @@ export class SidebarDialogPreview extends LitElement {
     const colorMode = this.hass.themes.darkMode ? 'dark' : 'light';
     // console.log('colorMode', colorMode);
     this._colorConfigMode = colorMode;
+    if (this._sidebarConfig) {
+      this._paperListbox = getPreviewItems(this.hass, this._sidebarConfig);
+    }
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
-    if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
-      this._ready = false;
-      this._paperListbox = getPreviewItems(this.hass, this._sidebarConfig);
-      if (this._paperListbox) {
-        this._ready = true;
-      }
-      return true;
-    }
-
     if (_changedProperties.has('_dialog') && this._dialog) {
       return true;
     }
@@ -45,6 +39,24 @@ export class SidebarDialogPreview extends LitElement {
   }
 
   protected updated(_changedProperties: PropertyValues): void {
+    super.updated(_changedProperties);
+    if (_changedProperties.has('_paperListbox') && this._paperListbox) {
+      this._ready = true;
+    }
+    if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
+      const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
+      const newConfig = this._sidebarConfig;
+
+      if (oldConfig && JSON.stringify(oldConfig) !== JSON.stringify(newConfig)) {
+        console.log('Config changed', JSON.stringify(oldConfig) !== JSON.stringify(newConfig));
+        this._ready = false;
+        this._paperListbox = getPreviewItems(this.hass, newConfig);
+        if (this._paperListbox) {
+          this._ready = true;
+        }
+      }
+    }
+
     if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode) {
       this._setTheme(this._colorConfigMode);
       setTimeout(() => {
