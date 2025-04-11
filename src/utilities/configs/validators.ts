@@ -1,6 +1,7 @@
 import { CONFIG_NAME, STORAGE } from '@constants';
 import { HaExtened, SidebarConfig } from '@types';
 
+import * as LOGGER from '../logger';
 import { getHiddenPanels, getStorageConfig, setStorage, sidebarUseConfigFile } from '../storage-utils';
 
 export const validateConfig = (config: SidebarConfig): SidebarConfig => {
@@ -38,11 +39,17 @@ export const isItemsValid = (config: SidebarConfig, hass: HaExtened['hass']): bo
   const noTitleItems = allItems.filter((item) => hass.panels[item] && !hass.panels[item].title);
 
   if (invalidItems.length > 0) {
-    console.warn(`${CONFIG_NAME}: Config is not valid. Diff items: ${invalidItems.join(', ')}`);
+    // console.warn(`${CONFIG_NAME}: Config is not valid. Diff items: ${invalidItems.join(', ')}`);
+    LOGGER.warn(`${CONFIG_NAME}: Config is not valid. Diff items: ${invalidItems.join(', ')}`);
+
+    console.table(invalidItems);
   }
 
   if (noTitleItems.length > 0) {
-    console.warn(`${CONFIG_NAME}: Items not showing in sidebar: ${noTitleItems.join(', ')}`);
+    // console.warn(`${CONFIG_NAME}: Items not showing in sidebar: ${noTitleItems.join(', ')}`);
+    LOGGER.warn(`${CONFIG_NAME}: Items not showing in sidebar: ${noTitleItems.join(', ')}`);
+
+    console.table(noTitleItems);
   }
 
   const configValid = invalidItems.length === 0 && noTitleItems.length === 0;
