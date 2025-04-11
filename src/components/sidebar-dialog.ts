@@ -2,7 +2,6 @@ import { ALERT_MSG, STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, HaExtened } from '@types';
 import { isItemsValid } from '@utilities/configs';
 import { fetchDashboards } from '@utilities/dashboard';
-import * as LOGGER from '@utilities/logger';
 import { showAlertDialog } from '@utilities/show-dialog-box';
 import {
   getStorage,
@@ -31,6 +30,7 @@ const tabs = ['appearance', 'panels'] as const;
 export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
   @property({ attribute: false }) _sideBarRoot!: ShadowRoot;
+
   @state() public _sidebarConfig = {} as SidebarConfig;
 
   @state() public _tabState: TAB_STATE = TAB_STATE.BASE;
@@ -66,122 +66,6 @@ export class SidebarConfigDialog extends LitElement {
       return true;
     }
     return true;
-  }
-
-  static get styles(): CSSResultGroup {
-    return [
-      css`
-        :host {
-          --side-dialog-gutter: 0.5rem;
-          --side-dialog-padding: 1rem;
-        }
-
-        #sidebar-dialog-wrapper {
-          display: flex;
-          flex-direction: row;
-          gap: var(--side-dialog-padding);
-          justify-content: center;
-          position: relative;
-          width: 100%;
-        }
-        @media all and (max-width: 800px), all and (max-height: 500px) {
-          #sidebar-dialog-wrapper {
-            flex-direction: column;
-          }
-          #sidebar-preview {
-            max-width: none !important;
-            width: 100%;
-          }
-        }
-        .dialog-content > * {
-          flex-basis: 0;
-          flex-grow: 1;
-          flex-shrink: 1;
-          min-width: 0;
-        }
-
-        #sidebar-config {
-          display: block;
-        }
-
-        #tabbar {
-          display: flex;
-          font-size: 1rem;
-          overflow: hidden;
-          text-transform: uppercase;
-          margin-bottom: var(--side-dialog-padding);
-          align-content: stretch;
-          justify-content: space-around;
-          align-items: stretch;
-          font-weight: 500;
-        }
-        .tab-item {
-          width: 100%;
-          flex: 1;
-        }
-        .tab-item[active] {
-          background-color: #9b9b9b10;
-        }
-
-        #sidebar-preview {
-          position: sticky;
-          top: 0px;
-          padding: 0px;
-          justify-items: center;
-          max-width: 260px;
-          max-height: fit-content;
-          overflow: hidden;
-        }
-
-        .config-content {
-          display: flex;
-          flex-direction: column;
-          gap: var(--side-dialog-gutter);
-          margin-top: 1rem;
-          min-height: 250px;
-          flex: 1;
-          justify-content: space-between;
-        }
-
-        .header-row {
-          display: inline-flex;
-          justify-content: space-between;
-          align-items: center;
-          width: 100%;
-          --mdc-icon-button-size: 42px;
-          gap: var(--side-dialog-gutter);
-        }
-        .header-row.center {
-          justify-content: center;
-        }
-        .flex {
-          flex: 1;
-        }
-
-        .overlay {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          /* padding-inline: 0.5rem; */
-        }
-
-        .overlay[expanded] {
-          display: flex;
-          position: absolute;
-          width: -webkit-fill-available;
-          height: -webkit-fill-available;
-          align-items: center;
-          justify-content: center;
-          flex-direction: column;
-          gap: 2rem;
-          background: var(--card-background-color);
-          z-index: 100;
-          padding: 1rem;
-          top: 0;
-          left: 0;
-        }
-      `,
-    ];
   }
 
   private _setupInitConfig = async () => {
@@ -311,7 +195,6 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   private _uploadConfigFile() {
-    this._uploading = true;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.yaml';
@@ -321,6 +204,7 @@ export class SidebarConfigDialog extends LitElement {
       if (!file) {
         return;
       }
+      this._uploading = true;
       const reader = new FileReader();
       reader.onload = async (ev) => {
         try {
@@ -376,8 +260,6 @@ export class SidebarConfigDialog extends LitElement {
       console.log('Sidebar panels have changed');
       console.log('Extra panels:', extraPanels);
       console.log('Missing panels:', missingPanels);
-      // window.location.reload();
-      LOGGER.debug('Sidebar panels have changed', extraPanels, missingPanels);
       const newEvent = new CustomEvent('config-diff', {
         detail: {
           extraPanels,
@@ -434,6 +316,122 @@ export class SidebarConfigDialog extends LitElement {
     this._initPanelOrder = [..._sidebarItems];
     this._configLoaded = true;
   };
+
+  static get styles(): CSSResultGroup {
+    return [
+      css`
+        :host {
+          --side-dialog-gutter: 0.5rem;
+          --side-dialog-padding: 1rem;
+        }
+
+        #sidebar-dialog-wrapper {
+          display: flex;
+          flex-direction: row;
+          gap: var(--side-dialog-padding);
+          justify-content: center;
+          position: relative;
+          width: 100%;
+        }
+        @media all and (max-width: 800px), all and (max-height: 500px) {
+          #sidebar-dialog-wrapper {
+            flex-direction: column;
+          }
+          #sidebar-preview {
+            max-width: none !important;
+            width: 100%;
+          }
+        }
+        .dialog-content > * {
+          flex-basis: 0;
+          flex-grow: 1;
+          flex-shrink: 1;
+          min-width: 0;
+        }
+
+        #sidebar-config {
+          display: block;
+        }
+
+        #tabbar {
+          display: flex;
+          font-size: 1rem;
+          overflow: hidden;
+          text-transform: uppercase;
+          margin-bottom: var(--side-dialog-padding);
+          align-content: stretch;
+          justify-content: space-around;
+          align-items: stretch;
+          font-weight: 500;
+        }
+        .tab-item {
+          width: 100%;
+          flex: 1;
+        }
+        .tab-item[active] {
+          background-color: #9b9b9b10;
+        }
+
+        #sidebar-preview {
+          position: sticky;
+          top: 0px;
+          padding: 0px;
+          justify-items: center;
+          max-width: 260px;
+          max-height: fit-content;
+          overflow: hidden;
+        }
+
+        .config-content {
+          display: flex;
+          flex-direction: column;
+          gap: var(--side-dialog-gutter);
+          margin-top: 1rem;
+          min-height: 250px;
+          flex: 1;
+          justify-content: space-between;
+        }
+
+        .header-row {
+          display: inline-flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+          --mdc-icon-button-size: 42px;
+          gap: var(--side-dialog-gutter);
+        }
+        .header-row.center {
+          justify-content: center;
+        }
+        .flex {
+          flex: 1;
+        }
+
+        .overlay {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          /* padding-inline: 0.5rem; */
+        }
+
+        .overlay[expanded] {
+          display: flex;
+          position: absolute;
+          width: -webkit-fill-available;
+          height: -webkit-fill-available;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 2rem;
+          background: var(--card-background-color);
+          z-index: 100;
+          padding: 1rem;
+          top: 0;
+          left: 0;
+        }
+      `,
+    ];
+  }
 }
 
 declare global {
