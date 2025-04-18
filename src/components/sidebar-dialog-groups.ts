@@ -86,7 +86,7 @@ export class SidebarDialogGroups extends LitElement {
           this._handleSortEnd(evt);
         },
       });
-      console.log('sortable initialized');
+      // console.log('sortable initialized');
     }
   };
 

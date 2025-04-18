@@ -31,7 +31,6 @@ export class SidebarDialogColors extends LitElement {
 
   @state() private _state: THEME_STATE = THEME_STATE.LOADING;
 
-  private _colorHelper: tinycolor = tinycolor;
   private _initColor: string = '';
   @state() private _initCustomStyles: Array<Record<string, string>> = [];
   @state() private _yamlEditor: any;
@@ -101,6 +100,23 @@ export class SidebarDialogColors extends LitElement {
         this._dialog._dialogPreview._colorConfigMode = this._colorConfigMode;
       }
     }
+  }
+
+  private get singleMode(): boolean {
+    let singleMode: boolean = false;
+    const selectedTheme = this.hass.themes.theme;
+    if ((selectedTheme && selectedTheme === 'default') || selectedTheme === '') {
+      singleMode = true;
+    } else {
+      const themeObj = this.hass.themes.themes[selectedTheme];
+      const modes = themeObj.modes;
+      if (!modes || typeof modes !== 'object') {
+        singleMode = true;
+      } else if (Object.keys(modes).length === 1) {
+        singleMode = true;
+      }
+    }
+    return singleMode;
   }
 
   private _getYamlEditor() {
@@ -203,23 +219,6 @@ export class SidebarDialogColors extends LitElement {
       },
     };
     this._dispatchConfig(this._sidebarConfig);
-  }
-
-  private get singleMode(): boolean {
-    let singleMode: boolean = false;
-    const selectedTheme = this.hass.themes.theme;
-    if ((selectedTheme && selectedTheme === 'default') || selectedTheme === '') {
-      singleMode = true;
-    } else {
-      const themeObj = this.hass.themes.themes[selectedTheme];
-      const modes = themeObj.modes;
-      if (!modes || typeof modes !== 'object') {
-        singleMode = true;
-      } else if (Object.keys(modes).length === 1) {
-        singleMode = true;
-      }
-    }
-    return singleMode;
   }
 
   /* --------------------------- THEME CONFIGURATION -------------------------- */

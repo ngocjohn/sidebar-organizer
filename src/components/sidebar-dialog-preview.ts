@@ -161,7 +161,6 @@ export class SidebarDialogPreview extends LitElement {
   }
 
   public _toggleGroup = (group: string | null, preview?: string) => {
-    console.log('toggleGroup', group);
     const container = this.shadowRoot?.querySelector('div.groups-container') as HTMLElement;
     const children = container.children;
     const groups = this.shadowRoot?.querySelectorAll('div.divider-container') as NodeListOf<HTMLElement>;
