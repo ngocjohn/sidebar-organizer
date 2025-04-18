@@ -24,13 +24,12 @@ class SidebarOrganizer {
     const instance = new HAQuerySelector();
 
     instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, async (event) => {
-      const { HOME_ASSISTANT, HOME_ASSISTANT_MAIN, HA_DRAWER, HA_SIDEBAR, PARTIAL_PANEL_RESOLVER } = event.detail;
+      const { HOME_ASSISTANT, HOME_ASSISTANT_MAIN, HA_DRAWER, HA_SIDEBAR } = event.detail;
       this.ha = (await HOME_ASSISTANT.element) as HaExtened;
       this.main = (await HOME_ASSISTANT_MAIN.selector.$.element) as ShadowRoot;
       this._haDrawer = await HA_DRAWER.element;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
-      this._partialPanelResolver = (await PARTIAL_PANEL_RESOLVER.element) as PartialPanelResolver;
       this.run();
     });
 
@@ -64,7 +63,6 @@ class SidebarOrganizer {
   private HaSidebar: any;
   private main!: ShadowRoot;
   private sideBarRoot!: ShadowRoot;
-  private _partialPanelResolver: PartialPanelResolver | undefined;
   private _panelResolver!: HAElement;
   private _sidebar!: HAElement;
   private _haDrawer: any;
@@ -361,9 +359,9 @@ class SidebarOrganizer {
   }
 
   private async _handleHaEvents(event: any) {
-    // event.stopPropagation();
     event.stopPropagation();
     const { type, detail } = event;
+    if (!type || !detail) return;
     switch (type) {
       case HA_EVENT.SETTHEME:
         const themeSetting = detail as ThemeSettings;
@@ -376,6 +374,7 @@ class SidebarOrganizer {
       case HA_EVENT.LOCATION_CHANGED:
         // this._panelLoaded();
         const changed = detail.replace;
+        // console.log('Location Changed', changed);
         if (changed) {
           const path = (await this._panelResolver.element) as PartialPanelResolver;
           const pathName = path.__route.path;
