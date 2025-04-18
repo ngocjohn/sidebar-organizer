@@ -118,9 +118,9 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   private _renderSidebarPreview(): TemplateResult {
-    if (!this._sidebarConfig || !this._configLoaded) {
-      return html`<ha-circular-progress .indeterminate=${true} .size=${'medium'}></ha-circular-progress>`;
-    }
+    // if (!this._sidebarConfig || !this._configLoaded) {
+    //   return html`<ha-circular-progress .indeterminate=${true} .size=${'medium'}></ha-circular-progress>`;
+    // }
 
     return html`
       <div id="sidebar-preview">
