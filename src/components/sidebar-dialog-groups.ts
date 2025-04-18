@@ -13,7 +13,7 @@ import { SidebarConfigDialog } from './sidebar-dialog';
 // type PANEL_TABS = 'bottomPanel' | 'customGroups' | 'hiddenItems';
 enum PANEL {
   BOTTOM_PANEL = 'bottomPanel',
-  CUSTOM_GROUPS = 'customGroups',
+  CUSTOM_GROUP = 'customGroup',
   HIDDEN_ITEMS = 'hiddenItems',
 }
 
@@ -26,7 +26,9 @@ export class SidebarDialogGroups extends LitElement {
   @state() private _selectedTab: PANEL = PANEL.BOTTOM_PANEL;
   @state() public _selectedGroup: string | null = null;
   @state() private _reloadItems = false;
+  @state() private _reloadPanelItems: boolean = false;
   @state() private _sortable: Sortable | null = null;
+  @state() private _panelSortable: Sortable | null = null;
 
   protected firstUpdated(): void {
     this._setGridSelector();
@@ -34,7 +36,7 @@ export class SidebarDialogGroups extends LitElement {
 
   protected updated(_changedProperties: PropertyValues) {
     if (
-      (_changedProperties.has('_selectedTab') && this._selectedTab !== PANEL.CUSTOM_GROUPS) ||
+      (_changedProperties.has('_selectedTab') && this._selectedTab !== PANEL.CUSTOM_GROUP) ||
       (_changedProperties.has('_selectedGroup') && this._selectedGroup !== undefined)
     ) {
       setTimeout(() => {
@@ -44,8 +46,11 @@ export class SidebarDialogGroups extends LitElement {
 
     if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
       this._dialog._dialogPreview._toggleBottomPanel(this._selectedTab === PANEL.BOTTOM_PANEL);
-      if (this._selectedTab !== PANEL.CUSTOM_GROUPS) {
+      if (this._selectedTab !== PANEL.CUSTOM_GROUP) {
         this._selectedGroup = null;
+      }
+      if (this._selectedTab === PANEL.BOTTOM_PANEL) {
+        this._initPanelSortable();
       }
     }
     if (
@@ -59,6 +64,7 @@ export class SidebarDialogGroups extends LitElement {
     if (_changedProperties.has('_selectedGroup') && this._selectedGroup !== null) {
       this._sortable?.destroy();
       this._sortable = null;
+      this._initPanelSortable();
     } else if (
       _changedProperties.has('_selectedGroup') &&
       this._selectedGroup === null &&
@@ -66,6 +72,8 @@ export class SidebarDialogGroups extends LitElement {
       this._selectedTab !== PANEL.HIDDEN_ITEMS
     ) {
       this._initSortable();
+      this._panelSortable?.destroy();
+      this._panelSortable = null;
     }
 
     if (_changedProperties.has('_selectedGroup')) {
@@ -89,6 +97,88 @@ export class SidebarDialogGroups extends LitElement {
       // console.log('sortable initialized');
     }
   };
+
+  private _initPanelSortable = (): void => {
+    const selectedItems = this.shadowRoot?.querySelector('#selected-items') as HTMLElement;
+
+    if (selectedItems) {
+      this._panelSortable = new Sortable(selectedItems, {
+        handle: '.handle',
+        ghostClass: 'sortable-ghost',
+        animation: 150,
+        onEnd: (evt) => {
+          this._handlePanelSortEnd(evt);
+        },
+      });
+      console.log('panel sortable initialized');
+    }
+  };
+
+  private _handlePanelSortEnd(evt: Sortable.SortableEvent): void {
+    if (!this._sidebarConfig) return;
+    evt.preventDefault();
+    const oldIndex = evt.oldIndex as number;
+    const newIndex = evt.newIndex as number;
+
+    const updateConfig = (updates: Partial<SidebarConfig>) => {
+      this._sidebarConfig = {
+        ...this._sidebarConfig,
+        ...updates,
+      };
+      this._dispatchConfig(this._sidebarConfig);
+      setTimeout(() => {
+        this._checkSortedItems();
+      }, 50);
+    };
+
+    switch (this._selectedTab) {
+      case PANEL.BOTTOM_PANEL:
+        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+        const [removedItem] = bottomItems.splice(oldIndex, 1);
+        bottomItems.splice(newIndex, 0, removedItem);
+        updateConfig({ bottom_items: bottomItems });
+        // console.log('bottom new order:', bottomItems);
+        break;
+      case PANEL.CUSTOM_GROUP:
+        const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
+        const groupName = this._selectedGroup;
+        if (groupName) {
+          const groupItems = [...(customGroups[groupName] || [])];
+          console.log(groupName, groupItems);
+          const [removedItem] = groupItems.splice(oldIndex, 1);
+          groupItems.splice(newIndex, 0, removedItem);
+          customGroups[groupName] = groupItems;
+          updateConfig({ custom_groups: customGroups });
+          // console.log(`New:`, groupName, groupItems);
+        }
+        break;
+    }
+  }
+
+  private _checkSortedItems() {
+    const selectedItems = this.shadowRoot?.querySelector('#selected-items') as HTMLElement;
+    if (!selectedItems) return;
+    const selectedItemsList = this._selectedGroup
+      ? this._sidebarConfig.custom_groups![this._selectedGroup]
+      : this._sidebarConfig.bottom_items || [];
+
+    const selectedItemsArray = Array.from(selectedItems.querySelectorAll('li')).map((item) =>
+      item.getAttribute('data-panel')
+    );
+
+    const isSame = selectedItemsArray.every((item, index) => item === selectedItemsList[index]);
+    if (!isSame) {
+      this._reloadPanelItems = true;
+      this._panelSortable?.destroy();
+      this._panelSortable = null;
+      setTimeout(() => {
+        this._reloadPanelItems = false;
+        setTimeout(() => {
+          this._initPanelSortable();
+        }, 200);
+      }, 200);
+    }
+  }
 
   private _setGridSelector = (): void => {
     const selectorEl =
@@ -257,7 +347,7 @@ export class SidebarDialogGroups extends LitElement {
     const loading =
       customGroupList.length === 0
         ? html`<div>No custom groups found</div>`
-        : html`<ha-circular-progress .indeterminate=${true}></ha-circular-progress>`;
+        : html`<ha-spinner .size=${'small'}></ha-spinner>`;
 
     return html`
       ${!customGroupList.length || this._reloadItems
@@ -436,7 +526,6 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
-    const hassPanels = this.hass?.panels;
     const currentItems = this._dialog._initPanelOrder;
     const pickedItems = this.pickedItems;
     const selectedType = customGroup ? customGroup : 'bottom_items';
@@ -452,26 +541,7 @@ export class SidebarDialogGroups extends LitElement {
 
     const selector = this._createSelectorOptions(itemsToChoose);
 
-    // new array with title instead of key
-    const selectedItemsArrayWithTitles = selectedItems.map(
-      (item) =>
-        this.hass.localize(`panel.${hassPanels[item].title}`) || hassPanels[item]?.title || hassPanels[item].url_path
-    );
-
-    const renderItems = html` <div class="header-row flex-icon">
-        <span>ITEMS ORDER</span>
-        <ha-icon-button .path=${mdiSortAlphabeticalVariant} @click=${() => this._sortItems(selectedType)}>
-        </ha-icon-button>
-      </div>
-      <ul class="selected-items">
-        ${repeat(
-          selectedItemsArrayWithTitles,
-          (item) => item,
-          (item) => {
-            return html`<li>${item}</li>`;
-          }
-        )}
-      </ul>`;
+    const renderItems = this._renderSelectedItems(selectedType, selectedItems);
 
     return html`
       <div id="items-preview-wrapper">
@@ -497,6 +567,44 @@ export class SidebarDialogGroups extends LitElement {
     `;
   }
 
+  private _renderSelectedItems(selectedType: string, selectedItems: string[]): TemplateResult {
+    const hassPanels = this.hass?.panels;
+    const selectedItemsArrayWithTitles = selectedItems.map((item) => {
+      return {
+        key: item,
+        title:
+          this.hass.localize(`panel.${hassPanels[item]?.title}`) ||
+          hassPanels[item]?.title ||
+          hassPanels[item].url_path,
+      };
+    });
+
+    return html`
+      <div class="header-row flex-icon">
+        <span>ITEMS ORDER</span>
+        <ha-icon-button .path=${mdiSortAlphabeticalVariant} @click=${() => this._sortItems(selectedType)}>
+        </ha-icon-button>
+      </div>
+
+      ${this._reloadPanelItems
+        ? html`<ha-spinner .size=${'small'}></ha-spinner> `
+        : html`<ul class="selected-items" id="selected-items">
+            ${repeat(
+              selectedItemsArrayWithTitles,
+              (item) => item,
+              (item, index) => {
+                return html`<li data-panel=${item.key} data-index=${index}>
+                  <div class="handle">
+                    <ha-icon icon="mdi:drag"></ha-icon>
+                  </div>
+                  ${item.title}
+                </li>`;
+              }
+            )}
+          </ul>`}
+    `;
+  }
+
   private _renderSpacer() {
     return html`<div style="flex: 1"></div>`;
   }
@@ -509,7 +617,7 @@ export class SidebarDialogGroups extends LitElement {
     const itemsWithTitles = selectedItems.map((item) => ({
       key: item,
       title:
-        this.hass.localize(`panel.${hassPanels[item].title}`) || hassPanels[item]?.title || hassPanels[item].url_path,
+        this.hass.localize(`panel.${hassPanels[item]?.title}`) || hassPanels[item]?.title || hassPanels[item].url_path,
     }));
 
     // Sort in ascending order by title (case-insensitive)
@@ -829,9 +937,21 @@ export class SidebarDialogGroups extends LitElement {
       ul.selected-items li {
         padding: 0.5rem;
         border-bottom: 0.5px solid var(--divider-color);
+        display: flex;
+        align-items: anchor-center;
       }
       ul.selected-items li:last-child {
         border-bottom: none;
+      }
+
+      ul.selected-items li .handle {
+        cursor: grab;
+        flex: 0 0 42px;
+        color: var(--secondary-text-color);
+        margin-inline-end: var(--side-dialog-padding);
+      }
+      ul.selected-items li .handle:hover {
+        cursor: grabbing;
       }
 
       code {

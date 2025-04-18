@@ -43,17 +43,14 @@ export class SidebarDialogPreview extends LitElement {
     if (_changedProperties.has('_paperListbox') && this._paperListbox) {
       this._ready = true;
     }
+
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
       const newConfig = this._sidebarConfig;
 
       if (oldConfig && JSON.stringify(oldConfig) !== JSON.stringify(newConfig)) {
         console.log('Config changed', JSON.stringify(oldConfig) !== JSON.stringify(newConfig));
-        this._ready = false;
-        this._paperListbox = getPreviewItems(this.hass, newConfig);
-        if (this._paperListbox) {
-          this._ready = true;
-        }
+        this._updateListbox(newConfig);
       }
     }
 
@@ -62,6 +59,17 @@ export class SidebarDialogPreview extends LitElement {
       setTimeout(() => {
         this._getDefaultColors();
       }, 100);
+    }
+  }
+
+  public _updateListbox(newConfig?: SidebarConfig): void {
+    if (!newConfig) {
+      newConfig = this._sidebarConfig;
+    }
+    this._ready = false;
+    this._paperListbox = getPreviewItems(this.hass, newConfig);
+    if (this._paperListbox) {
+      this._ready = true;
     }
   }
 
