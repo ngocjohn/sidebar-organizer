@@ -1,3 +1,21 @@
+<a id="v1.3.0"></a>
+# [v1.3.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.3.0) - 2025-04-19
+
+<!-- Release notes generated using configuration in .github/release.yml at v1.3.0 -->
+
+## What's Changed
+### New Features 🎉
+* Add drag and drop sorting for sidebar items by [@ngocjohn](https://github.com/ngocjohn) in [#11](https://github.com/ngocjohn/sidebar-organizer/pull/11)
+* Add custom theme support by [@ngocjohn](https://github.com/ngocjohn) in [#12](https://github.com/ngocjohn/sidebar-organizer/pull/12)
+  Introduce support for custom themes and improve the handling of theme modes in the sidebar, allowing for better user customization and experience.
+
+![2025-04-20 00 32 59](https://github.com/user-attachments/assets/1784f4b3-8306-4a1f-83a4-cd6b8bfc9444)
+
+**Full Changelog**: https://github.com/ngocjohn/sidebar-organizer/compare/v1.2.0...v1.3.0
+
+[Changes][v1.3.0]
+
+
 <a id="v1.2.0"></a>
 # [v1.2.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.2.0) - 2025-04-11
 
@@ -77,6 +95,7 @@ With Sidebar Organizer, managing the sidebar in Home Assistant becomes easy and 
 [Changes][v1.0.0]
 
 
+[v1.3.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.0.2...v1.1.0
 [v1.0.2]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.0.0...v1.0.2
