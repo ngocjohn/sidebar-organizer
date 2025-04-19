@@ -5,7 +5,7 @@ import { fetchConfig, validateConfig } from '@utilities/configs';
 import { getCollapsedItems, getInitPanelOrder } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
-import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
+import { applyTheme, addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
 import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 import { navigate } from 'custom-card-helpers';
@@ -85,7 +85,16 @@ class SidebarOrganizer {
   }
 
   get darkMode(): boolean {
-    return this.hass.themes.darkMode;
+    const forceTheme = this._config.color_config?.custom_theme?.mode;
+    if (forceTheme === 'dark') {
+      return true;
+    } else if (forceTheme === 'light') {
+      return false;
+    } else if (forceTheme === 'auto') {
+      return this.hass.themes.darkMode;
+    } else {
+      return this.hass.themes.darkMode;
+    }
   }
 
   get paperListbox(): HTMLElement {
@@ -707,6 +716,11 @@ class SidebarOrganizer {
 
   private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
     mode = mode ? mode : this.darkMode ? 'dark' : 'light';
+    const customTheme = color_config?.custom_theme?.theme || undefined;
+    if (customTheme) {
+      applyTheme(this.HaSidebar, this.hass, customTheme, mode);
+      // console.log('Custom Theme:', customTheme, 'Mode:', mode);
+    }
     const colorConfig = color_config?.[mode] || {};
     const borderRadius = color_config?.border_radius ? `${color_config.border_radius}px` : undefined;
     const marginRadius = borderRadius ? '4px 4px' : '1px 4px 0px';
@@ -718,7 +732,9 @@ class SidebarOrganizer {
     const defaultColors = getDefaultThemeColors();
     // console.log('theme', theme, 'colorConfig', colorConfig, 'defaultColors', defaultColors);
     const getColor = (key: string): string => {
-      return colorConfig?.[key] ?? defaultColors[key];
+      const color = colorConfig?.[key] ?? defaultColors[key];
+      // console.log('Color:', key, color);
+      return color;
     };
 
     const colorCssConfig = {
@@ -880,10 +896,6 @@ class SidebarOrganizer {
     }
   };
 
-  private async _fetchDashboards() {
-    return fetchDashboards(this.hass);
-  }
-
   private _toggleGroup(event: MouseEvent) {
     event.stopPropagation();
     const target = event.target as HTMLElement;
@@ -936,10 +948,6 @@ declare global {
 }
 
 // Initial Run
-
-// Promise.resolve(customElements.whenDefined('home-assistant')).then(() => {
-//   window.SidebarOrganizer = new SidebarOrganizer();
-// });
 
 if (!window.SidebarOrganizer) {
   window.SidebarOrganizer = new SidebarOrganizer();
