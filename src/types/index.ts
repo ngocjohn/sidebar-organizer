@@ -5,7 +5,7 @@ interface defaultPanel extends HomeAssistant {
 }
 
 export interface ThemeSettings {
-  theme: string;
+  theme?: string;
   // Radio box selection for theme picker. Do not use in Lovelace rendering as
   // it can be undefined == auto.
   // Property hass.themes.darkMode carries effective current mode.
@@ -83,6 +83,10 @@ export interface CustomStyles {
   [key: string]: string;
 }
 
+export type CustomTheme = {
+  theme?: string;
+  mode?: 'auto' | 'dark' | 'light';
+};
 export interface SidebarConfig {
   bottom_items?: string[];
   custom_groups?: {
@@ -96,5 +100,6 @@ export interface SidebarConfig {
     border_radius?: number;
     light?: DividerColorSettings;
     dark?: DividerColorSettings;
+    custom_theme?: CustomTheme;
   };
 }

@@ -20,13 +20,27 @@ export class SidebarDialogPreview extends LitElement {
   @state() private _baseColorFromTheme: DividerColorSettings = {};
 
   @state() private _ready = false;
+  @state() private _customThemeSetUp = false;
 
   protected firstUpdated(): void {
-    const colorMode = this.hass.themes.darkMode ? 'dark' : 'light';
     // console.log('colorMode', colorMode);
-    this._colorConfigMode = colorMode;
     if (this._sidebarConfig) {
       this._paperListbox = getPreviewItems(this.hass, this._sidebarConfig);
+      const colorMode = this._sidebarConfig.color_config?.custom_theme?.mode;
+      let darkMode: boolean;
+      if (colorMode === 'dark') {
+        darkMode = true;
+      } else if (colorMode === 'light') {
+        darkMode = false;
+      } else if (colorMode === 'auto') {
+        darkMode = this.hass.themes.darkMode;
+      } else {
+        darkMode = this.hass.themes.darkMode;
+      }
+      this._colorConfigMode = darkMode ? 'dark' : 'light';
+      setTimeout(() => {
+        this._setTheme(this._colorConfigMode);
+      }, 0);
     }
   }
 
@@ -34,7 +48,9 @@ export class SidebarDialogPreview extends LitElement {
     if (_changedProperties.has('_dialog') && this._dialog) {
       return true;
     }
-
+    if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
+      return true;
+    }
     return true;
   }
 
@@ -47,18 +63,46 @@ export class SidebarDialogPreview extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
       const newConfig = this._sidebarConfig;
+      if (oldConfig && newConfig) {
+        const bottomChanged = JSON.stringify(oldConfig.bottom_items) !== JSON.stringify(newConfig.bottom_items);
+        const customGroupsChanged = JSON.stringify(oldConfig.custom_groups) !== JSON.stringify(newConfig.custom_groups);
+        const hiddenItemsChanged = JSON.stringify(oldConfig.hidden_items) !== JSON.stringify(newConfig.hidden_items);
+        if (bottomChanged || customGroupsChanged || hiddenItemsChanged) {
+          console.log('Items changed');
+          this._updateListbox(newConfig);
+        }
 
-      if (oldConfig && JSON.stringify(oldConfig) !== JSON.stringify(newConfig)) {
-        console.log('Config changed', JSON.stringify(oldConfig) !== JSON.stringify(newConfig));
-        this._updateListbox(newConfig);
+        const themeChanged =
+          JSON.stringify(oldConfig.color_config?.custom_theme?.theme) !==
+          JSON.stringify(newConfig.color_config?.custom_theme?.theme);
+
+        if (themeChanged) {
+          // console.log(
+          //   'Theme changed',
+          //   oldConfig.color_config?.custom_theme?.theme,
+          //   '->',
+          //   newConfig.color_config?.custom_theme?.theme
+          // );
+          if (newConfig.color_config?.custom_theme?.theme === undefined) {
+            const themeCon = this.shadowRoot?.getElementById('theme-container');
+            themeCon?.removeAttribute('style');
+            setTimeout(() => {
+              this._setTheme(this._colorConfigMode);
+            }, 200);
+          } else {
+            this._setTheme(this._colorConfigMode);
+          }
+        }
       }
     }
 
     if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode) {
-      this._setTheme(this._colorConfigMode);
-      setTimeout(() => {
-        this._getDefaultColors();
-      }, 100);
+      const oldMode = _changedProperties.get('_colorConfigMode') as string | undefined;
+      const newMode = this._colorConfigMode;
+      if (oldMode && newMode && oldMode !== newMode) {
+        // console.log('Color mode changed:', oldMode, '->', newMode);
+        this._setTheme(newMode);
+      }
     }
   }
 
@@ -74,16 +118,22 @@ export class SidebarDialogPreview extends LitElement {
   }
 
   private _setTheme(mode: string): void {
-    const theme = this.hass.themes.theme;
+    let theme = this.hass.themes.theme;
+    const customTheme = this._sidebarConfig?.color_config?.custom_theme?.theme || undefined;
+    if (customTheme) {
+      theme = customTheme;
+    }
     const themeContainer = this.shadowRoot?.getElementById('theme-container');
     applyTheme(themeContainer, this.hass, theme, mode);
+    setTimeout(() => {
+      this._getDefaultColors();
+    }, 200);
+    // console.log('Preview Theme applied', theme, mode);
   }
 
   private _getDefaultColors(): void {
     const previewEl = this.shadowRoot?.getElementById('theme-container');
-
     const defaultColors = getDefaultThemeColors(previewEl!);
-    // console.log('defaultColors', defaultColors);
     this._baseColorFromTheme = defaultColors;
   }
 
@@ -230,7 +280,9 @@ export class SidebarDialogPreview extends LitElement {
     // console.log('Converted Custom Styles:', styleAddedCustom);
 
     const getColor = (key: string): string => {
-      return colorConfig?.[key] ?? this._baseColorFromTheme[key];
+      const color = colorConfig?.[key] ?? this._baseColorFromTheme[key];
+      // console.log('getColor', key, color);
+      return color;
     };
 
     const styleAdded = {
