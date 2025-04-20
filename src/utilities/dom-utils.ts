@@ -189,6 +189,7 @@ export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => 
   }
 
   const dividers = paperListbox?.querySelectorAll('div.divider') as NodeListOf<HTMLElement>;
+  if (dividers.length === 0) return;
   dividers.forEach((divider) => {
     const group = divider.getAttribute('group');
     const items = paperListbox?.querySelectorAll(`a[group="${group}"]`) as NodeListOf<HTMLAnchorElement>;
