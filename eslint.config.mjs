@@ -2,8 +2,9 @@ import typescriptEslintRecommended from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import perfectionist from 'eslint-plugin-perfectionist';
 import unusedImports from 'eslint-plugin-unused-imports';
+import { defineConfig } from 'eslint/config';
 
-export default [
+export default defineConfig([
   {
     files: ['src/**/*.ts'],
     ignores: ['dist', 'node_modules'],
@@ -49,4 +50,4 @@ export default [
       ],
     },
   },
-];
+]);
