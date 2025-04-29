@@ -5,6 +5,7 @@ export * from './colors';
 export * from './preview-items';
 export * from './storage-utils';
 export * from './logger';
+export * from './ws-templates';
 
 import memoizeOne from 'memoize-one';
 

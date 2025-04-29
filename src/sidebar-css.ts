@@ -37,6 +37,19 @@ export const DIVIDER_ADDED_STYLE = css`
     padding-top: 0;
   }
 
+  :host(:not([expanded])) a[data-notification='true'] > paper-icon-item > span.notification-badge-collapsed {
+    position: absolute;
+    bottom: 14px;
+    left: 26px;
+    inset-inline-start: 26px;
+    inset-inline-end: initial;
+    font-size: 0.65em;
+  }
+
+  :host([expanded]) a[data-notification='true'] > paper-icon-item > span.notification-badge-collapsed {
+    display: none !important;
+  }
+
   :host .divider[added] .added-content {
     display: flex;
     justify-content: flex-start;

@@ -3,6 +3,7 @@ import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } 
 import { SidebarConfig, HaExtened } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
+import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, css, LitElement, TemplateResult, nothing, PropertyValues, CSSResult } from 'lit';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { customElement, property, state } from 'lit/decorators';
@@ -15,6 +16,7 @@ enum PANEL {
   BOTTOM_PANEL = 'bottomPanel',
   CUSTOM_GROUP = 'customGroup',
   HIDDEN_ITEMS = 'hiddenItems',
+  NOTIFICATION = 'notification',
 }
 
 @customElement('sidebar-dialog-groups')
@@ -25,6 +27,7 @@ export class SidebarDialogGroups extends LitElement {
 
   @state() private _selectedTab: PANEL = PANEL.BOTTOM_PANEL;
   @state() public _selectedGroup: string | null = null;
+  @state() private _selectedNotification: string | null = null;
   @state() private _reloadItems = false;
   @state() private _reloadPanelItems: boolean = false;
   @state() private _sortable: Sortable | null = null;
@@ -265,6 +268,7 @@ export class SidebarDialogGroups extends LitElement {
       { value: 'bottomPanel', label: 'Bottom Panel' },
       { value: 'customGroup', label: 'Group Panel' },
       { value: 'hiddenItems', label: 'Hidden Items' },
+      { value: 'notification', label: 'Notification' },
     ];
 
     const tabSelector = html` <ha-control-select
@@ -278,11 +282,13 @@ export class SidebarDialogGroups extends LitElement {
     const bottomPanel = this._renderBottomItems();
     const hiddenItems = this._renderHiddenItems();
     const customGroup = this._selectedGroup === null ? this._renderCustomGroupTab() : this._renderEditGroup();
+    const notification = this._renderNotificationConfig();
 
     const tabMap = {
       bottomPanel: bottomPanel,
       customGroup: customGroup,
       hiddenItems: hiddenItems,
+      notification: notification,
     };
 
     return html`
@@ -314,6 +320,155 @@ export class SidebarDialogGroups extends LitElement {
       </ha-selector>
       ${this._renderSpacer()}
     </div>`;
+  }
+
+  private _renderNotificationConfig() {
+    const hassPanels = this.hass?.panels;
+    const items = this._dialog._initCombiPanels;
+    const options = items.map((panel) => {
+      const panelName = this.hass.localize(`panel.${hassPanels[panel]?.title}`) || hassPanels[panel]?.title || panel;
+      return { value: panel, label: panelName };
+    });
+    const selector = {
+      select: {
+        multiple: false,
+        custom_value: true,
+        mode: 'dropdown',
+        options: options,
+        sort: true,
+      },
+    };
+
+    const selectedNotification = this._sidebarConfig.notification || {};
+    const selected = options.filter((item) => {
+      const selectedItem = Object.keys(selectedNotification).includes(item.value);
+      return selectedItem;
+    });
+
+    const selectedEl = html`
+      <div class="group-list">
+        ${repeat(
+          selected,
+          (item) => item,
+          (item) => {
+            return html`
+              <div class="group-item-row">
+                <div class="group-name" @click=${() => (this._selectedNotification = item.value)}>${item.label}</div>
+                <div class="group-actions">
+                  <ha-icon-button .label=${'Edit item'} @click=${() => (this._selectedNotification = item.value)}
+                    ><ha-icon icon="mdi:pencil"></ha-icon
+                  ></ha-icon-button>
+                  <ha-icon-button
+                    .label=${'Delete item'}
+                    @click=${async () => {
+                      const confirmDelete = await showConfirmDialog(
+                        this,
+                        `Are you sure you want to delete this notification? ${item.label}`,
+                        'Delete'
+                      );
+                      if (!confirmDelete) return;
+                      const notifyConfig = { ...(this._sidebarConfig.notification || {}) };
+                      delete notifyConfig[item.value];
+                      this._sidebarConfig = {
+                        ...this._sidebarConfig,
+                        notification: notifyConfig,
+                      };
+                      this._dispatchConfig(this._sidebarConfig);
+                    }}
+                    ><ha-icon icon="mdi:trash-can-outline"></ha-icon
+                  ></ha-icon-button>
+                </div>
+              </div>
+            `;
+          }
+        )}
+      </div>
+    `;
+
+    return this._selectedNotification === null
+      ? html`
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${selector}
+            .value=${this._selectedNotification ?? ''}
+            .required=${false}
+            .label=${'Select panel for configuration'}
+            .placeholder=${'Select panel'}
+            @value-changed=${(ev: CustomEvent) => {
+              this._selectedNotification = ev.detail.value;
+            }}
+          ></ha-selector>
+          ${selectedEl}
+        `
+      : this._renderNotifyConfig();
+  }
+
+  private _renderNotifyConfig() {
+    if (!this._selectedNotification) return nothing;
+    const hassPanels = this.hass?.panels;
+    const key = this._selectedNotification;
+    const panelName = this.hass.localize(`panel.${hassPanels[key]?.title}`) || hassPanels[key]?.title || key;
+    const notifyConfig = this._sidebarConfig.notification![key] || '';
+    const headerBack = html`<div class="header-row ">
+      <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedNotification = null)}> </ha-icon-button>
+      ${panelName.toUpperCase()}
+      <ha-button
+        style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
+        @click=${() => {
+          this._selectedNotification = null;
+        }}
+        >Done</ha-button
+      >
+    </div>`;
+    this._subscribeTemplate(notifyConfig, (result) => {
+      const templatePreview = this.shadowRoot?.getElementById('template-preview-content') as HTMLElement;
+      if (templatePreview) {
+        templatePreview.innerHTML = result;
+      }
+    });
+    return html`
+      ${headerBack}
+      <ha-selector
+        .hass=${this.hass}
+        .value=${notifyConfig}
+        .configValue=${key}
+        .helper=${'Use Jinja template to configure the notification'}
+        .selector=${{
+          template: {},
+        }}
+        .required=${false}
+        @value-changed=${this._handleNotifyConfigChange}
+      ></ha-selector>
+
+      <div class="config-content">
+        <div id="template-preview">
+          <span>Template result:</span>
+          <pre id="template-preview-content" class="rendered"></pre>
+        </div>
+      </div>
+    `;
+  }
+
+  private _subscribeTemplate(configValye: string, callback: (result: string) => void): void {
+    if (!this.hass || !hasTemplate(configValye)) {
+      console.log('Not a template:', this.hass, !hasTemplate(configValye));
+      return;
+    }
+
+    subscribeRenderTemplate(
+      this.hass.connection,
+      (result) => {
+        callback(result.result);
+      },
+      {
+        template: configValye ?? '',
+        variables: {
+          config: configValye,
+          user: this.hass.user!.name,
+        },
+        strict: true,
+      }
+    );
   }
 
   private _renderCustomGroupTab(): TemplateResult {
@@ -404,6 +559,26 @@ export class SidebarDialogGroups extends LitElement {
           `}
       <div class="header-row flex-end">${addBtn}</div>
     `;
+  }
+
+  private _handleNotifyConfigChange(ev: CustomEvent) {
+    const configValue = (ev as any).target.configValue;
+    const value = ev.detail.value;
+
+    const notifyConfig = { ...(this._sidebarConfig.notification || {}) };
+    if (!value || value === '') {
+      delete notifyConfig[configValue];
+    }
+    if (value && value !== '') {
+      notifyConfig[configValue] = value;
+    }
+    console.log('notifyConfig', notifyConfig);
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      notification: notifyConfig,
+    };
+
+    this._dispatchConfig(this._sidebarConfig);
   }
 
   private _handleGroupAction = async (action: string, key: string) => {
@@ -963,6 +1138,18 @@ export class SidebarDialogGroups extends LitElement {
         font-size: inherit;
         text-align: center;
         line-height: 150%;
+      }
+
+      pre.rendered {
+        clear: both;
+        white-space: pre-wrap;
+        background-color: var(--secondary-background-color);
+        padding: 8px;
+        margin-top: 0px;
+        margin-bottom: 0px;
+        direction: ltr;
+        overflow: auto;
+        max-height: calc(var(--code-mirror-max-height) - 30px);
       }
     `;
   }
