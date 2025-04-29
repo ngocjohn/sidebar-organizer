@@ -87,6 +87,11 @@ export type CustomTheme = {
   theme?: string;
   mode?: 'auto' | 'dark' | 'light';
 };
+
+export interface NotificationConfig {
+  [key: string]: string;
+}
+
 export interface SidebarConfig {
   bottom_items?: string[];
   custom_groups?: {
@@ -102,4 +107,5 @@ export interface SidebarConfig {
     dark?: DividerColorSettings;
     custom_theme?: CustomTheme;
   };
+  notification?: NotificationConfig;
 }

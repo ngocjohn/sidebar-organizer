@@ -8,6 +8,7 @@ import { fetchDashboards } from '@utilities/dashboard';
 import { applyTheme, addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
 import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
+import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { navigate } from 'custom-card-helpers';
 
 import './components/sidebar-dialog';
@@ -273,6 +274,7 @@ class SidebarOrganizer {
       await this._getConfig();
       this._addCollapeToggle();
       this.firstSetUpDone = true;
+      this._handleNotification();
     }
 
     const sidebar = customElements.get('ha-sidebar') as any;
@@ -507,6 +509,29 @@ class SidebarOrganizer {
     this._initSidebarOrdering();
   }
 
+  private _subscribeTemplate(key: string, callback: (result: string) => void): void {
+    if (!this.hass || !hasTemplate(this._config.notification![key])) {
+      console.log('Not a template:', this.hass, this._config.notification![key]);
+      return;
+    }
+
+    const notifyConfig = this._config.notification![key];
+    subscribeRenderTemplate(
+      this.hass.connection,
+      (result) => {
+        callback(result.result);
+      },
+      {
+        template: notifyConfig ?? '',
+        variables: {
+          config: notifyConfig,
+          user: this.hass.user!.name,
+        },
+        strict: true,
+      }
+    );
+  }
+
   private _initSidebarOrdering() {
     const currentPanel = this.HaSidebar._panelOrder;
     this._baseOrder = this._handleGroupedPanelOrder(currentPanel);
@@ -546,7 +571,6 @@ class SidebarOrganizer {
         if (notSamePath) {
           panel.setAttribute('config-url', configUrl);
         }
-
         this.paperListbox.insertBefore(panel, spacer.nextSibling);
         if (index === 0) {
           // console.log('Adding Divider', panel, item);
@@ -892,9 +916,51 @@ class SidebarOrganizer {
       window.location.reload();
       // this._refreshSidebar();
     } else {
+      this._handleNotification();
       this._handleCollapsed(this.collapsedItems);
     }
   };
+
+  private _handleNotification() {
+    if (!this._config.notification || Object.keys(this._config.notification).length === 0) return;
+    const notifyKey = Object.keys(this._config.notification!);
+    const scrollbarItems = this.paperListbox!.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
+    notifyKey.forEach((key) => {
+      const panel = Array.from(scrollbarItems).find((el) => el.getAttribute('data-panel') === key);
+      if (panel) {
+        this._subscribeNotification(panel, key);
+      }
+    });
+  }
+
+  private _subscribeNotification(panel: HTMLAnchorElement, key: string): void {
+    let badge = panel.querySelector('.notification-badge:not(.notification-badge-collapsed)');
+    let badgeCollapsed = panel.querySelector('.notification-badge.notification-badge-collapsed');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.classList.add('notification-badge');
+      panel.querySelector('paper-icon-item')?.appendChild(badge);
+    }
+    if (!badgeCollapsed) {
+      badgeCollapsed = document.createElement('span');
+      badgeCollapsed.classList.add('notification-badge', 'notification-badge-collapsed');
+      panel.querySelector('ha-svg-icon, ha-icon')?.after(badgeCollapsed);
+    }
+
+    const callback = (resultContent: any) => {
+      if (resultContent) {
+        badge.innerHTML = resultContent;
+        badgeCollapsed.innerHTML = resultContent;
+        panel.setAttribute('data-notification', 'true');
+      } else {
+        badge.innerHTML = '';
+        badgeCollapsed.innerHTML = '';
+        panel.removeAttribute('data-notification');
+      }
+    };
+
+    this._subscribeTemplate(key, callback);
+  }
 
   private _toggleGroup(event: MouseEvent) {
     event.stopPropagation();
