@@ -450,7 +450,7 @@ class SidebarOrganizer {
   }
 
   private _setupConfigBtn(): void {
-    const profileEl = this.HaSidebar.shadowRoot?.querySelector('a[data-panel="panel"]') as HTMLElement;
+    const profileEl = this.sideBarRoot?.querySelector('ha-md-list-item[href="/profile"]') as HTMLElement;
     if (!profileEl) return;
     addAction(profileEl, this._addConfigDialog.bind(this));
   }
