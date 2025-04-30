@@ -430,7 +430,7 @@ class SidebarOrganizer {
       localStorage.removeItem(STORAGE.PANEL_ORDER);
       localStorage.removeItem(STORAGE.HIDDEN_PANELS);
     } else if (isStoragePanelEmpty()) {
-      const initPanelOrder = getInitPanelOrder(this.paperListbox);
+      const initPanelOrder = this._getInitPanelOrder();
       if (initPanelOrder !== null) {
         console.log('Setting Panel Order', initPanelOrder);
         this.HaSidebar._panelOrder = initPanelOrder;
@@ -440,7 +440,10 @@ class SidebarOrganizer {
     }
     this._hiddenPanels = getHiddenPanels();
   }
-
+  private _getInitPanelOrder() {
+    const paperListbox = this.sideBarRoot?.querySelector('ha-md-list.ha-scrollbar') as HTMLElement;
+    return getInitPanelOrder(paperListbox);
+  }
   private async _getConfig() {
     const config = await fetchConfig(this.hass);
     if (config) {
