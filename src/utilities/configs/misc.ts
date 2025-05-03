@@ -27,7 +27,7 @@ export const getInitPanelOrder = (paperListBox: HTMLElement): string[] => {
   const spacerIndex = Array.from(children).findIndex((child) => child.classList.contains('spacer'));
   const panelOrder = Array.from(children)
     .slice(0, spacerIndex)
-    .map((child) => child.shadowRoot!.querySelector('a')!.getAttribute('href'))
+    .map((child) => child.shadowRoot!.querySelector('a')!.getAttribute('href')?.replace('/', '') || null)
     .filter((panel) => panel !== null);
   setStorage(STORAGE.PANEL_ORDER, panelOrder);
   return panelOrder;
