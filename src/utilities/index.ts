@@ -6,6 +6,7 @@ export * from './preview-items';
 export * from './storage-utils';
 export * from './logger';
 export * from './ws-templates';
+export * from './is-icon';
 
 import memoizeOne from 'memoize-one';
 

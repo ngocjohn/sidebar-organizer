@@ -6,13 +6,14 @@ import { getCollapsedItems, getInitPanelOrder } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
 import { applyTheme, addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
+import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
-import { navigate } from 'custom-card-helpers';
 
 import './components/sidebar-dialog';
 
+import { navigate } from 'custom-card-helpers';
 import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnPanelLoadDetail } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html } from 'lit';
@@ -253,7 +254,7 @@ class SidebarOrganizer {
 
   private async _panelLoaded(): Promise<void> {
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
-    const pathName = panelResolver.__route.path;
+    const pathName = panelResolver.__route?.path;
     const paperListBox = (await this._sidebar.selector.$.query('paper-listbox').element) as HTMLElement;
 
     if (pathName && paperListBox) {
@@ -519,7 +520,7 @@ class SidebarOrganizer {
     subscribeRenderTemplate(
       this.hass.connection,
       (result) => {
-        callback(result.result);
+        callback(result.result.toString());
       },
       {
         template: notifyConfig ?? '',
@@ -936,25 +937,44 @@ class SidebarOrganizer {
   private _subscribeNotification(panel: HTMLAnchorElement, key: string): void {
     let badge = panel.querySelector('.notification-badge:not(.notification-badge-collapsed)');
     let badgeCollapsed = panel.querySelector('.notification-badge.notification-badge-collapsed');
-    if (!badge) {
+    let notifyIcon = panel.querySelector('ha-icon.notification-badge:not(.notification-badge-collapsed)');
+    let notifyIconCollapsed = panel.querySelector('ha-icon.notification-badge-collapsed');
+
+    if (!badge || !notifyIcon) {
       badge = document.createElement('span');
       badge.classList.add('notification-badge');
+      notifyIcon = document.createElement('ha-icon');
+      notifyIcon.classList.add('notification-badge');
       panel.querySelector('paper-icon-item')?.appendChild(badge);
+      panel.querySelector('paper-icon-item')?.appendChild(notifyIcon);
     }
-    if (!badgeCollapsed) {
+    if (!badgeCollapsed || !notifyIconCollapsed) {
       badgeCollapsed = document.createElement('span');
       badgeCollapsed.classList.add('notification-badge', 'notification-badge-collapsed');
+      notifyIconCollapsed = document.createElement('ha-icon');
+      notifyIconCollapsed.classList.add('notification-badge', 'notification-badge-collapsed');
       panel.querySelector('ha-svg-icon, ha-icon')?.after(badgeCollapsed);
+      panel.querySelector('ha-svg-icon, ha-icon')?.after(notifyIconCollapsed);
     }
 
     const callback = (resultContent: any) => {
       if (resultContent) {
-        badge.innerHTML = resultContent;
-        badgeCollapsed.innerHTML = resultContent;
+        if (typeof resultContent === 'string' && isIcon(resultContent)) {
+          notifyIcon.setAttribute('icon', resultContent);
+          notifyIconCollapsed.setAttribute('icon', resultContent);
+        } else {
+          badge.innerHTML = resultContent;
+          if (resultContent.length > 3) {
+            badge.classList.add('long');
+          }
+          badgeCollapsed.innerHTML = resultContent;
+        }
         panel.setAttribute('data-notification', 'true');
       } else {
         badge.innerHTML = '';
         badgeCollapsed.innerHTML = '';
+        notifyIcon!.removeAttribute('icon');
+        notifyIconCollapsed!.removeAttribute('icon');
         panel.removeAttribute('data-notification');
       }
     };

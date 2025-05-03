@@ -1,17 +1,14 @@
 import { PANEL_ICONS } from '@constants';
+import { SidebarConfigDialog } from 'components/sidebar-dialog';
 
 import { HaExtened, SidebarConfig, PanelInfo, Panels } from '../types';
 
-export const getPreviewItems = (hass: HaExtened['hass'], config: SidebarConfig) => {
+export const getPreviewItems = (dialog: SidebarConfigDialog, config: SidebarConfig) => {
+  const hass = dialog.hass as HaExtened['hass'];
   const hassPanels = hass?.panels as Panels;
   const defaultPanel = hass.defaultPanel;
-
-  // Helper function to create PanelInfo items
-  const createPanelItems = (items: string[]): PanelInfo[] => {
-    return items.map((item) => ({
-      title: hass.localize(`panel.${hassPanels[item]?.title}`) || hassPanels[item]?.title || item,
-      icon: hassPanels[item]?.icon || PANEL_ICONS[item],
-    }));
+  const createPanelItems = (items: string[]) => {
+    return _createPanelItems(hass, [...items]);
   };
 
   // Default Lovelace panel
@@ -44,8 +41,20 @@ export const getPreviewItems = (hass: HaExtened['hass'], config: SidebarConfig) 
 
   // Bottom panels
   _panelItems['bottomItems'] = createPanelItems(config.bottom_items || []);
+
+  // Ungrouped panels
   _panelItems['bottomSystem'] = createPanelItems(['developer-tools', 'config']);
 
   // console.log(_panelItems);
   return _panelItems;
+};
+
+// Helper function to create PanelInfo items
+export const _createPanelItems = (hass: HaExtened['hass'], items: string[]): PanelInfo[] => {
+  const hassPanels = hass?.panels as Panels;
+  return items.map((item) => ({
+    component_name: item,
+    title: hass.localize(`panel.${hassPanels[item]?.title}`) || hassPanels[item]?.title || item,
+    icon: hassPanels[item]?.icon || PANEL_ICONS[item],
+  }));
 };

@@ -37,11 +37,12 @@ export const DIVIDER_ADDED_STYLE = css`
     padding-top: 0;
   }
 
+  :host(:not([expanded])) a[data-notification='true'] > paper-icon-item > ha-icon.notification-badge-collapsed,
   :host(:not([expanded])) a[data-notification='true'] > paper-icon-item > span.notification-badge-collapsed {
     position: absolute;
-    bottom: 14px;
-    left: 26px;
-    inset-inline-start: 26px;
+    bottom: 20px;
+    left: 20px;
+    inset-inline-start: 20px;
     inset-inline-end: initial;
     font-size: 0.65em;
   }
@@ -50,6 +51,19 @@ export const DIVIDER_ADDED_STYLE = css`
     display: none !important;
   }
 
+  a[data-notification='true'] > paper-icon-item > ha-icon.notification-badge-collapsed,
+  a[data-notification='true'] > paper-icon-item > ha-icon.notification-badge {
+    padding: 0 !important;
+    color: var(--accent-color);
+    background-color: transparent;
+  }
+  a[data-notification='true'] > paper-icon-item > span.notification-badge {
+    padding: 0 5px !important;
+    border-radius: 20px !important;
+  }
+  a[data-notification='true'] > paper-icon-item > span.notification-badge.long {
+    inset-inline-start: calc(var(--app-drawer-width, 248px) - 48px);
+  }
   :host .divider[added] .added-content {
     display: flex;
     justify-content: flex-start;
