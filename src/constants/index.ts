@@ -2,6 +2,7 @@ import { SidebarConfig } from '@types';
 
 import { version, repository } from '../../package.json';
 
+export * from './dom';
 export const NAMESPACE = 'sidebar-organizer';
 export const NAMESPACE_TITLE = 'Sidebar Organizer';
 export const VERSION = `v${version}`;
