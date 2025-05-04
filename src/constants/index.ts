@@ -26,6 +26,7 @@ export enum STORAGE {
   PANEL_ORDER = 'sidebarPanelOrder',
   COLLAPSE = 'sidebarCollapsedGroups',
   HIDDEN_PANELS = 'sidebarHiddenPanels',
+  HA_VERSION = 'ha-version',
 }
 
 export enum HA_EVENT {
@@ -78,4 +79,5 @@ export const ALERT_MSG = {
     'If enabled, the sidebar configuration will be loaded from a Config file and UI configuration will be disabled.',
   NAME_EXISTS: 'The name already exists. Choose another name.',
   CONFIRM_DELETE: 'Are you sure you want to delete the current configuration?',
+  NOT_COMPATIBLE: 'Sidebar Organizer is not compatible with this version of Home Assistant',
 };

@@ -4,6 +4,11 @@ export enum SELECTOR {
   USER = '.user',
   MENU = '.menu',
   MENU_TITLE = '.title',
+  DIVIDER = '.divider',
+  SIDEBAR_CONFIG_DIALOG = '#sidebar-config-dialog',
+  SELECTED = '.selected',
+  HEADER_TOGGLE_ICON = 'ha-icon.collapse-toggle',
+  ADDED_CONTENT = '.added-content',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',
@@ -14,4 +19,14 @@ export enum ELEMENT {
   BUTTON = 'button',
   MD_RIPPLE = 'md-ripple',
   USER_BADGE = 'ha-user-badge',
+  SIDEBAR_CONFIG_DIALOG = 'sidebar-config-dialog',
+  HA_BUTTON = 'ha-button',
+}
+
+export enum CLASS {
+  COLLAPSED = 'collapsed',
+}
+
+export enum CUSTOM_EVENT {
+  CONFIG_DIFF = 'config-diff',
 }
