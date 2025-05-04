@@ -4,6 +4,13 @@
 
 # 🗄️ Sidebar Organizer
 
+> ⚠️ **Important Notice**
+> Sidebar Organizer v1.4.0 is confirmed to work with **Home Assistant versions up to 2025.5.x**.
+>
+> This is the **last functional release** before major changes to the Home Assistant sidebar system.
+>
+> 🔒 If you rely on Sidebar Organizer, **do not upgrade Home Assistant beyond version 2025.5.x** until a compatible update is released.
+
 <table>
   <thead>
     <tr>
