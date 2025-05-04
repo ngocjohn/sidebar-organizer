@@ -1,7 +1,7 @@
 import { PREVIEW_MOCK_PANELS } from '@constants';
 import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '@types';
+import { applyTheme } from '@utilities/apply-theme';
 import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
-import { applyTheme } from '@utilities/dom-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';

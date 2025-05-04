@@ -25,6 +25,8 @@ export enum ELEMENT {
 
 export enum CLASS {
   COLLAPSED = 'collapsed',
+  SELECTED = 'selected',
+  SPACER = 'spacer',
 }
 
 export enum CUSTOM_EVENT {

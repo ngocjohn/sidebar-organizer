@@ -14,11 +14,12 @@ import {
 } from '@constants';
 import { mdiInformation, mdiArrowExpand } from '@mdi/js';
 import { HaExtened, Panels, PartialPanelResolver, SidebarConfig, ThemeSettings } from '@types';
+import { applyTheme } from '@utilities/apply-theme';
 import { fetchConfig, validateConfig } from '@utilities/configs';
 import { getCollapsedItems, getInitPanelOrder, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
-import { applyTheme, addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
+import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
 import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
@@ -52,9 +53,9 @@ class SidebarOrganizer {
       this._sidebar = event.detail.HA_SIDEBAR;
     });
 
-    // instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
-    //   this._panelLoaded();
-    // });
+    instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
+      this._panelLoaded();
+    });
 
     instance.listen();
 
@@ -69,7 +70,7 @@ class SidebarOrganizer {
       window.addEventListener(event, this._handleHaEvents.bind(this));
     });
     this._currentPath = window.location.pathname;
-    // this._watchPathChanges();
+    this._watchPathChanges();
   }
 
   private ha?: HaExtened;
@@ -271,9 +272,9 @@ class SidebarOrganizer {
 
   private async _panelLoaded(): Promise<void> {
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
-    const pathName = panelResolver.__route.path;
-    const paperListBox = (await this._sidebar.selector.$.query('paper-listbox').element) as HTMLElement;
-
+    const pathName = panelResolver.route?.path || '';
+    const paperListBox = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_SCROLLBAR).element) as HTMLElement;
+    // console.log('Panel Loaded:', pathName, paperListBox);
     if (pathName && paperListBox) {
       // console.log('Dashboard Page Loaded');
       setTimeout(() => {
@@ -304,8 +305,8 @@ class SidebarOrganizer {
       // this._handleNotification();
     }
 
-    // const sidebar = customElements.get('ha-sidebar') as any;
-    // this._handleSidebarUpdate(sidebar);
+    const sidebar = customElements.get('ha-sidebar') as any;
+    this._handleSidebarUpdate(sidebar);
   }
 
   private _setDataPanel() {
@@ -431,7 +432,7 @@ class SidebarOrganizer {
         // console.log('Location Changed', changed);
         if (changed) {
           const path = (await this._panelResolver.element) as PartialPanelResolver;
-          const pathName = path.__route.path;
+          const pathName = path.route?.path || '';
           const paperListbox = this._scrollbar;
           onPanelLoaded(pathName, paperListbox);
         }
@@ -588,7 +589,7 @@ class SidebarOrganizer {
 
     const paperListbox = this._scrollbar;
     const children = paperListbox.children;
-    const spacerIndex = Array.from(children).findIndex((child) => child.classList.contains('spacer'));
+    const spacerIndex = Array.from(children).findIndex((child) => child.classList.contains(CLASS.SPACER));
     const panelOrder = Array.from(children)
       .slice(0, spacerIndex)
       .map((child) => child.getAttribute('data-panel'))
@@ -779,12 +780,16 @@ class SidebarOrganizer {
     this._handleSidebarHeader();
   }
 
+  private _applyTheme(theme: string) {
+    return applyTheme(this.sideBarRoot!, this.hass, theme, 'dark');
+  }
+
   private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
     mode = mode ? mode : this.darkMode ? 'dark' : 'light';
     const customTheme = color_config?.custom_theme?.theme || undefined;
     if (customTheme) {
       applyTheme(this.HaSidebar, this.hass, customTheme, mode);
-      // console.log('Custom Theme:', customTheme, 'Mode:', mode);
+      console.log('Custom Theme:', customTheme, 'Mode:', mode);
     }
     const colorConfig = color_config?.[mode] || {};
     const borderRadius = color_config?.border_radius ? `${color_config.border_radius}px` : undefined;
@@ -941,11 +946,7 @@ class SidebarOrganizer {
       JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems) ||
       JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder) ||
       JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed);
-    console.log('Diff Check:', {
-      bottomItemsDiff: JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems),
-      dividerOrderDiff: JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder),
-      panelOrderDiff: JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed),
-    });
+
     if (hasDiff) {
       this._diffCheck = false;
       LOGGER.warn('Changes detected:', {
@@ -953,7 +954,7 @@ class SidebarOrganizer {
         dividerOrderDiff: JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder),
         panelOrderDiff: JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed),
       });
-      // window.location.reload();
+      window.location.reload();
       // this._refreshSidebar();
     } else {
       // this._handleNotification();

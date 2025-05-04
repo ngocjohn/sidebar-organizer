@@ -1,9 +1,7 @@
-import { PATH } from '@constants';
+import { CLASS, ELEMENT, PATH, SELECTOR } from '@constants';
 import { mdiClose } from '@mdi/js';
-import { HomeAssistant, applyThemesOnElement } from 'custom-card-helpers';
+import { HomeAssistant } from 'custom-card-helpers';
 import { html, TemplateResult } from 'lit';
-
-import { HaExtened } from '../types';
 
 const HOLD_DURATION = 300;
 
@@ -105,40 +103,8 @@ export function addAction(configItem: HTMLElement, action?: () => void, clickAct
   });
 }
 
-export const applyTheme = (element: any, hass: HaExtened['hass'], theme: string, mode?: string): void => {
-  if (!element) return;
-  // console.log('applyTheme', theme, mode);
-  const themeData = hass.themes.themes[theme];
-  if (themeData) {
-    // Filter out only top-level properties for CSS variables and the modes property
-    const filteredThemeData = Object.keys(themeData)
-      .filter((key) => key !== 'modes')
-      .reduce(
-        (obj, key) => {
-          obj[key] = themeData[key];
-          return obj;
-        },
-        {} as Record<string, string>
-      );
-
-    if (!mode) {
-      mode = hass.themes.darkMode ? 'dark' : 'light';
-      // Get the current mode (light or dark)
-    } else {
-      mode = mode;
-    }
-
-    const modeData = themeData.modes && typeof themeData.modes === 'object' ? themeData.modes[mode] : {};
-    // Merge the top-level and mode-specific variables
-    // const allThemeData = { ...filteredThemeData, ...modeData };
-    const allThemeData = { ...filteredThemeData, ...modeData };
-    const allTheme = { default_theme: hass.themes.default_theme, themes: { [theme]: allThemeData } };
-    applyThemesOnElement(element, allTheme, theme, false);
-  }
-};
-
 export const resetPanelOrder = (paperListBox: HTMLElement): void => {
-  const scrollbarItems = paperListBox!.querySelectorAll('a') as NodeListOf<HTMLElement>;
+  const scrollbarItems = paperListBox!.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
   const bottomItems = Array.from(scrollbarItems).filter((item) => item.hasAttribute('moved'));
   if (bottomItems.length === 0) return;
   bottomItems.forEach((item) => {
@@ -152,9 +118,9 @@ export const resetPanelOrder = (paperListBox: HTMLElement): void => {
 };
 
 export const resetBottomItems = (paperListBox: HTMLElement): void => {
-  const bottomItems = Array.from(paperListBox.querySelectorAll('a[moved]')) as HTMLElement[];
+  const bottomItems = paperListBox.querySelectorAll(`${ELEMENT.ITEM}[moved]`) as NodeListOf<HTMLElement>;
   if (bottomItems.length === 0) return;
-  const spacerEl = paperListBox.querySelector('div.spacer') as HTMLElement;
+  const spacerEl = paperListBox.querySelector(SELECTOR.SPACER) as HTMLElement;
   bottomItems.forEach((item) => {
     const nextItem = item.nextElementSibling;
     if (nextItem && nextItem.classList.contains('divider')) {
@@ -170,20 +136,20 @@ export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => 
   if (path === PATH.LOVELACE_DASHBOARD) {
     resetBottomItems(paperListbox);
   }
+  path = path.slice(1);
+  const listItems = Array.from(paperListbox.querySelectorAll(ELEMENT.ITEM)) as HTMLElement[];
 
-  const listItems = paperListbox?.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
+  const activeLink = paperListbox?.querySelector<HTMLElement>(`${ELEMENT.ITEM}[data-panel="${path}"]`);
 
-  const activeLink = paperListbox?.querySelector<HTMLAnchorElement>(`a[href="${path}"]`);
-
-  const configEl = paperListbox?.querySelector('a[data-panel="config"]') as HTMLElement;
-  configEl?.setAttribute('aria-selected', configEl === activeLink ? 'true' : 'false');
+  const configEl = paperListbox?.querySelector(`${ELEMENT.ITEM}[data-panel="config"]`) as HTMLElement;
+  configEl?.classList.toggle(CLASS.SELECTED, configEl === activeLink);
 
   if (activeLink) {
     setTimeout(() => {
-      listItems.forEach((item: HTMLAnchorElement) => {
+      listItems.forEach((item: HTMLElement) => {
         const isActive = item === activeLink;
-        item.classList.toggle('iron-selected', isActive);
-        item.setAttribute('aria-selected', isActive.toString());
+        item.classList.toggle(CLASS.SELECTED, isActive);
+        // item.setAttribute('aria-selected', isActive.toString());
       });
     }, 0);
   }
@@ -192,40 +158,9 @@ export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => 
   if (dividers.length === 0) return;
   dividers.forEach((divider) => {
     const group = divider.getAttribute('group');
-    const items = paperListbox?.querySelectorAll(`a[group="${group}"]`) as NodeListOf<HTMLAnchorElement>;
-    const ariaSelected = Object.values(items).some((item) => item.getAttribute('aria-selected') === 'true');
-    divider.classList.toggle('child-selected', ariaSelected);
-    divider.setAttribute('aria-selected', ariaSelected.toString());
+    const items = paperListbox?.querySelectorAll(`${ELEMENT.ITEM}[group="${group}"]`) as NodeListOf<HTMLElement>;
+    const childSelected = Object.values(items).some((item) => item.classList.contains(CLASS.SELECTED));
+    divider.classList.toggle('child-selected', childSelected);
+    divider.setAttribute('aria-selected', childSelected.toString());
   });
-};
-
-export const _applyCustomTheme = (element: any, hass: HaExtened['hass'], theme: string, mode?: string): void => {
-  if (!element) return;
-  // console.log('_applyCustomTheme', theme, mode);
-  const themeData = hass.themes.themes[theme];
-  if (themeData) {
-    // Filter out only top-level properties for CSS variables and the modes property
-    const filteredThemeData = Object.keys(themeData)
-      .filter((key) => key !== 'modes')
-      .reduce(
-        (obj, key) => {
-          obj[key] = themeData[key];
-          return obj;
-        },
-        {} as Record<string, string>
-      );
-
-    if (!mode) {
-      mode = hass.themes.darkMode ? 'dark' : 'light';
-      // Get the current mode (light or dark)
-    } else {
-      mode = mode;
-    }
-    const modeData = themeData.modes && typeof themeData.modes === 'object' ? themeData.modes[mode] : {};
-    // Merge the top-level and mode-specific variables
-    // const allThemeData = { ...filteredThemeData, ...modeData };
-    const allThemeData = { ...filteredThemeData, ...modeData };
-    const allTheme = { default_theme: hass.themes.default_theme, themes: { [theme]: allThemeData } };
-    applyThemesOnElement(element, allTheme, theme, false);
-  }
 };
