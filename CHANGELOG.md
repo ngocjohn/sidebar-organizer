@@ -1,3 +1,32 @@
+<a id="v1.4.0"></a>
+# [v1.4.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.4.0) - 2025-05-04
+
+<!-- Release notes generated using configuration in .github/release.yml at v1.4.0 -->
+### ⚠️ Important Notice
+
+This is the **final functional release** of Sidebar Organizer compatible with **Home Assistant versions prior to 2025.5.x**.
+
+The upcoming Home Assistant **2025.5.x release introduces significant changes** to the sidebar system, which will require major refactoring of Sidebar Organizer.
+
+> 🔒 If you depend on Sidebar Organizer, **you must remain on Home Assistant versions earlier than 2025.5.x** until an updated version of the integration is released.
+
+---
+## What's Changed
+### New Features 🎉
+- **Notification Badge** 
+  Introduced support for **notification badge templates**, enabling dynamic badge content using template logic.  
+  The badge can now render either **text or an icon**, giving you more flexibility in customization.  
+  [#13](https://github.com/ngocjohn/sidebar-organizer/pull/13), [#15](https://github.com/ngocjohn/sidebar-organizer/pull/15) 
+
+  ![CleanShot 2025-05-04 at 16 37 32@2x](https://github.com/user-attachments/assets/943ac215-c66b-4334-9db6-34e67640278f)
+
+
+
+**Full Changelog**: https://github.com/ngocjohn/sidebar-organizer/compare/v1.3.0...v1.4.0
+
+[Changes][v1.4.0]
+
+
 <a id="v1.3.0"></a>
 # [v1.3.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.3.0) - 2025-04-19
 
@@ -95,6 +124,7 @@ With Sidebar Organizer, managing the sidebar in Home Assistant becomes easy and 
 [Changes][v1.0.0]
 
 
+[v1.4.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.0.2...v1.1.0
