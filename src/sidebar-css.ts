@@ -34,7 +34,8 @@ export const DIVIDER_ADDED_STYLE = css`
   }
 
   :host([expanded]) .ha-scrollbar .divider[ungrouped] {
-    padding-top: 0;
+    padding-top: 1px;
+    opacity: 0.5;
   }
 
   :host(:not([expanded])) a[data-notification='true'] > paper-icon-item > span.notification-badge-collapsed {
@@ -114,10 +115,19 @@ export const DIVIDER_ADDED_STYLE = css`
     background-color: rgb(from var(--sidebar-selected-icon-color) r g b / 0.2);
   }
 
-  :host a.collapsed {
-    max-height: 0px;
-    overflow: hidden;
+  :host ha-md-list-item {
+    transition: all 0.3s ease;
   }
+
+  :host ha-md-list-item.collapsed {
+    max-height: 0px !important;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+  }
+
   :host a[aria-selected='false']::before,
   :host a.configuration-container[aria-selected='false']::before {
     display: none;
@@ -127,10 +137,10 @@ export const DIVIDER_ADDED_STYLE = css`
     max-height: 1000px;
   }
 
-  :host a.slideIn {
+  :host ha-md-list-item.slideIn {
     animation-name: slideIn;
     animation-duration: 0.3s;
-    animation-fill-mode: both;
+    animation-fill-mode: none;
   }
 
   @keyframes slideIn {
@@ -144,10 +154,10 @@ export const DIVIDER_ADDED_STYLE = css`
     }
   }
 
-  :host a.slideOut {
+  :host ha-md-list-item.slideOut {
     animation-name: slideOut;
     animation-duration: 0.3s;
-    animation-fill-mode: both;
+    animation-fill-mode: none;
   }
   @keyframes slideOut {
     from {
