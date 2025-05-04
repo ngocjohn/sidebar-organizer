@@ -2,7 +2,7 @@ import { HA_EVENT, NAMESPACE, NAMESPACE_TITLE, PATH, REPO_URL, STORAGE, VERSION 
 import { mdiInformation, mdiArrowExpand } from '@mdi/js';
 import { HaExtened, Panels, PartialPanelResolver, SidebarConfig, ThemeSettings } from '@types';
 import { fetchConfig, validateConfig } from '@utilities/configs';
-import { getCollapsedItems, getInitPanelOrder } from '@utilities/configs/misc';
+import { getCollapsedItems, getInitPanelOrder, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
 import { applyTheme, addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
@@ -269,6 +269,10 @@ class SidebarOrganizer {
   }
 
   public async run() {
+    if (!isBeforeChange()) {
+      console.warn('Sidebar Organizer is not compatible with this version of Home Assistant');
+      return;
+    }
     void this._handleFirstConfig();
     this._setupConfigBtn();
     if (!this.firstSetUpDone) {

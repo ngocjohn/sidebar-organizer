@@ -25,6 +25,7 @@ export enum STORAGE {
   PANEL_ORDER = 'sidebarPanelOrder',
   COLLAPSE = 'sidebarCollapsedGroups',
   HIDDEN_PANELS = 'sidebarHiddenPanels',
+  HA_VERSION = 'ha-version',
 }
 
 export enum HA_EVENT {
