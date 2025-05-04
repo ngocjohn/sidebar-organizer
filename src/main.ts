@@ -1,8 +1,21 @@
-import { ELEMENT, HA_EVENT, NAMESPACE, NAMESPACE_TITLE, PATH, REPO_URL, SELECTOR, STORAGE, VERSION } from '@constants';
+import {
+  ALERT_MSG,
+  CLASS,
+  CUSTOM_EVENT,
+  ELEMENT,
+  HA_EVENT,
+  NAMESPACE,
+  NAMESPACE_TITLE,
+  PATH,
+  REPO_URL,
+  SELECTOR,
+  STORAGE,
+  VERSION,
+} from '@constants';
 import { mdiInformation, mdiArrowExpand } from '@mdi/js';
 import { HaExtened, Panels, PartialPanelResolver, SidebarConfig, ThemeSettings } from '@types';
 import { fetchConfig, validateConfig } from '@utilities/configs';
-import { getCollapsedItems, getInitPanelOrder } from '@utilities/configs/misc';
+import { getCollapsedItems, getInitPanelOrder, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
 import { applyTheme, addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
@@ -101,6 +114,10 @@ class SidebarOrganizer {
 
   get _scrollbar(): HTMLElement {
     return this.sideBarRoot?.querySelector('ha-md-list.ha-scrollbar') as HTMLElement;
+  }
+
+  get _scrollbarItems(): NodeListOf<HTMLElement> {
+    return this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
   }
 
   get customPanels(): Panels {
@@ -269,6 +286,10 @@ class SidebarOrganizer {
   }
 
   public async run() {
+    if (isBeforeChange()) {
+      console.warn(ALERT_MSG.NOT_COMPATIBLE);
+      return;
+    }
     void this._handleFirstConfig();
     this._setupConfigBtn();
 
@@ -288,6 +309,7 @@ class SidebarOrganizer {
   }
 
   private _setDataPanel() {
+    console.log('Setting Data Panel');
     const scrollbarItems = this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
 
     Array.from(scrollbarItems).forEach((item) => {
@@ -299,7 +321,7 @@ class SidebarOrganizer {
     });
 
     this.firstSetUpDone = true;
-    console.log('Sidebar Data Panel Set');
+    console.log('Data Panel Set');
   }
 
   private _handleSidebarUpdate(sidebar: any) {
@@ -451,8 +473,7 @@ class SidebarOrganizer {
       localStorage.removeItem(STORAGE.PANEL_ORDER);
       localStorage.removeItem(STORAGE.HIDDEN_PANELS);
     } else if (isStoragePanelEmpty()) {
-      const paperListbox = this.sideBarRoot?.querySelector('ha-md-list.ha-scrollbar') as HTMLElement;
-      const initPanelOrder = getInitPanelOrder(paperListbox);
+      const initPanelOrder = getInitPanelOrder(this._scrollbar);
       if (initPanelOrder !== null) {
         console.log('Setting Panel Order', initPanelOrder);
         this.HaSidebar._panelOrder = initPanelOrder;
@@ -579,23 +600,14 @@ class SidebarOrganizer {
 
   private _handleBottomPanels(bottomItems: string[]) {
     if (!bottomItems || bottomItems.length === 0) return;
-    const customPanels = this.customPanels;
-    const scrollbarItems = this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
+    const scrollbarItems = Array.from(this._scrollbarItems);
     const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
-    const divider = this.sideBarRoot!.querySelector('div.divider:not([added]):not([ungrouped])') as HTMLElement;
+    const divider = this.sideBarRoot!.querySelector(`${SELECTOR.DIVIDER}:not([added]):not([ungrouped])`) as HTMLElement;
 
     bottomItems.reverse().forEach((item, index) => {
-      const panel = Array.from(scrollbarItems).find(
-        (el) => this._getAnchorElement(el).getAttribute('href') === `/${item}`
-      );
+      const panel = scrollbarItems.find((panel) => panel.getAttribute('data-panel') === item);
       if (panel) {
-        console.log('Bottom Panel:', panel, item);
         panel.setAttribute('moved', '');
-        const configUrl = customPanels[item]?.config?.url || undefined;
-        const notSamePath = configUrl !== undefined && configUrl !== item;
-        if (notSamePath) {
-          panel.setAttribute('config-url', configUrl);
-        }
         this._scrollbar.insertBefore(panel, spacer.nextSibling);
         if (index === 0) {
           // console.log('Adding Divider', panel, item);
@@ -621,15 +633,15 @@ class SidebarOrganizer {
 
     this._haDrawer.open!! = false;
     // Remove any existing dialog
-    const existingDialog = this.main.querySelector('#sidebar-config-dialog');
+    const existingDialog = this.main.querySelector(SELECTOR.SIDEBAR_CONFIG_DIALOG) as HTMLElement;
     existingDialog?.remove();
 
     // Create new dialog elements
-    const sidebarDialog = document.createElement('sidebar-config-dialog') as SidebarConfigDialog;
+    const sidebarDialog = document.createElement(ELEMENT.SIDEBAR_CONFIG_DIALOG) as SidebarConfigDialog;
     sidebarDialog.hass = this.hass;
     sidebarDialog._sideBarRoot = this.sideBarRoot;
     this._sidebarDialog = sidebarDialog;
-    this._sidebarDialog.addEventListener('config-diff', () => this._checkDashboardChange());
+    this._sidebarDialog.addEventListener(CUSTOM_EVENT.CONFIG_DIFF, () => this._checkDashboardChange());
 
     const haDialog = document.createElement('ha-dialog') as any;
     const toggleLarge = () => {
@@ -650,7 +662,7 @@ class SidebarOrganizer {
     </div>`;
 
     Object.assign(haDialog, {
-      id: 'sidebar-config-dialog',
+      id: SELECTOR.SIDEBAR_CONFIG_DIALOG,
       open: true,
       heading: createCloseHeading(this.hass, dialogTitle, rightHeaderBtns),
       hideActions: false,
@@ -664,7 +676,7 @@ class SidebarOrganizer {
 
     // Create action buttons
     const createActionButton = (text: string, handler: () => void, slot?: string) => {
-      const button = document.createElement('ha-button') as any;
+      const button = document.createElement(ELEMENT.HA_BUTTON) as any;
       if (slot) button.slot = slot;
       button.innerText = text;
       button.addEventListener('click', handler);
@@ -724,27 +736,31 @@ class SidebarOrganizer {
   }
 
   private _handleCollapsed(collapsedItems: Set<string>) {
-    const toggleIcon = this.sideBarRoot!.querySelector('ha-icon.collapse-toggle') as HTMLElement;
+    const toggleIcon = this.sideBarRoot!.querySelector(SELECTOR.HEADER_TOGGLE_ICON) as HTMLElement;
     const isCollapsed = collapsedItems.size > 0;
 
     // Update toggle icon
     toggleIcon?.classList.toggle('active', isCollapsed);
     toggleIcon?.setAttribute('icon', isCollapsed ? 'mdi:plus' : 'mdi:minus');
 
-    const scrollbarItems = this._scrollbar!.querySelectorAll('a:not([moved])') as NodeListOf<HTMLElement>;
+    const scrollbarItems = Array.from(this._scrollbarItems).filter((item) =>
+      item.hasAttribute('group')
+    ) as HTMLElement[];
 
     // Update visibility of collapsed items
     scrollbarItems.forEach((item) => {
       const group = item.getAttribute('group');
-      item.classList.toggle('collapsed', collapsedItems.has(group!));
+      item.classList.toggle(CLASS.COLLAPSED, collapsedItems.has(group!));
+      // console.log('Item:', item, 'Group:', group, 'Collapsed:', collapsedItems.has(group!));
     });
 
     // Update dividers and their content
-    this._scrollbar!.querySelectorAll('div.divider').forEach((divider) => {
+    this._scrollbar!.querySelectorAll(SELECTOR.DIVIDER).forEach((divider) => {
       const group = divider.getAttribute('group');
       const isGroupCollapsed = collapsedItems.has(group!);
-      divider.classList.toggle('collapsed', isGroupCollapsed);
-      divider.querySelector('div.added-content')?.classList.toggle('collapsed', isGroupCollapsed);
+      divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
+      divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
+      // console.log('Divider:', divider, 'Group:', group, 'Collapsed:', isGroupCollapsed);
     });
     this._diffCheck = true;
   }
@@ -809,7 +825,7 @@ class SidebarOrganizer {
   private _handleItemsGroup(customGroups: { [key: string]: string[] }) {
     if (!customGroups || Object.keys(customGroups).length === 0) return;
 
-    const scrollbarItems = Array.from(this._scrollbar!.querySelectorAll('a')) as HTMLElement[];
+    const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
 
     // Loop through each group and set the group attribute on matching items
     Object.entries(customGroups).forEach(([group, panel]) => {
@@ -817,11 +833,6 @@ class SidebarOrganizer {
         .filter((item) => panel.includes(item.getAttribute('data-panel')!))
         .forEach((item) => {
           item.setAttribute('group', group);
-          const configUrl = this.customPanels[item.getAttribute('data-panel')!]?.config?.url || undefined;
-          const notSamePath = configUrl !== undefined && configUrl !== item.getAttribute('data-panel');
-          if (notSamePath) {
-            item.setAttribute('config-url', configUrl);
-          }
         });
     });
     console.log('Custom Groups Setup Done');
@@ -859,8 +870,8 @@ class SidebarOrganizer {
 
     const sidebarInstance = this.sideBarRoot!;
     const scrollbar = this._scrollbar;
-    const scrollbarItems = Array.from(scrollbar!.querySelectorAll('a')) as HTMLElement[];
-    const dividerTemplate = sidebarInstance.querySelector('div.divider') as HTMLElement;
+    const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
+    const dividerTemplate = sidebarInstance.querySelector(SELECTOR.DIVIDER) as HTMLElement;
 
     const createDivider = (group: string) => {
       const newDivider = dividerTemplate.cloneNode(true) as HTMLElement;
@@ -904,13 +915,13 @@ class SidebarOrganizer {
     }
 
     // Check differences after a delay
-    // setTimeout(() => this._checkDiffs(), 100);
+    setTimeout(() => this._checkDiffs(), 100);
   }
 
   private _checkDiffs = () => {
     const { custom_groups = {}, bottom_items = [] } = this._config;
     const scrollbar = this._scrollbar;
-
+    const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
     const notEmptyGroups = Object.keys(custom_groups).filter((key) => custom_groups[key].length > 0);
     const dividerOrder = Array.from(scrollbar.querySelectorAll('div.divider:has([group])')).map((divider) =>
       divider.getAttribute('group')
@@ -918,19 +929,23 @@ class SidebarOrganizer {
 
     const groupItems = Object.values(custom_groups).flat();
 
-    const panelOrderNamed = Array.from(scrollbar.querySelectorAll('a[group]') as NodeListOf<HTMLElement>).map((item) =>
-      item.getAttribute('data-panel')
-    );
+    const panelOrderNamed = Array.from(scrollbarItems)
+      .filter((item) => item.hasAttribute('group'))
+      .map((item) => item.getAttribute('data-panel'));
 
-    const bottomMovedItems = Array.from(scrollbar.querySelectorAll('a[moved]') as NodeListOf<HTMLElement>).map((item) =>
-      item.getAttribute('data-panel')
-    );
+    const bottomMovedItems = Array.from(scrollbarItems)
+      .filter((item) => item.hasAttribute('moved'))
+      .map((item) => item.getAttribute('data-panel'));
 
     const hasDiff =
       JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems) ||
       JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder) ||
       JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed);
-
+    console.log('Diff Check:', {
+      bottomItemsDiff: JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems),
+      dividerOrderDiff: JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder),
+      panelOrderDiff: JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed),
+    });
     if (hasDiff) {
       this._diffCheck = false;
       LOGGER.warn('Changes detected:', {
@@ -938,10 +953,10 @@ class SidebarOrganizer {
         dividerOrderDiff: JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder),
         panelOrderDiff: JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed),
       });
-      window.location.reload();
+      // window.location.reload();
       // this._refreshSidebar();
     } else {
-      this._handleNotification();
+      // this._handleNotification();
       this._handleCollapsed(this.collapsedItems);
     }
   };
@@ -996,25 +1011,29 @@ class SidebarOrganizer {
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
     // console.log('Toggle Group', group, target);
-    const items = this._scrollbar!.querySelectorAll(`a[group="${group}"]:not([moved])`) as NodeListOf<HTMLElement>;
+    // const items = this._scrollbar!.querySelectorAll(`a[group="${group}"]:not([moved])`) as NodeListOf<HTMLElement>;
+
+    const items = Array.from(this._scrollbarItems).filter((item) => {
+      const itemGroup = item.getAttribute('group');
+      return itemGroup === group && !item.hasAttribute('moved');
+    }) as HTMLElement[];
 
     if (!items.length) {
       console.error(`No items found for group: ${group}`);
       return;
     }
 
-    const isCollapsed = items[0].classList.contains('collapsed');
+    const isCollapsed = items[0].classList.contains(CLASS.COLLAPSED);
     this._setItemToLocalStorage(group!, !isCollapsed);
 
     // Toggle collapsed state for group and its items
-    target.classList.toggle('collapsed', !isCollapsed);
-    target.parentElement?.classList.toggle('collapsed', !isCollapsed);
+    target.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
+    target.parentElement?.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
 
     items.forEach((item, index) => {
       const animationClass = isCollapsed ? 'slideIn' : 'slideOut';
       item.style.animationDelay = `${index * 50}ms`;
       item.classList.add(animationClass);
-
       item.addEventListener(
         'animationend',
         () => {
