@@ -2,13 +2,14 @@ import { PREVIEW_MOCK_PANELS } from '@constants';
 import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '@types';
 import { applyTheme } from '@utilities/apply-theme';
 import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
+import { isIcon } from '@utilities/is-icon';
+import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
-import { getPreviewItems } from '../utilities/preview-items';
+import { _createPanelItems, getPreviewItems } from '../utilities/preview-items';
 import { SidebarConfigDialog } from './sidebar-dialog';
-
 @customElement('sidebar-dialog-preview')
 export class SidebarDialogPreview extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
@@ -25,7 +26,7 @@ export class SidebarDialogPreview extends LitElement {
   protected firstUpdated(): void {
     // console.log('colorMode', colorMode);
     if (this._sidebarConfig) {
-      this._paperListbox = getPreviewItems(this.hass, this._sidebarConfig);
+      this._paperListbox = getPreviewItems(this._dialog, this._sidebarConfig);
       const colorMode = this._sidebarConfig.color_config?.custom_theme?.mode;
       let darkMode: boolean;
       if (colorMode === 'dark') {
@@ -93,6 +94,11 @@ export class SidebarDialogPreview extends LitElement {
             this._setTheme(this._colorConfigMode);
           }
         }
+        const notificationChanged = JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification);
+        if (notificationChanged) {
+          console.log('Notification changed');
+          this._handleNotifyChange();
+        }
       }
     }
 
@@ -104,6 +110,78 @@ export class SidebarDialogPreview extends LitElement {
         this._setTheme(newMode);
       }
     }
+
+    if (_changedProperties.has('_ready') && this._ready) {
+      this._addNotification();
+    }
+  }
+
+  private _addNotification(): void {
+    console.log('Adding notification');
+    const notification = this._sidebarConfig?.notification || {};
+    if (!notification || Object.keys(notification).length === 0) {
+      return;
+    }
+
+    const groups = this.shadowRoot?.querySelector('div.groups-container');
+    const items = groups?.querySelectorAll('a') as NodeListOf<HTMLElement>;
+    if (!items) {
+      console.log('No items found');
+      return;
+    }
+    Object.entries(notification).forEach(([key, value]) => {
+      const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === key);
+      if (panel) {
+        this._subscribeTemplate(value, (result: string) => {
+          if (isIcon(result)) {
+            const icon = document.createElement('ha-icon');
+            icon.classList.add('notification-badge');
+            icon.setAttribute('icon', result);
+            panel.querySelector('div.icon-item')?.appendChild(icon);
+          } else {
+            const span = document.createElement('span');
+            span.classList.add('notification-badge');
+            span.innerHTML = result;
+            panel.querySelector('div.icon-item')?.appendChild(span);
+          }
+        });
+      }
+    });
+  }
+
+  private _subscribeTemplate(configValue: string, callback: (result: string) => void): void {
+    if (!this.hass || !hasTemplate(configValue)) {
+      console.log('Not a template:', this.hass, !hasTemplate(configValue));
+      return;
+    }
+
+    subscribeRenderTemplate(
+      this.hass.connection,
+      (result) => {
+        callback(result.result);
+      },
+      {
+        template: configValue ?? '',
+        variables: {
+          config: configValue,
+          user: this.hass.user!.name,
+        },
+        strict: true,
+      }
+    );
+  }
+
+  private _handleNotifyChange(): void {
+    const groups = this.shadowRoot?.querySelector('div.groups-container');
+    const notifyItems = groups?.querySelectorAll('.notification-badge') as NodeListOf<HTMLElement>;
+    if (!notifyItems) {
+      console.log('No notify items found');
+      return;
+    }
+    notifyItems.forEach((item) => item.remove());
+    setTimeout(() => {
+      this._addNotification();
+    }, 100);
   }
 
   public _updateListbox(newConfig?: SidebarConfig): void {
@@ -111,7 +189,7 @@ export class SidebarDialogPreview extends LitElement {
       newConfig = this._sidebarConfig;
     }
     this._ready = false;
-    this._paperListbox = getPreviewItems(this.hass, newConfig);
+    this._paperListbox = getPreviewItems(this._dialog, newConfig);
     if (this._paperListbox) {
       this._ready = true;
     }
@@ -143,6 +221,7 @@ export class SidebarDialogPreview extends LitElement {
     }
 
     const { mockCustomGroups, mockDefaultPage } = PREVIEW_MOCK_PANELS;
+    const ungroupedItems = this._dialog.ungroupedItems || [];
     const _paperListbox = this._paperListbox;
 
     const groups =
@@ -164,8 +243,8 @@ export class SidebarDialogPreview extends LitElement {
     };
 
     const _renderPanelItem = (item: PanelInfo) => {
-      const { icon, title } = item;
-      return html`<a href="#">
+      const { icon, title, component_name } = item;
+      return html`<a href="#" data-panel=${component_name}>
         <div class="icon-item"><ha-icon .icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
       </a>`;
     };
@@ -180,6 +259,17 @@ export class SidebarDialogPreview extends LitElement {
     const bottomPanel = _paperListbox['bottomItems'].map((item: PanelInfo) => {
       return _renderPanelItem(item);
     });
+
+    const ungroupedPanel = () => {
+      if (ungroupedItems && ungroupedItems.length > 0) {
+        const ungroupedItemsEl = _createPanelItems(this.hass, ungroupedItems);
+        return ungroupedItemsEl.map((item: PanelInfo) => {
+          return _renderPanelItem(item);
+        });
+      } else {
+        return nothing;
+      }
+    };
 
     return html` <div id="theme-container"></div>
       <div class="divider-preview" style=${this._computePreviewStyle()}>
@@ -210,6 +300,7 @@ export class SidebarDialogPreview extends LitElement {
                   </div>`
                 : nothing} `;
           })}
+          ${ungroupedPanel()}
           <div class="spacer"></div>
           <div class="bottom-panel" ?hidden=${_paperListbox['bottomItems'].length === 0}>${bottomPanel}</div>
           <div class="divider"></div>
@@ -591,6 +682,27 @@ export class SidebarDialogPreview extends LitElement {
         .system-panel {
           display: block;
           margin-bottom: 40px;
+        }
+
+        .notification-badge {
+          position: absolute;
+          left: calc(var(--app-drawer-width, 248px) - 42px);
+          inset-inline-start: calc(var(--app-drawer-width, 248px) - 42px);
+          inset-inline-end: initial;
+          min-width: 20px;
+          box-sizing: border-box;
+          border-radius: 20px;
+          font-weight: 400;
+          background-color: var(--accent-color);
+          line-height: 20px;
+          text-align: center;
+          padding: 0px 5px;
+          color: var(--text-accent-color, var(--text-primary-color));
+        }
+        ha-icon.notification-badge {
+          padding: 0 !important;
+          color: var(--accent-color);
+          background-color: transparent;
         }
       `,
     ];

@@ -41,9 +41,6 @@ export interface Themes {
   theme: string;
 }
 
-interface defaultPanel extends HomeAssistant {
-  defaultPanel: string;
-}
 export type HA = HomeAssistant & { themes: Themes };
 
 export interface HaExtened extends HTMLElement {
@@ -68,6 +65,7 @@ export interface PanelInfo<T = Record<string, any> | null> {
   title: string | null;
   url_path?: string;
   config_panel_domain?: string;
+  notification?: string | boolean;
 }
 export type Panels = Record<string, PanelInfo>;
 

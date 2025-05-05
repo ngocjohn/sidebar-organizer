@@ -7,7 +7,7 @@ export * from './storage-utils';
 export * from './logger';
 export * from './ws-templates';
 export * from './apply-theme';
-
+export * from './is-icon';
 import memoizeOne from 'memoize-one';
 
 export const localizeWeekdays = memoizeOne((language: string, short: boolean): string[] => {

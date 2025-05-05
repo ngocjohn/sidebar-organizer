@@ -1,5 +1,6 @@
 import {
   ALERT_MSG,
+  ATTRIBUTE,
   CLASS,
   CUSTOM_EVENT,
   ELEMENT,
@@ -20,6 +21,7 @@ import { getCollapsedItems, getInitPanelOrder, isBeforeChange } from '@utilities
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
 import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
+import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
@@ -278,7 +280,7 @@ class SidebarOrganizer {
     if (pathName && paperListBox) {
       // console.log('Dashboard Page Loaded');
       setTimeout(() => {
-        if (this._diffCheck && this.firstSetUpDone) {
+        if (this._diffCheck && this.firstSetUpDone && this.setupConfigDone) {
           // console.log('Diff Check and first setup done');
           onPanelLoaded(pathName, paperListBox);
         }
@@ -780,10 +782,6 @@ class SidebarOrganizer {
     this._handleSidebarHeader();
   }
 
-  private _applyTheme(theme: string) {
-    return applyTheme(this.sideBarRoot!, this.hass, theme, 'dark');
-  }
-
   private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
     mode = mode ? mode : this.darkMode ? 'dark' : 'light';
     const customTheme = color_config?.custom_theme?.theme || undefined;
@@ -957,7 +955,7 @@ class SidebarOrganizer {
       window.location.reload();
       // this._refreshSidebar();
     } else {
-      // this._handleNotification();
+      this._handleNotification();
       this._handleCollapsed(this.collapsedItems);
     }
   };
@@ -969,7 +967,7 @@ class SidebarOrganizer {
   private _handleNotification() {
     if (!this._config.notification || Object.keys(this._config.notification).length === 0) return;
     const notifyKey = Object.keys(this._config.notification!);
-    const scrollbarItems = this._scrollbar!.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
+    const scrollbarItems = this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
     notifyKey.forEach((key) => {
       const panel = Array.from(scrollbarItems).find((el) => el.getAttribute('data-panel') === key);
       if (panel) {
@@ -978,32 +976,37 @@ class SidebarOrganizer {
     });
   }
 
-  private _subscribeNotification(panel: HTMLAnchorElement, key: string): void {
-    let badge = panel.querySelector('.notification-badge:not(.notification-badge-collapsed)');
-    let badgeCollapsed = panel.querySelector('.notification-badge.notification-badge-collapsed');
-    if (!badge) {
+  private _subscribeNotification(panel: HTMLElement, key: string) {
+    let badge = panel.querySelector(SELECTOR.BADGE);
+    let notifyIcon = panel.querySelector(SELECTOR.NOTIFY_ICON);
+    const itemText = panel.querySelector(SELECTOR.ITEM_TEXT) as HTMLElement;
+    if (!badge || !notifyIcon) {
       badge = document.createElement('span');
-      badge.classList.add('notification-badge');
-      panel.querySelector('paper-icon-item')?.appendChild(badge);
-    }
-    if (!badgeCollapsed) {
-      badgeCollapsed = document.createElement('span');
-      badgeCollapsed.classList.add('notification-badge', 'notification-badge-collapsed');
-      panel.querySelector('ha-svg-icon, ha-icon')?.after(badgeCollapsed);
+      badge.classList.add(CLASS.BADGE);
+      badge.setAttribute(ATTRIBUTE.SLOT, 'end');
+      notifyIcon = document.createElement('ha-icon');
+      notifyIcon.classList.add(CLASS.BADGE);
+      notifyIcon.setAttribute(ATTRIBUTE.SLOT, 'end');
+      panel.insertBefore(badge, itemText.nextElementSibling);
+      panel.insertBefore(notifyIcon, itemText);
     }
 
     const callback = (resultContent: any) => {
       if (resultContent) {
-        badge.innerHTML = resultContent;
-        badgeCollapsed.innerHTML = resultContent;
-        panel.setAttribute('data-notification', 'true');
+        if (typeof resultContent === 'string' && isIcon(resultContent)) {
+          badge.remove();
+          notifyIcon.setAttribute('icon', resultContent);
+        } else {
+          notifyIcon.remove();
+          badge.innerHTML = resultContent;
+        }
+        panel.setAttribute(ATTRIBUTE.DATA_NOTIFICATION, 'true');
       } else {
         badge.innerHTML = '';
-        badgeCollapsed.innerHTML = '';
-        panel.removeAttribute('data-notification');
+        notifyIcon.removeAttribute('icon');
+        panel.removeAttribute(ATTRIBUTE.DATA_NOTIFICATION);
       }
     };
-
     this._subscribeTemplate(key, callback);
   }
 
@@ -1011,8 +1014,6 @@ class SidebarOrganizer {
     event.stopPropagation();
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
-    // console.log('Toggle Group', group, target);
-    // const items = this._scrollbar!.querySelectorAll(`a[group="${group}"]:not([moved])`) as NodeListOf<HTMLElement>;
 
     const items = Array.from(this._scrollbarItems).filter((item) => {
       const itemGroup = item.getAttribute('group');

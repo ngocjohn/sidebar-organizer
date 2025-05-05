@@ -2,6 +2,7 @@ import { ALERT_MSG } from '@constants';
 import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
 import { SidebarConfig, HaExtened } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
+import { isIcon } from '@utilities/is-icon';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, css, LitElement, TemplateResult, nothing, PropertyValues, CSSResult } from 'lit';
@@ -81,6 +82,24 @@ export class SidebarDialogGroups extends LitElement {
 
     if (_changedProperties.has('_selectedGroup')) {
       this._dialog._dialogPreview._toggleGroup(this._selectedGroup);
+    }
+
+    if (_changedProperties.has('_selectedNotification')) {
+      const notify = this._selectedNotification || '';
+      if (!notify) {
+        this._dialog._dialogPreview._toggleGroup(notify);
+      }
+      const customGroups = this._sidebarConfig.custom_groups || {};
+      const bottomItems = this._sidebarConfig.bottom_items || [];
+      let toShow;
+      const inGroup = Object.keys(customGroups).find((key) => customGroups[key].includes(notify));
+      const inBottom = bottomItems.includes(notify);
+      if (inGroup) {
+        toShow = inGroup;
+      } else if (inBottom) {
+        toShow = 'bottom_items';
+      }
+      this._dialog._dialogPreview._toggleGroup(toShow);
     }
   }
 
@@ -327,7 +346,7 @@ export class SidebarDialogGroups extends LitElement {
     const items = this._dialog._initCombiPanels;
     const options = items.map((panel) => {
       const panelName = this.hass.localize(`panel.${hassPanels[panel]?.title}`) || hassPanels[panel]?.title || panel;
-      return { value: panel, label: panelName };
+      return { value: panel, label: panelName, icon: hassPanels[panel].icon };
     });
     const selector = {
       select: {
@@ -352,8 +371,14 @@ export class SidebarDialogGroups extends LitElement {
           (item) => item,
           (item) => {
             return html`
-              <div class="group-item-row">
-                <div class="group-name" @click=${() => (this._selectedNotification = item.value)}>${item.label}</div>
+              <div class="group-item-row" style="padding-inline-start: 1rem">
+                <div class="group-name" @click=${() => (this._selectedNotification = item.value)}>
+                  <ha-icon icon=${item.icon}></ha-icon>
+                  <div class="group-name-items">
+                    ${item.label}
+                    <span>${item.value}</span>
+                  </div>
+                </div>
                 <div class="group-actions">
                   <ha-icon-button .label=${'Edit item'} @click=${() => (this._selectedNotification = item.value)}
                     ><ha-icon icon="mdi:pencil"></ha-icon
@@ -423,7 +448,11 @@ export class SidebarDialogGroups extends LitElement {
     this._subscribeTemplate(notifyConfig, (result) => {
       const templatePreview = this.shadowRoot?.getElementById('template-preview-content') as HTMLElement;
       if (templatePreview) {
-        templatePreview.innerHTML = result;
+        let _result: string = result;
+        if (isIcon(result)) {
+          _result = `<ha-icon icon="${result}"></ha-icon>`;
+        }
+        templatePreview.innerHTML = _result;
       }
     });
     return html`
@@ -432,7 +461,7 @@ export class SidebarDialogGroups extends LitElement {
         .hass=${this.hass}
         .value=${notifyConfig}
         .configValue=${key}
-        .helper=${'Use Jinja template to configure the notification'}
+        .helper=${'Use Jinja template to configure the notification. Result can be icon or text.'}
         .selector=${{
           template: {},
         }}

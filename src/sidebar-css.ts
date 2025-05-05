@@ -37,18 +37,27 @@ export const DIVIDER_ADDED_STYLE = css`
     padding-top: 1px;
     opacity: 0.5;
   }
-
-  :host(:not([expanded])) a[data-notification='true'] > paper-icon-item > span.notification-badge-collapsed {
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge {
     position: absolute;
-    bottom: 14px;
-    left: 26px;
-    inset-inline-start: 26px;
+    bottom: 20px;
+    left: 20px;
+    inset-inline-start: 20px;
     inset-inline-end: initial;
     font-size: 0.65em;
+    /* padding: initial; */
   }
 
-  :host([expanded]) a[data-notification='true'] > paper-icon-item > span.notification-badge-collapsed {
-    display: none !important;
+  ha-md-list-item[data-notification='true'] > ha-icon.badge {
+    padding: 0 !important;
+    color: var(--accent-color);
+    background-color: transparent;
+  }
+
+  ha-md-list-item[data-notification='true'] > span.badge {
+    /* padding: 0 5px !important; */
+    border-radius: 20px !important;
+    font-size: 0.85em;
   }
 
   :host .divider[added] .added-content {

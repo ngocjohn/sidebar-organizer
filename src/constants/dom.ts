@@ -9,6 +9,10 @@ export enum SELECTOR {
   SELECTED = '.selected',
   HEADER_TOGGLE_ICON = 'ha-icon.collapse-toggle',
   ADDED_CONTENT = '.added-content',
+  BADGE = '.badge',
+  NOTIFY_ICON = 'ha-icon.badge',
+  HA_SVG_ICON = 'ha-svg-icon',
+  ITEM_TEXT = '.item-text',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',
@@ -27,6 +31,18 @@ export enum CLASS {
   COLLAPSED = 'collapsed',
   SELECTED = 'selected',
   SPACER = 'spacer',
+  BADGE = 'badge',
+}
+
+export enum ATTRIBUTE {
+  ROLE = 'role',
+  PROCESSED = 'data-processed',
+  TAB_INDEX = 'tabindex',
+  DISABLED = 'disabled',
+  HREF = 'href',
+  SLOT = 'slot',
+  TYPE = 'type',
+  DATA_NOTIFICATION = 'data-notification',
 }
 
 export enum CUSTOM_EVENT {

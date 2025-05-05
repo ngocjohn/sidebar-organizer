@@ -317,6 +317,22 @@ export class SidebarConfigDialog extends LitElement {
     this._configLoaded = true;
   };
 
+  public get pickedItems(): string[] {
+    const bottomItems = this._sidebarConfig?.bottom_items || [];
+    const customGroups = this._sidebarConfig?.custom_groups || {};
+    const pickedItems = [...bottomItems, ...Object.values(customGroups).flat()];
+    return pickedItems;
+  }
+
+  public get ungroupedItems(): string[] {
+    const hiddenItems = this._sidebarConfig?.hidden_items || [];
+    const pickedItems = this.pickedItems;
+    const ungroupedItems = this._initCombiPanels.filter(
+      (item) => !pickedItems.includes(item) && !hiddenItems.includes(item)
+    );
+    return ungroupedItems;
+  }
+
   static get styles(): CSSResultGroup {
     return [
       css`
