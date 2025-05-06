@@ -44,7 +44,6 @@ export class SidebarDialogColors extends LitElement {
   protected firstUpdated(_changedProperties: PropertyValues): void {
     super.firstUpdated(_changedProperties);
     const colorMode = this.hass.themes.darkMode ? 'dark' : 'light';
-    console.log('colorMode', colorMode);
     this._colorConfigMode = colorMode;
   }
 
