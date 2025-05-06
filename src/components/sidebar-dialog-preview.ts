@@ -225,7 +225,7 @@ export class SidebarDialogPreview extends LitElement {
     const _paperListbox = this._paperListbox;
 
     const groups =
-      Object.keys(this._sidebarConfig?.custom_groups || {}).length >= 2
+      Object.keys(this._sidebarConfig?.custom_groups || {}).length >= 1
         ? Object.keys(this._sidebarConfig.custom_groups!)
         : Object.keys(mockCustomGroups);
 
