@@ -13,6 +13,7 @@ export enum SELECTOR {
   NOTIFY_ICON = 'ha-icon.badge',
   HA_SVG_ICON = 'ha-svg-icon',
   ITEM_TEXT = '.item-text',
+  ITEM_PROFILE = 'ha-md-list-item[href="/profile"]',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',
@@ -45,6 +46,12 @@ export enum ATTRIBUTE {
   DATA_NOTIFICATION = 'data-notification',
 }
 
+export enum SLOT {
+  PRIMARY_ACTION = 'primaryAction',
+  SECONDARY_ACTION = 'secondaryAction',
+}
+
 export enum CUSTOM_EVENT {
   CONFIG_DIFF = 'config-diff',
+  UI_EDITOR = 'ui-editor',
 }

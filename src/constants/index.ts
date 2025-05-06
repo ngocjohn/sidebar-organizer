@@ -80,4 +80,5 @@ export const ALERT_MSG = {
   NAME_EXISTS: 'The name already exists. Choose another name.',
   CONFIRM_DELETE: 'Are you sure you want to delete the current configuration?',
   NOT_COMPATIBLE: 'Sidebar Organizer is not compatible with this version of Home Assistant',
+  VERSION_INFO: `More info: ${REPO_URL}/issues/16`,
 };
