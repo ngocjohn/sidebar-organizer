@@ -112,8 +112,12 @@ export class SidebarDialogCodeEditor extends LitElement {
   private _handleBtnAction = async (action: string) => {
     switch (action) {
       case 'download':
-        let filename = await showPromptDialog(this, 'Enter the filename', 'sidebar-organizer', 'Download');
-        if (!filename) {
+        let filename = await showPromptDialog(this, 'Enter the filename', 'sidebar-organizer', 'Download', 'Cancel');
+        console.log(filename);
+        if (filename === null) {
+          return;
+        }
+        if (filename === '') {
           filename = 'sidebar-organizer';
         }
 
