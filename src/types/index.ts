@@ -28,6 +28,7 @@ export type Theme = ThemeVars & {
     dark?: ThemeVars;
   };
 };
+export type LocalizeFunc = (key: string, ...args: any[]) => string;
 
 export interface Themes {
   default_theme: string;
@@ -41,7 +42,10 @@ export interface Themes {
   theme: string;
 }
 
-export type HA = HomeAssistant & { themes: Themes };
+export type HA = HomeAssistant & {
+  loadFragmentTranslation: (fragment: string) => Promise<LocalizeFunc | undefined>;
+  themes: Themes;
+};
 
 export interface HaExtened extends HTMLElement {
   hass: HA & defaultPanel & { selectedTheme: ThemeSettings | null };

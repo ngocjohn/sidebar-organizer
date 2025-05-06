@@ -10,7 +10,9 @@ import {
   PATH,
   REPO_URL,
   SELECTOR,
+  SLOT,
   STORAGE,
+  TAB_STATE,
   VERSION,
 } from '@constants';
 import { mdiInformation, mdiArrowExpand } from '@mdi/js';
@@ -22,13 +24,13 @@ import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-st
 import { fetchDashboards } from '@utilities/dashboard';
 import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
 import { isIcon } from '@utilities/is-icon';
+import { TRANSLATED } from '@utilities/localize';
 import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
-import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
-import { navigate } from 'custom-card-helpers';
 
 import './components/sidebar-dialog';
 
+import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnPanelLoadDetail } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html } from 'lit';
@@ -290,7 +292,7 @@ class SidebarOrganizer {
 
   public async run() {
     if (isBeforeChange()) {
-      console.warn(ALERT_MSG.NOT_COMPATIBLE);
+      console.warn(ALERT_MSG.NOT_COMPATIBLE, '\n', ALERT_MSG.VERSION_INFO);
       return;
     }
     void this._handleFirstConfig();
@@ -495,10 +497,11 @@ class SidebarOrganizer {
     }
   }
 
-  private _setupConfigBtn(): void {
-    const profileEl = this.sideBarRoot?.querySelector('ha-md-list-item[href="/profile"]') as HTMLElement;
+  private async _setupConfigBtn(): Promise<void> {
+    const profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
     if (!profileEl) return;
     addAction(profileEl, this._addConfigDialog.bind(this));
+    await this.hass.loadFragmentTranslation('lovelace');
   }
 
   private _handleSidebarHeader(): void {
@@ -623,17 +626,7 @@ class SidebarOrganizer {
   }
 
   private _addConfigDialog() {
-    // check if is in profile page, if not change to profile page first
-    if (this.hass.panelUrl !== 'profile') {
-      const path = '/profile';
-
-      navigate(this, path);
-      setTimeout(() => {
-        this._addConfigDialog();
-      }, 0);
-      return;
-    }
-
+    const BTN_LABEL = TRANSLATED(this.hass).BTN_LABEL;
     this._haDrawer.open!! = false;
     // Remove any existing dialog
     const existingDialog = this.main.querySelector(SELECTOR.SIDEBAR_CONFIG_DIALOG) as HTMLElement;
@@ -645,6 +638,7 @@ class SidebarOrganizer {
     sidebarDialog._sideBarRoot = this.sideBarRoot;
     this._sidebarDialog = sidebarDialog;
     this._sidebarDialog.addEventListener(CUSTOM_EVENT.CONFIG_DIFF, () => this._checkDashboardChange());
+    // this._sidebarDialog.addEventListener(CUSTOM_EVENT.UI_EDITOR, () => setCodeUILabel());
 
     const haDialog = document.createElement('ha-dialog') as any;
     const toggleLarge = () => {
@@ -686,30 +680,37 @@ class SidebarOrganizer {
       return button;
     };
 
-    const saveBtn = createActionButton('Save', () => {
+    const saveBtn = createActionButton(BTN_LABEL.SAVE, () => {
       const sidebarConfig = this._sidebarDialog!._sidebarConfig;
       const sidebarUseConfigFile = this._sidebarDialog!._useConfigFile;
       this._handleNewConfig(sidebarConfig, sidebarUseConfigFile);
       haDialog.remove();
     });
-    const cancelBtn = createActionButton('Cancel', () => haDialog.remove());
+    const cancelBtn = createActionButton(BTN_LABEL.CANCEL, () => haDialog.remove());
 
     const primaryActionBtn = document.createElement('div');
-    primaryActionBtn.slot = 'primaryAction';
+    primaryActionBtn.slot = SLOT.PRIMARY_ACTION;
     primaryActionBtn.appendChild(cancelBtn);
     primaryActionBtn.appendChild(saveBtn);
 
     const codeEditorBtn = createActionButton(
-      'Code / UI Editor',
+      BTN_LABEL.SHOW_CODE_EDITOR,
       () => {
         this._sidebarDialog?._toggleCodeEditor();
+        setCodeUILabel();
       },
-      'secondaryAction'
+      SLOT.SECONDARY_ACTION
     );
 
     // Append dialog and actions
     haDialog.append(sidebarDialog, codeEditorBtn, primaryActionBtn);
     this._styleManager.addStyle(DIALOG_STYLE.toString(), haDialog);
+    const setCodeUILabel = () => {
+      const code =
+        this._sidebarDialog?._tabState === TAB_STATE.CODE ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR;
+      const codeBtn = haDialog.querySelector(`${ELEMENT.HA_BUTTON}[slot=${SLOT.SECONDARY_ACTION}]`) as HTMLElement;
+      codeBtn.innerHTML = code;
+    };
     this.main.appendChild(haDialog);
   }
 
@@ -787,7 +788,7 @@ class SidebarOrganizer {
     const customTheme = color_config?.custom_theme?.theme || undefined;
     if (customTheme) {
       applyTheme(this.HaSidebar, this.hass, customTheme, mode);
-      console.log('Custom Theme:', customTheme, 'Mode:', mode);
+      // console.log('Custom Theme:', customTheme, 'Mode:', mode);
     }
     const colorConfig = color_config?.[mode] || {};
     const borderRadius = color_config?.border_radius ? `${color_config.border_radius}px` : undefined;

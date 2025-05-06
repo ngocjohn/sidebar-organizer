@@ -124,8 +124,8 @@ export const DIVIDER_ADDED_STYLE = css`
     background-color: rgb(from var(--sidebar-selected-icon-color) r g b / 0.2);
   }
 
-  :host ha-md-list-item {
-    transition: all 0.3s ease;
+  :host ha-md-list-item:has([group]) {
+    transition: all;
   }
 
   :host ha-md-list-item.collapsed {
@@ -149,7 +149,7 @@ export const DIVIDER_ADDED_STYLE = css`
   :host ha-md-list-item.slideIn {
     animation-name: slideIn;
     animation-duration: 0.3s;
-    animation-fill-mode: none;
+    animation-fill-mode: both;
   }
 
   @keyframes slideIn {
@@ -166,7 +166,7 @@ export const DIVIDER_ADDED_STYLE = css`
   :host ha-md-list-item.slideOut {
     animation-name: slideOut;
     animation-duration: 0.3s;
-    animation-fill-mode: none;
+    animation-fill-mode: both;
   }
   @keyframes slideOut {
     from {
