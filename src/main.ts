@@ -20,7 +20,6 @@ import { HaExtened, Panels, PartialPanelResolver, SidebarConfig, ThemeSettings }
 import { applyTheme } from '@utilities/apply-theme';
 import { fetchConfig, validateConfig } from '@utilities/configs';
 import { getCollapsedItems, getInitPanelOrder, isBeforeChange } from '@utilities/configs/misc';
-import { getCollapsedItems, getInitPanelOrder, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
 import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
@@ -1001,6 +1000,7 @@ class SidebarOrganizer {
         } else {
           notifyIcon.remove();
           badge.innerHTML = resultContent;
+          badge.classList.toggle(CLASS.LARGE_BADGE, resultContent.length >= 3);
         }
         panel.setAttribute(ATTRIBUTE.DATA_NOTIFICATION, 'true');
       } else {

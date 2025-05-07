@@ -33,6 +33,7 @@ export enum CLASS {
   SELECTED = 'selected',
   SPACER = 'spacer',
   BADGE = 'badge',
+  LARGE_BADGE = 'large-badge',
 }
 
 export enum ATTRIBUTE {

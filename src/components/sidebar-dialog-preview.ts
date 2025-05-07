@@ -9,7 +9,6 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import { _createPanelItems, getPreviewItems } from '../utilities/preview-items';
-import { _createPanelItems, getPreviewItems } from '../utilities/preview-items';
 import { SidebarConfigDialog } from './sidebar-dialog';
 @customElement('sidebar-dialog-preview')
 export class SidebarDialogPreview extends LitElement {
@@ -27,7 +26,6 @@ export class SidebarDialogPreview extends LitElement {
   protected firstUpdated(): void {
     // console.log('colorMode', colorMode);
     if (this._sidebarConfig) {
-      this._paperListbox = getPreviewItems(this._dialog, this._sidebarConfig);
       this._paperListbox = getPreviewItems(this._dialog, this._sidebarConfig);
       const colorMode = this._sidebarConfig.color_config?.custom_theme?.mode;
       let darkMode: boolean;
@@ -74,6 +72,7 @@ export class SidebarDialogPreview extends LitElement {
           console.log('Items changed');
           this._updateListbox(newConfig);
         }
+
         const themeChanged =
           JSON.stringify(oldConfig.color_config?.custom_theme?.theme) !==
           JSON.stringify(newConfig.color_config?.custom_theme?.theme);
@@ -94,11 +93,6 @@ export class SidebarDialogPreview extends LitElement {
           } else {
             this._setTheme(this._colorConfigMode);
           }
-        }
-        const notificationChanged = JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification);
-        if (notificationChanged) {
-          console.log('Notification changed');
-          this._handleNotifyChange();
         }
         const notificationChanged = JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification);
         if (notificationChanged) {
@@ -196,7 +190,6 @@ export class SidebarDialogPreview extends LitElement {
     }
     this._ready = false;
     this._paperListbox = getPreviewItems(this._dialog, newConfig);
-    this._paperListbox = getPreviewItems(this._dialog, newConfig);
     if (this._paperListbox) {
       this._ready = true;
     }
@@ -229,7 +222,6 @@ export class SidebarDialogPreview extends LitElement {
 
     const { mockCustomGroups, mockDefaultPage } = PREVIEW_MOCK_PANELS;
     const ungroupedItems = this._dialog.ungroupedItems || [];
-    const ungroupedItems = this._dialog.ungroupedItems || [];
     const _paperListbox = this._paperListbox;
 
     const groups =
@@ -253,8 +245,6 @@ export class SidebarDialogPreview extends LitElement {
     const _renderPanelItem = (item: PanelInfo) => {
       const { icon, title, component_name } = item;
       return html`<a href="#" data-panel=${component_name}>
-      const { icon, title, component_name } = item;
-      return html`<a href="#" data-panel=${component_name}>
         <div class="icon-item"><ha-icon .icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
       </a>`;
     };
@@ -269,17 +259,6 @@ export class SidebarDialogPreview extends LitElement {
     const bottomPanel = _paperListbox['bottomItems'].map((item: PanelInfo) => {
       return _renderPanelItem(item);
     });
-
-    const ungroupedPanel = () => {
-      if (ungroupedItems && ungroupedItems.length > 0) {
-        const ungroupedItemsEl = _createPanelItems(this.hass, ungroupedItems);
-        return ungroupedItemsEl.map((item: PanelInfo) => {
-          return _renderPanelItem(item);
-        });
-      } else {
-        return nothing;
-      }
-    };
 
     const ungroupedPanel = () => {
       if (ungroupedItems && ungroupedItems.length > 0) {
@@ -321,7 +300,6 @@ export class SidebarDialogPreview extends LitElement {
                   </div>`
                 : nothing} `;
           })}
-          ${ungroupedPanel()}
           ${ungroupedPanel()}
           <div class="spacer"></div>
           <div class="bottom-panel" ?hidden=${_paperListbox['bottomItems'].length === 0}>${bottomPanel}</div>
@@ -704,27 +682,6 @@ export class SidebarDialogPreview extends LitElement {
         .system-panel {
           display: block;
           margin-bottom: 40px;
-        }
-
-        .notification-badge {
-          position: absolute;
-          left: calc(var(--app-drawer-width, 248px) - 42px);
-          inset-inline-start: calc(var(--app-drawer-width, 248px) - 42px);
-          inset-inline-end: initial;
-          min-width: 20px;
-          box-sizing: border-box;
-          border-radius: 20px;
-          font-weight: 400;
-          background-color: var(--accent-color);
-          line-height: 20px;
-          text-align: center;
-          padding: 0px 5px;
-          color: var(--text-accent-color, var(--text-primary-color));
-        }
-        ha-icon.notification-badge {
-          padding: 0 !important;
-          color: var(--accent-color);
-          background-color: transparent;
         }
 
         .notification-badge {

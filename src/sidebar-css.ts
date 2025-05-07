@@ -40,15 +40,19 @@ export const DIVIDER_ADDED_STYLE = css`
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge {
     position: absolute;
-    bottom: 20px;
-    left: 20px;
     inset-inline-start: 20px;
-    bottom: 20px;
-    left: 20px;
     inset-inline-start: 20px;
     inset-inline-end: initial;
-    font-size: 0.65em;
-    /* padding: initial; */
+    left: auto;
+    max-width: 30px;
+    top: 0px;
+  }
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge.large-badge {
+    transform: translateX(50%);
+    right: 22px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   ha-md-list-item[data-notification='true'] > ha-icon.badge {
