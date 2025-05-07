@@ -99,6 +99,7 @@ class SidebarOrganizer {
   private _currentPath: string;
   private _delayTimeout: number | null = null;
   private _hassPanelsChanged: boolean = false;
+  private _notCompatible: boolean = false;
 
   get hass(): HaExtened['hass'] {
     return this.ha!.hass;
@@ -275,6 +276,7 @@ class SidebarOrganizer {
   }
 
   private async _panelLoaded(): Promise<void> {
+    if (this._notCompatible) return;
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     const pathName = panelResolver.route?.path || '';
     const paperListBox = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_SCROLLBAR).element) as HTMLElement;
@@ -293,6 +295,7 @@ class SidebarOrganizer {
   public async run() {
     if (isBeforeChange()) {
       console.warn(ALERT_MSG.NOT_COMPATIBLE, '\n', ALERT_MSG.VERSION_INFO);
+      this._notCompatible = true;
       return;
     }
     void this._handleFirstConfig();
@@ -418,6 +421,7 @@ class SidebarOrganizer {
   }
 
   private async _handleHaEvents(event: any) {
+    if (this._notCompatible) return;
     event.stopPropagation();
     const { type, detail } = event;
     if (!type || !detail) return;
