@@ -43,6 +43,9 @@ export const DIVIDER_ADDED_STYLE = css`
     bottom: 20px;
     left: 20px;
     inset-inline-start: 20px;
+    bottom: 20px;
+    left: 20px;
+    inset-inline-start: 20px;
     inset-inline-end: initial;
     font-size: 0.65em;
     /* padding: initial; */

@@ -20,6 +20,7 @@ import { HaExtened, Panels, PartialPanelResolver, SidebarConfig, ThemeSettings }
 import { applyTheme } from '@utilities/apply-theme';
 import { fetchConfig, validateConfig } from '@utilities/configs';
 import { getCollapsedItems, getInitPanelOrder, isBeforeChange } from '@utilities/configs/misc';
+import { getCollapsedItems, getInitPanelOrder, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards } from '@utilities/dashboard';
 import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
@@ -568,7 +569,7 @@ class SidebarOrganizer {
     subscribeRenderTemplate(
       this.hass.connection,
       (result) => {
-        callback(result.result);
+        callback(result.result.toString());
       },
       {
         template: notifyConfig ?? '',

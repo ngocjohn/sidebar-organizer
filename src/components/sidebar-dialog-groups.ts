@@ -433,7 +433,8 @@ export class SidebarDialogGroups extends LitElement {
     const hassPanels = this.hass?.panels;
     const key = this._selectedNotification;
     const panelName = this.hass.localize(`panel.${hassPanels[key]?.title}`) || hassPanels[key]?.title || key;
-    const notifyConfig = this._sidebarConfig.notification![key] || '';
+    const notifyConfig = this._sidebarConfig.notification || {};
+    const notifyConfigValue = notifyConfig[key] || '';
     const headerBack = html`<div class="header-row ">
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedNotification = null)}> </ha-icon-button>
       ${panelName.toUpperCase()}
@@ -445,7 +446,7 @@ export class SidebarDialogGroups extends LitElement {
         >Done</ha-button
       >
     </div>`;
-    this._subscribeTemplate(notifyConfig, (result) => {
+    this._subscribeTemplate(notifyConfigValue, (result) => {
       const templatePreview = this.shadowRoot?.getElementById('template-preview-content') as HTMLElement;
       if (templatePreview) {
         let _result: string = result;
@@ -459,7 +460,7 @@ export class SidebarDialogGroups extends LitElement {
       ${headerBack}
       <ha-selector
         .hass=${this.hass}
-        .value=${notifyConfig}
+        .value=${notifyConfigValue}
         .configValue=${key}
         .helper=${'Use Jinja template to configure the notification. Result can be icon or text.'}
         .selector=${{
@@ -601,7 +602,6 @@ export class SidebarDialogGroups extends LitElement {
     if (value && value !== '') {
       notifyConfig[configValue] = value;
     }
-    console.log('notifyConfig', notifyConfig);
     this._sidebarConfig = {
       ...this._sidebarConfig,
       notification: notifyConfig,

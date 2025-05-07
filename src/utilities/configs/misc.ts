@@ -32,15 +32,3 @@ export const getInitPanelOrder = (paperListBox: HTMLElement): string[] => {
   setStorage(STORAGE.PANEL_ORDER, panelOrder);
   return panelOrder;
 };
-
-export const isBeforeChange = (): boolean => {
-  const version = localStorage.getItem(STORAGE.HA_VERSION) || '';
-  console.log('Current version:', version);
-  const [year, major, patch] = version.split('.').map(Number); //eslint-disable-line
-
-  if (year < 2025) return true;
-  if (year > 2025) return false;
-
-  // If year is 2025, check the major version
-  return major < 5;
-};
