@@ -27,7 +27,7 @@ export const getInitPanelOrder = (paperListBox: HTMLElement): string[] => {
   const spacerIndex = Array.from(children).findIndex((child) => child.classList.contains('spacer'));
   const panelOrder = Array.from(children)
     .slice(0, spacerIndex)
-    .map((child) => child.getAttribute('data-panel'))
+    .map((child) => child.shadowRoot!.querySelector('a')!.getAttribute('href')?.replace('/', '') || null)
     .filter((panel) => panel !== null);
   setStorage(STORAGE.PANEL_ORDER, panelOrder);
   return panelOrder;
@@ -35,12 +35,12 @@ export const getInitPanelOrder = (paperListBox: HTMLElement): string[] => {
 
 export const isBeforeChange = (): boolean => {
   const version = localStorage.getItem(STORAGE.HA_VERSION) || '';
-  console.log('isBeforeChange', version);
+  console.log('Current version:', version);
   const [year, major, patch] = version.split('.').map(Number); //eslint-disable-line
 
   if (year < 2025) return true;
   if (year > 2025) return false;
 
-  // year == 2025
+  // If year is 2025, check the major version
   return major < 5;
 };

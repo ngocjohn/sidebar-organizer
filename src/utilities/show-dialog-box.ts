@@ -28,7 +28,8 @@ export const showPromptDialog = async (
   element: HTMLElement,
   text: string,
   placeholder: string,
-  confirmText: string
+  confirmText: string,
+  cancelText?: string
 ): Promise<string | null> => {
   const result = await helpers.showPromptDialog(element, {
     title: NAMESPACE_TITLE,
@@ -37,6 +38,8 @@ export const showPromptDialog = async (
     confirmText,
     inputType: 'string',
     defaultValue: '',
+    cancelText: cancelText ? cancelText : 'Cancel',
+    confirmation: true,
   });
 
   console.log('showPromptDialog', result);

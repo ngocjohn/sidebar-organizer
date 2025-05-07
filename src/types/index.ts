@@ -28,6 +28,7 @@ export type Theme = ThemeVars & {
     dark?: ThemeVars;
   };
 };
+export type LocalizeFunc = (key: string, ...args: any[]) => string;
 
 export interface Themes {
   default_theme: string;
@@ -41,21 +42,24 @@ export interface Themes {
   theme: string;
 }
 
-interface defaultPanel extends HomeAssistant {
-  defaultPanel: string;
-}
-export type HA = HomeAssistant & { themes: Themes };
+export type HA = HomeAssistant & {
+  loadFragmentTranslation: (fragment: string) => Promise<LocalizeFunc | undefined>;
+  themes: Themes;
+};
 
 export interface HaExtened extends HTMLElement {
   hass: HA & defaultPanel & { selectedTheme: ThemeSettings | null };
 }
 
+export interface Route {
+  prefix: string;
+  path: string;
+}
+
 export interface PartialPanelResolver extends HTMLElement {
   narrow: boolean;
-  __route: {
-    prefix: string;
-    path: string;
-  };
+  route?: Route | null;
+  panel?: PanelInfo;
 }
 
 export interface PanelInfo<T = Record<string, any> | null> {

@@ -1,7 +1,7 @@
 import { PREVIEW_MOCK_PANELS } from '@constants';
 import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '@types';
+import { applyTheme } from '@utilities/apply-theme';
 import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
-import { applyTheme } from '@utilities/dom-utils';
 import { isIcon } from '@utilities/is-icon';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
@@ -10,7 +10,6 @@ import { styleMap } from 'lit/directives/style-map.js';
 
 import { _createPanelItems, getPreviewItems } from '../utilities/preview-items';
 import { SidebarConfigDialog } from './sidebar-dialog';
-
 @customElement('sidebar-dialog-preview')
 export class SidebarDialogPreview extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
@@ -73,6 +72,7 @@ export class SidebarDialogPreview extends LitElement {
           console.log('Items changed');
           this._updateListbox(newConfig);
         }
+
         const themeChanged =
           JSON.stringify(oldConfig.color_config?.custom_theme?.theme) !==
           JSON.stringify(newConfig.color_config?.custom_theme?.theme);
@@ -110,6 +110,7 @@ export class SidebarDialogPreview extends LitElement {
         this._setTheme(newMode);
       }
     }
+
     if (_changedProperties.has('_ready') && this._ready) {
       this._addNotification();
     }
@@ -224,7 +225,7 @@ export class SidebarDialogPreview extends LitElement {
     const _paperListbox = this._paperListbox;
 
     const groups =
-      Object.keys(this._sidebarConfig?.custom_groups || {}).length >= 2
+      Object.keys(this._sidebarConfig?.custom_groups || {}).length >= 1
         ? Object.keys(this._sidebarConfig.custom_groups!)
         : Object.keys(mockCustomGroups);
 

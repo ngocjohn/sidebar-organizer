@@ -34,36 +34,39 @@ export const DIVIDER_ADDED_STYLE = css`
   }
 
   :host([expanded]) .ha-scrollbar .divider[ungrouped] {
-    padding-top: 0;
+    padding-top: 1px;
+    opacity: 0.5;
   }
-
-  :host(:not([expanded])) a[data-notification='true'] > paper-icon-item > ha-icon.notification-badge-collapsed,
-  :host(:not([expanded])) a[data-notification='true'] > paper-icon-item > span.notification-badge-collapsed {
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge {
     position: absolute;
-    bottom: 20px;
-    left: 20px;
+    inset-inline-start: 20px;
     inset-inline-start: 20px;
     inset-inline-end: initial;
-    font-size: 0.65em;
+    left: auto;
+    max-width: 30px;
+    top: 0px;
+  }
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge.large-badge {
+    transform: translateX(50%);
+    right: 22px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  :host([expanded]) a[data-notification='true'] > paper-icon-item > span.notification-badge-collapsed {
-    display: none !important;
-  }
-
-  a[data-notification='true'] > paper-icon-item > ha-icon.notification-badge-collapsed,
-  a[data-notification='true'] > paper-icon-item > ha-icon.notification-badge {
+  ha-md-list-item[data-notification='true'] > ha-icon.badge {
     padding: 0 !important;
     color: var(--accent-color);
     background-color: transparent;
   }
-  a[data-notification='true'] > paper-icon-item > span.notification-badge {
-    padding: 0 5px !important;
+
+  ha-md-list-item[data-notification='true'] > span.badge {
+    /* padding: 0 5px !important; */
     border-radius: 20px !important;
+    font-size: 0.85em;
   }
-  a[data-notification='true'] > paper-icon-item > span.notification-badge.long {
-    inset-inline-start: calc(var(--app-drawer-width, 248px) - 48px);
-  }
+
   :host .divider[added] .added-content {
     display: flex;
     justify-content: flex-start;
@@ -128,10 +131,19 @@ export const DIVIDER_ADDED_STYLE = css`
     background-color: rgb(from var(--sidebar-selected-icon-color) r g b / 0.2);
   }
 
-  :host a.collapsed {
-    max-height: 0px;
-    overflow: hidden;
+  :host ha-md-list-item:has([group]) {
+    transition: all;
   }
+
+  :host ha-md-list-item.collapsed {
+    max-height: 0px !important;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+  }
+
   :host a[aria-selected='false']::before,
   :host a.configuration-container[aria-selected='false']::before {
     display: none;
@@ -141,7 +153,7 @@ export const DIVIDER_ADDED_STYLE = css`
     max-height: 1000px;
   }
 
-  :host a.slideIn {
+  :host ha-md-list-item.slideIn {
     animation-name: slideIn;
     animation-duration: 0.3s;
     animation-fill-mode: both;
@@ -158,7 +170,7 @@ export const DIVIDER_ADDED_STYLE = css`
     }
   }
 
-  :host a.slideOut {
+  :host ha-md-list-item.slideOut {
     animation-name: slideOut;
     animation-duration: 0.3s;
     animation-fill-mode: both;
