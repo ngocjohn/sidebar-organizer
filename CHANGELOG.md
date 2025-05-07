@@ -3,10 +3,16 @@
 
 <!-- Release notes generated using configuration in .github/release.yml at v2.0.0 -->
 
-## What's Changed
-### Other Changes
-* HA Release 2025.5.x by [@ngocjohn](https://github.com/ngocjohn) in [#17](https://github.com/ngocjohn/sidebar-organizer/pull/17)
+# 🔄 Sidebar Organizer v2.0.0 – Major Compatibility Update
+## 🚀 What's New
+- **Home Assistant 2025.5.0+ Compatibility**  
+  This version has been reworked to support the major sidebar changes introduced in Home Assistant **2025.5.0** and later.
+  
+## ⚠️ Migration Notes
 
+- If you're running **Home Assistant 2025.5.0 or newer**, you **must use Sidebar Organizer v2.0.0+**.
+- For **older Home Assistant versions**, stick with **v1.4.0 or earlier**.
+- This version is **not backward compatible** with Home Assistant versions before 2025.5.0.
 
 **Full Changelog**: https://github.com/ngocjohn/sidebar-organizer/compare/v1.4.0...v2.0.0
 
