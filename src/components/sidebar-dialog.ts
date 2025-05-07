@@ -45,7 +45,7 @@ export class SidebarConfigDialog extends LitElement {
   @state() public _initCombiPanels: string[] = [];
 
   @state() private _uploading = false;
-  @state() private _invalidConfig: Record<string, string[]> = {};
+  @state() private _invalidConfig: Record<string, string[] | SidebarConfig> = {};
 
   @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
@@ -67,9 +67,7 @@ export class SidebarConfigDialog extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       return true;
     }
-    if (_changedProperties.has('_useConfigFile') && this._useConfigFile) {
-      this._setupInitConfig();
-    }
+
     return true;
   }
 
@@ -189,8 +187,13 @@ export class SidebarConfigDialog extends LitElement {
     ];
 
     return html`
-      <div class="invalid-config" .hidden=${this._useConfigFile}>
+      <div class="invalid-config" .hidden=${this._useConfigFile} style="--code-mirror-max-height: 250px;">
         <ha-alert alert-type="error">${ALERT_MSG.ITEMS_DIFFERENT}</ha-alert>
+        <ha-yaml-editor
+          .hass=${this.hass}
+          .defaultValue=${this._invalidConfig.config}
+          .readOnly=${true}
+        ></ha-yaml-editor>
         <div class="invalid-config-content">
           ${sections.map(({ title, key }) => {
             const items = (this._invalidConfig as any)[key];
@@ -280,6 +283,8 @@ export class SidebarConfigDialog extends LitElement {
 
   private _validateStoragePanels = async (): Promise<void> => {
     const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
+    const hiddenItems = getHiddenPanels();
+    const allPanels = [...currentPanelOrder, ...hiddenItems];
     const _dasboards = await fetchDashboards(this.hass).then((dashboards) => {
       const notInSidebar: string[] = [];
       const inSidebar: string[] = [];
@@ -293,8 +298,8 @@ export class SidebarConfigDialog extends LitElement {
       return { inSidebar, notInSidebar };
     });
     // Check if the current panel order has extra or missing items
-    const extraPanels = _dasboards.notInSidebar.filter((panel: string) => currentPanelOrder.includes(panel));
-    const missingPanels = _dasboards.inSidebar.filter((panel: string) => !currentPanelOrder.includes(panel));
+    const extraPanels = _dasboards.notInSidebar.filter((panel: string) => allPanels.includes(panel));
+    const missingPanels = _dasboards.inSidebar.filter((panel: string) => !allPanels.includes(panel));
     if (extraPanels.length > 0 || missingPanels.length > 0) {
       // If there are changes, update the sidebar items
       console.log('Sidebar panels have changed');
@@ -326,9 +331,10 @@ export class SidebarConfigDialog extends LitElement {
     const result = isItemsValid(config, this.hass, true);
     console.log('Config file validation result', result);
     if (typeof result === 'object' && result !== null) {
-      const { configValid, duplikatedItems, invalidItems, noTitleItems } = result;
+      const { configValid, config, duplikatedItems, invalidItems, noTitleItems } = result;
       if (!configValid) {
         this._invalidConfig = {
+          config,
           duplikatedItems,
           invalidItems,
           noTitleItems,
@@ -507,7 +513,7 @@ export class SidebarConfigDialog extends LitElement {
 
         .invalid-config {
           display: block;
-          width: auto;
+          width: inherit;
           padding: 1rem;
           background: var(--clear-background-color);
           place-items: center;

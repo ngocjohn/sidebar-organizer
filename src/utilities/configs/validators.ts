@@ -39,6 +39,7 @@ export const isItemsValid = (
   | boolean
   | {
       configValid: boolean;
+      config: SidebarConfig;
       duplikatedItems: string[];
       invalidItems: string[];
       noTitleItems: string[];
@@ -50,7 +51,7 @@ export const isItemsValid = (
   ];
 
   if (allItems.length === 0) {
-    return log ? { configValid: false, duplikatedItems: [], invalidItems: [], noTitleItems: [] } : false;
+    return log ? { configValid: false, config, duplikatedItems: [], invalidItems: [], noTitleItems: [] } : false;
   }
   const customGroups = Object.values(config.custom_groups || {}).flat();
   const duplikatedItems = customGroups.filter((item, index) => customGroups.indexOf(item) !== index) || [];
@@ -76,7 +77,7 @@ export const isItemsValid = (
   }
 
   if (log) {
-    return { configValid, duplikatedItems, invalidItems, noTitleItems };
+    return { configValid, config, duplikatedItems, invalidItems, noTitleItems };
   }
 
   return configValid;
