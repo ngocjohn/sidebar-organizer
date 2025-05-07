@@ -1,3 +1,18 @@
+<a id="v2.0.0"></a>
+# [v2.0.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v2.0.0) - 2025-05-07
+
+<!-- Release notes generated using configuration in .github/release.yml at v2.0.0 -->
+
+## What's Changed
+### Other Changes
+* HA Release 2025.5.x by [@ngocjohn](https://github.com/ngocjohn) in [#17](https://github.com/ngocjohn/sidebar-organizer/pull/17)
+
+
+**Full Changelog**: https://github.com/ngocjohn/sidebar-organizer/compare/v1.4.0...v2.0.0
+
+[Changes][v2.0.0]
+
+
 <a id="v1.4.0"></a>
 # [v1.4.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v1.4.0) - 2025-05-04
 
@@ -124,6 +139,7 @@ With Sidebar Organizer, managing the sidebar in Home Assistant becomes easy and 
 [Changes][v1.0.0]
 
 
+[v2.0.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.4.0...v2.0.0
 [v1.4.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.1.0...v1.2.0
