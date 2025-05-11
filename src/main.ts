@@ -951,11 +951,13 @@ class SidebarOrganizer {
 
     if (hasDiff) {
       this._diffCheck = false;
-      LOGGER.warn('Changes detected:', {
+      const logs = {
         bottomItemsDiff: JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems),
         dividerOrderDiff: JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder),
         panelOrderDiff: JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed),
-      });
+      };
+      console.log('Diff Check:', logs);
+      LOGGER.warn('Changes detected:', logs);
       window.location.reload();
       // this._refreshSidebar();
     } else {

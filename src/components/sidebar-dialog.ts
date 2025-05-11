@@ -260,6 +260,15 @@ export class SidebarConfigDialog extends LitElement {
             this._uploading = false;
             return;
           } else {
+            const resetConfigPromise = () =>
+              new Promise<void>((resolve) => {
+                localStorage.removeItem(STORAGE.UI_CONFIG);
+                localStorage.removeItem(STORAGE.PANEL_ORDER);
+                localStorage.removeItem(STORAGE.HIDDEN_PANELS);
+                resolve();
+              });
+
+            await resetConfigPromise();
             this._sidebarConfig = newConfig;
             this._uploading = false;
           }
