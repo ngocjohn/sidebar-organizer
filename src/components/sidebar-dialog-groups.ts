@@ -320,11 +320,11 @@ export class SidebarDialogGroups extends LitElement {
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
     const initPanelItems = this._dialog._initCombiPanels;
 
-    const selector = this._createSelectorOptions(initPanelItems);
+    const selector = this._createSelectorOptions(initPanelItems, 'dropdown');
 
     const selectedItems = Object.entries(hiddenItems).map(([, item]) => item);
 
-    return html` <div class="items-container">
+    return html` <div class="items-container" style="flex: none">
       <div class="header-row flex-icon">
         <span>HIDDEN ITEMS</span>
       </div>
@@ -873,7 +873,7 @@ export class SidebarDialogGroups extends LitElement {
     }
   }
 
-  private _createSelectorOptions(items: string[]) {
+  private _createSelectorOptions(items: string[], mode: string = 'list') {
     const hassPanels = this.hass?.panels;
 
     const options = items.map((panel) => {
@@ -886,7 +886,7 @@ export class SidebarDialogGroups extends LitElement {
     const selector = {
       select: {
         multiple: true,
-        mode: 'list',
+        mode: mode,
         options: options,
       },
     };

@@ -61,21 +61,21 @@ export class SidebarDialogColors extends LitElement {
       return true;
     }
 
-    if (_changedProperties.has('_yamlEditor') && this._yamlEditor !== undefined) {
-      this._yamlEditor._codeEditor.linewrap = true;
-      const cardActions = this._yamlEditor.shadowRoot?.querySelector('.card-actions');
-      const actionStyles = {
-        display: 'flex',
-        justifyContent: 'space-between',
-        width: '100%',
-        padding: '0',
-        border: 'none',
-      };
-      if (cardActions) {
-        Object.assign(cardActions.style, actionStyles);
-      }
-      return true;
-    }
+    // if (_changedProperties.has('_yamlEditor') && this._yamlEditor !== undefined) {
+    //   this._yamlEditor._codeEditor.linewrap = true;
+    //   const cardActions = this._yamlEditor.shadowRoot?.querySelector('.card-actions');
+    //   const actionStyles = {
+    //     display: 'flex',
+    //     justifyContent: 'space-between',
+    //     width: '100%',
+    //     padding: '0',
+    //     border: 'none',
+    //   };
+    //   if (cardActions) {
+    //     Object.assign(cardActions.style, actionStyles);
+    //   }
+    //   return true;
+    // }
 
     return true;
   }
@@ -602,9 +602,9 @@ export class SidebarDialogColors extends LitElement {
             .label=${'Custom Styles'}
             .required=${false}
             @value-changed=${this._handleYamlChange}
-            style="flex: 1;"
+            style="flex: 1; overflow: auto;"
           >
-            <ha-button slot="extra-actions" @click=${() => this._resetColorConfig('custom_styles')}>Reset</ha-button>
+            <ha-button slot="extra-actions" style="float: inline-end;"  @click=${() => this._resetColorConfig('custom_styles')}>Reset</ha-button>
           </ha-yaml-editor>
         </div>
       </div>
