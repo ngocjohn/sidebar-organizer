@@ -509,10 +509,6 @@ class SidebarOrganizer {
   }
 
   private _handleSidebarHeader(): void {
-    const hide_header_toggle = this._config.hide_header_toggle || false;
-    if (hide_header_toggle) return;
-    const groupKeys = Object.keys(this._config?.custom_groups || {});
-    if (groupKeys.length === 0 || Object.values(this._config.custom_groups || {}).flat().length === 0) return;
     const menuEl = this.sideBarRoot?.querySelector(SELECTOR.MENU) as HTMLElement;
     const titleEl = menuEl.querySelector(SELECTOR.MENU_TITLE) as HTMLElement;
     if (!titleEl) return;
@@ -522,7 +518,10 @@ class SidebarOrganizer {
     }
 
     titleEl.classList.add('toggle');
-
+    const hide_header_toggle = this._config.hide_header_toggle || false;
+    if (hide_header_toggle) return;
+    const groupKeys = Object.keys(this._config?.custom_groups || {});
+    if (groupKeys.length === 0 || Object.values(this._config.custom_groups || {}).flat().length === 0) return;
     const isSomeCollapsed = this.collapsedItems.size > 0;
 
     const collapseEl = document.createElement('ha-icon') as any;
