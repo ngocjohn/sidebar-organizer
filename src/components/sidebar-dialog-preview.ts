@@ -21,7 +21,6 @@ export class SidebarDialogPreview extends LitElement {
   @state() private _baseColorFromTheme: DividerColorSettings = {};
 
   @state() private _ready = false;
-  @state() private _customThemeSetUp = false;
 
   protected firstUpdated(): void {
     // console.log('colorMode', colorMode);
@@ -64,11 +63,13 @@ export class SidebarDialogPreview extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
       const newConfig = this._sidebarConfig;
+
       if (oldConfig && newConfig) {
         const bottomChanged = JSON.stringify(oldConfig.bottom_items) !== JSON.stringify(newConfig.bottom_items);
         const customGroupsChanged = JSON.stringify(oldConfig.custom_groups) !== JSON.stringify(newConfig.custom_groups);
         const hiddenItemsChanged = JSON.stringify(oldConfig.hidden_items) !== JSON.stringify(newConfig.hidden_items);
-        if (bottomChanged || customGroupsChanged || hiddenItemsChanged) {
+        const newItemsChanged = JSON.stringify(oldConfig.new_items) !== JSON.stringify(newConfig.new_items);
+        if (bottomChanged || customGroupsChanged || hiddenItemsChanged || newItemsChanged) {
           console.log('Items changed');
           this._updateListbox(newConfig);
         }
@@ -78,12 +79,6 @@ export class SidebarDialogPreview extends LitElement {
           JSON.stringify(newConfig.color_config?.custom_theme?.theme);
 
         if (themeChanged) {
-          // console.log(
-          //   'Theme changed',
-          //   oldConfig.color_config?.custom_theme?.theme,
-          //   '->',
-          //   newConfig.color_config?.custom_theme?.theme
-          // );
           if (newConfig.color_config?.custom_theme?.theme === undefined) {
             const themeCon = this.shadowRoot?.getElementById('theme-container');
             themeCon?.removeAttribute('style');
@@ -110,9 +105,8 @@ export class SidebarDialogPreview extends LitElement {
         this._setTheme(newMode);
       }
     }
-
     if (_changedProperties.has('_ready') && this._ready) {
-      this._addNotification();
+      this._handleNotifyChange();
     }
   }
 
@@ -126,7 +120,6 @@ export class SidebarDialogPreview extends LitElement {
     const groups = this.shadowRoot?.querySelector('div.groups-container');
     const items = groups?.querySelectorAll('a') as NodeListOf<HTMLElement>;
     if (!items) {
-      console.log('No items found');
       return;
     }
     Object.entries(notification).forEach(([key, value]) => {
@@ -181,7 +174,7 @@ export class SidebarDialogPreview extends LitElement {
     notifyItems.forEach((item) => item.remove());
     setTimeout(() => {
       this._addNotification();
-    }, 100);
+    }, 0);
   }
 
   public _updateListbox(newConfig?: SidebarConfig): void {
@@ -261,14 +254,10 @@ export class SidebarDialogPreview extends LitElement {
     });
 
     const ungroupedPanel = () => {
-      if (ungroupedItems && ungroupedItems.length > 0) {
-        const ungroupedItemsEl = _createPanelItems(this.hass, ungroupedItems);
-        return ungroupedItemsEl.map((item: PanelInfo) => {
-          return _renderPanelItem(item);
-        });
-      } else {
-        return nothing;
-      }
+      if (!ungroupedItems?.length) return nothing;
+
+      const ungroupedItemsEl = _createPanelItems(this.hass, ungroupedItems, this._dialog);
+      return [...ungroupedItemsEl].map(_renderPanelItem);
     };
 
     return html` <div id="theme-container"></div>

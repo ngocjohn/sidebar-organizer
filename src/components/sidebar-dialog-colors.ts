@@ -259,7 +259,7 @@ export class SidebarDialogColors extends LitElement {
       this._getDefaultColors();
       this._initCustomStyles = this._sidebarConfig.color_config?.[mode]?.custom_styles || [];
     }, 0);
-    console.log('Color compoment applied theme:', theme, 'mode:', mode);
+    // console.log('Color compoment applied theme:', theme, 'mode:', mode);
     if (this._dialog._dialogPreview && this._dialog._dialogPreview._colorConfigMode !== mode) {
       this._dialog._dialogPreview._colorConfigMode = mode;
     }

@@ -1,5 +1,5 @@
 import { ALERT_MSG, CUSTOM_EVENT, STORAGE, TAB_STATE } from '@constants';
-import { SidebarConfig, HaExtened } from '@types';
+import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
 import { fetchFileConfig, isItemsValid } from '@utilities/configs';
 import { fetchDashboards } from '@utilities/dashboard';
 import { showAlertDialog } from '@utilities/show-dialog-box';
@@ -17,6 +17,7 @@ import './sidebar-dialog-groups';
 import './sidebar-dialog-code-editor';
 import './sidebar-dialog-preview';
 import './sidebar-organizer-tab';
+import './sidebar-dialog-new-items';
 
 import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
@@ -24,8 +25,10 @@ import YAML from 'yaml';
 import { SidebarDialogCodeEditor } from './sidebar-dialog-code-editor';
 import { SidebarDialogColors } from './sidebar-dialog-colors';
 import { SidebarDialogGroups } from './sidebar-dialog-groups';
+import { SidebarDialogNewItems } from './sidebar-dialog-new-items';
 import { SidebarDialogPreview } from './sidebar-dialog-preview';
-const tabs = ['appearance', 'panels'] as const;
+
+const tabs = ['appearance', 'panels', 'newItems'] as const;
 
 @customElement('sidebar-config-dialog')
 export class SidebarConfigDialog extends LitElement {
@@ -43,6 +46,8 @@ export class SidebarConfigDialog extends LitElement {
 
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
+  @state() public _newItems: string[] = [];
+  @state() public _newItemMap = new Map<string, NewItemConfig>();
 
   @state() private _uploading = false;
   @state() private _invalidConfig: Record<string, string[] | SidebarConfig> = {};
@@ -51,6 +56,7 @@ export class SidebarConfigDialog extends LitElement {
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
   @query('sidebar-dialog-preview') _dialogPreview!: SidebarDialogPreview;
   @query('sidebar-dialog-code-editor') _dialogCodeEditor!: SidebarDialogCodeEditor;
+  @query('sidebar-dialog-new-items') _dialogNewItems!: SidebarDialogNewItems;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -69,6 +75,21 @@ export class SidebarConfigDialog extends LitElement {
     }
 
     return true;
+  }
+
+  protected updated(_changedProperties: PropertyValues): void {
+    if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
+      const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
+      const newConfig = this._sidebarConfig;
+      if (oldConfig && newConfig) {
+        const newItemsChanged = JSON.stringify(oldConfig.new_items) !== JSON.stringify(newConfig.new_items);
+        if (newItemsChanged && newConfig.new_items) {
+          console.log('New items changed:', newConfig.new_items);
+          this._newItemMap = new Map(newConfig.new_items!.map((item) => [item.title!, item as NewItemConfig]));
+          this._newItems = newConfig.new_items!.map((item) => item.title!);
+        }
+      }
+    }
   }
 
   private _setupInitConfig = async () => {
@@ -94,6 +115,7 @@ export class SidebarConfigDialog extends LitElement {
     const tabsContent = [
       { key: 'appearance', label: 'Appearance', content: this._renderBaseConfig() },
       { key: 'panels', label: 'Panels', content: this._renderPanelConfig() },
+      { key: 'newItems', label: 'New Items', content: this._renderNewItemsConfig() },
     ];
 
     const activeTabIndex = tabs.indexOf(this._currTab);
@@ -137,9 +159,6 @@ export class SidebarConfigDialog extends LitElement {
     `;
   }
 
-  public _toggleCodeEditor() {
-    this._tabState = this._tabState === TAB_STATE.BASE ? TAB_STATE.CODE : TAB_STATE.BASE;
-  }
   private _renderBaseConfig(): TemplateResult {
     return html` <sidebar-dialog-colors
       .hass=${this.hass}
@@ -156,6 +175,21 @@ export class SidebarConfigDialog extends LitElement {
       ._sidebarConfig=${this._sidebarConfig}
       @sidebar-changed=${this._handleSidebarChanged}
     ></sidebar-dialog-groups>`;
+  }
+
+  private _renderNewItemsConfig(): TemplateResult {
+    return html`
+      <sidebar-dialog-new-items
+        .hass=${this.hass}
+        ._dialog=${this}
+        ._sidebarConfig=${this._sidebarConfig}
+        @sidebar-changed=${this._handleSidebarChanged}
+      ></sidebar-dialog-new-items>
+    `;
+  }
+
+  public _toggleCodeEditor() {
+    this._tabState = this._tabState === TAB_STATE.BASE ? TAB_STATE.CODE : TAB_STATE.BASE;
   }
 
   private _renderCodeEditor(): TemplateResult {
@@ -388,6 +422,7 @@ export class SidebarConfigDialog extends LitElement {
     // Initialize panel combinations
     this._initCombiPanels = [..._sidebarItems, ...initHiddenItems];
     this._initPanelOrder = [..._sidebarItems];
+
     this._configLoaded = true;
   };
 
@@ -401,9 +436,8 @@ export class SidebarConfigDialog extends LitElement {
   public get ungroupedItems(): string[] {
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
     const pickedItems = this.pickedItems;
-    const ungroupedItems = this._initCombiPanels.filter(
-      (item) => !pickedItems.includes(item) && !hiddenItems.includes(item)
-    );
+    const currentOrder = [...this._initCombiPanels, ...this._newItems];
+    const ungroupedItems = currentOrder.filter((item) => !pickedItems.includes(item) && !hiddenItems.includes(item));
     return ungroupedItems;
   }
 
