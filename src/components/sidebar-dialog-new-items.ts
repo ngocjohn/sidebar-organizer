@@ -111,24 +111,7 @@ export class SidebarDialogNewItems extends LitElement {
                         <ha-icon-button .label=${'Edit item'} @click=${() => (this._selectedItemIndex = index)}>
                           <ha-icon icon="mdi:pencil"></ha-icon
                         ></ha-icon-button>
-                        <ha-icon-button
-                          .label=${'Delete item'}
-                          @click=${async () => {
-                            const confirmDelete = await showConfirmDialog(
-                              this,
-                              `Are you sure you want to delete this item? ${title}`,
-                              'Delete'
-                            );
-                            if (!confirmDelete) return;
-                            const newItems = { ...(this._sidebarConfig.new_items || []) };
-                            delete newItems[index];
-                            this._sidebarConfig = {
-                              ...this._sidebarConfig,
-                              new_items: newItems,
-                            };
-                            this._dispatchConfig(this._sidebarConfig);
-                          }}
-                        >
+                        <ha-icon-button .label=${'Delete item'} @click=${this._handleDeleteItem.bind(this, index)}>
                           <ha-icon icon="mdi:trash-can-outline"></ha-icon
                         ></ha-icon-button>
                       </div>
@@ -239,6 +222,16 @@ export class SidebarDialogNewItems extends LitElement {
     this._dispatchConfig(this._sidebarConfig);
   }
 
+  private _handleDeleteItem(index: number): void {
+    const newItems = [...(this._sidebarConfig.new_items || [])];
+    newItems.splice(index, 1);
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      new_items: newItems,
+    };
+    this._dispatchConfig(this._sidebarConfig);
+    this.requestUpdate();
+  }
   private _togglePromptNewItem = async () => {
     const newItemTitle = await showPromptDialog(this, 'Enter new item title', 'New Item', 'Add', 'Cancel');
     if (!newItemTitle || newItemTitle === '') return;

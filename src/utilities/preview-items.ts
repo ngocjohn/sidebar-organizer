@@ -16,6 +16,7 @@ export const getPreviewItems = (dialog: SidebarConfigDialog, config: SidebarConf
   const _panelItems: Record<string, PanelInfo[]> = {
     defaultPage: [
       {
+        component_name: hassPanels[defaultPanel]?.title || hass.localize('panel.states'),
         title: hassPanels[defaultPanel]?.title || hass.localize('panel.states'),
         icon: hassPanels[defaultPanel]?.icon || PANEL_ICONS.lovelace,
       },

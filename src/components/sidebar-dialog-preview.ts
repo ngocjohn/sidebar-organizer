@@ -89,7 +89,12 @@ export class SidebarDialogPreview extends LitElement {
             this._setTheme(this._colorConfigMode);
           }
         }
-        const notificationChanged = JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification);
+        const notificationChanged =
+          JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification) ||
+          JSON.stringify(
+            oldConfig.new_items?.every((item) => item.notification) !==
+              newConfig.new_items?.every((item) => item.notification)
+          );
         if (notificationChanged) {
           console.log('Notification changed');
           this._handleNotifyChange();
@@ -112,34 +117,63 @@ export class SidebarDialogPreview extends LitElement {
 
   private _addNotification(): void {
     console.log('Adding notification');
-    const notification = this._sidebarConfig?.notification || {};
-    if (!notification || Object.keys(notification).length === 0) {
-      return;
+    const groups = this.shadowRoot?.querySelector('div.groups-container');
+    const items = groups!.querySelectorAll('a') as NodeListOf<HTMLElement>;
+    const newItems = this._sidebarConfig?.new_items || [];
+    if (newItems && newItems.length > 0) {
+      const newItemsWithNotification = newItems.filter((item) => item.notification !== undefined);
+      console.log('New items with notification:', newItemsWithNotification);
+      newItemsWithNotification.forEach((notify) => {
+        const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === notify.title!);
+        const notification = notify.notification;
+        console.log('New item:', notify, 'Panel:', panel, 'Notification:', notification);
+        if (panel && notification) {
+          console.log('Panel:', panel);
+          this._subscribeNotification(panel, notification);
+        }
+      });
     }
 
-    const groups = this.shadowRoot?.querySelector('div.groups-container');
-    const items = groups?.querySelectorAll('a') as NodeListOf<HTMLElement>;
-    if (!items) {
-      return;
+    const notification = this._sidebarConfig?.notification || {};
+    if (notification && Object.keys(notification).length > 0) {
+      Object.entries(notification).forEach(([key, value]) => {
+        const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === key);
+        if (panel) {
+          console.log('Panel:', panel);
+          this._subscribeNotification(panel, value);
+        }
+      });
     }
-    Object.entries(notification).forEach(([key, value]) => {
-      const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === key);
-      if (panel) {
-        this._subscribeTemplate(value, (result: string) => {
-          if (isIcon(result)) {
-            const icon = document.createElement('ha-icon');
-            icon.classList.add('notification-badge');
-            icon.setAttribute('icon', result);
-            panel.querySelector('div.icon-item')?.appendChild(icon);
-          } else {
-            const span = document.createElement('span');
-            span.classList.add('notification-badge');
-            span.innerHTML = result;
-            panel.querySelector('div.icon-item')?.appendChild(span);
-          }
-        });
+  }
+
+  private _subscribeNotification(panel: HTMLElement, configValue: string) {
+    let badge = panel.querySelector('span.notification-badge') as HTMLElement;
+    let icon = panel.querySelector('ha-icon.notification-badge') as HTMLElement;
+    if (!badge && !icon) {
+      badge = document.createElement('span');
+      badge.classList.add('notification-badge');
+      panel.querySelector('div.icon-item')?.appendChild(badge);
+      icon = document.createElement('ha-icon');
+      icon.classList.add('notification-badge');
+      panel.querySelector('div.icon-item')?.appendChild(icon);
+    }
+
+    const callback = (result: any) => {
+      if (result) {
+        if (typeof result === 'string' && isIcon(result)) {
+          badge.remove();
+          icon.setAttribute('icon', result);
+        } else {
+          icon.remove();
+          badge.innerHTML = result;
+        }
+      } else {
+        badge.remove();
+        icon.remove();
       }
-    });
+    };
+
+    this._subscribeTemplate(configValue, callback);
   }
 
   private _subscribeTemplate(configValue: string, callback: (result: string) => void): void {

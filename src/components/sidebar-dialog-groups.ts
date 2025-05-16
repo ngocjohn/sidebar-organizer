@@ -34,9 +34,9 @@ export class SidebarDialogGroups extends LitElement {
   @state() private _sortable: Sortable | null = null;
   @state() private _panelSortable: Sortable | null = null;
 
-  protected firstUpdated(): void {
-    this._setGridSelector();
-  }
+  // protected firstUpdated(): void {
+  //     this._setGridSelector();
+  // }
 
   protected updated(_changedProperties: PropertyValues) {
     if (
@@ -116,7 +116,7 @@ export class SidebarDialogGroups extends LitElement {
           this._handleSortEnd(evt);
         },
       });
-      // console.log('sortable initialized');
+      console.log('sortable initialized for group list');
     }
   };
 
@@ -132,7 +132,7 @@ export class SidebarDialogGroups extends LitElement {
           this._handlePanelSortEnd(evt);
         },
       });
-      console.log('panel sortable initialized');
+      console.log('panel sortable initialized for selected items');
     }
   };
 
@@ -344,7 +344,7 @@ export class SidebarDialogGroups extends LitElement {
   private _renderNotificationConfig() {
     const hassPanels = this.hass?.panels;
     const items = this._dialog._initCombiPanels.filter((item) => {
-      return this._dialog._newItems?.includes(item) === false;
+      return !this._dialog._newItemMap.has(item);
     });
 
     const options = items.map((panel) => {
@@ -733,8 +733,8 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
-    const currentItems = [...this._dialog._initPanelOrder, ...(this._dialog._newItems || [])];
-    const pickedItems = this.pickedItems;
+    const currentItems = this._dialog._initCombiPanels;
+    const pickedItems = this._dialog.pickedItems;
     const selectedType = customGroup ? customGroup : 'bottom_items';
 
     const configItems = customGroup
@@ -745,7 +745,7 @@ export class SidebarDialogGroups extends LitElement {
 
     const itemsToRemove = pickedItems.filter((item) => !selectedItems.includes(item));
     const itemsToChoose = currentItems.filter((item) => !itemsToRemove.includes(item));
-
+    console.log('itemsToChoose', itemsToChoose);
     const selector = this._createSelectorOptions(itemsToChoose);
 
     const renderItems = this._renderSelectedItems(selectedType, selectedItems);

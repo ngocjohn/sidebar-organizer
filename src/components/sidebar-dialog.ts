@@ -46,8 +46,8 @@ export class SidebarConfigDialog extends LitElement {
 
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
-  @state() public _newItems: string[] = [];
   @state() public _newItemMap = new Map<string, NewItemConfig>();
+  @state() private _newItems: string[] = [];
 
   @state() private _uploading = false;
   @state() private _invalidConfig: Record<string, string[] | SidebarConfig> = {};
@@ -81,13 +81,32 @@ export class SidebarConfigDialog extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
       const newConfig = this._sidebarConfig;
-      if (oldConfig && newConfig) {
+      if (oldConfig !== undefined && newConfig) {
         const newItemsChanged = JSON.stringify(oldConfig.new_items) !== JSON.stringify(newConfig.new_items);
+        // console.log('New items changed:', newItemsChanged);
         if (newItemsChanged && newConfig.new_items) {
-          console.log('New items changed:', newConfig.new_items);
-          this._newItemMap = new Map(newConfig.new_items!.map((item) => [item.title!, item as NewItemConfig]));
-          this._newItems = newConfig.new_items!.map((item) => item.title!);
+          // console.log('New items changed:', newConfig.new_items);
+          this._newItemMap = new Map(newConfig.new_items.map((item: NewItemConfig) => [item.title!, item]));
+          // console.log('New item map:', this._newItemMap);
+          // compare the new items with initCombiPanels if is new added or removed
         }
+      }
+      const curentNewItems = [...this._newItems];
+      console.log('Current new items:', curentNewItems);
+      console.log(
+        'new items:',
+        newConfig.new_items?.map((item) => item.title)
+      );
+      const _newConfigChanged =
+        JSON.stringify(curentNewItems) !== JSON.stringify(newConfig.new_items?.map((item) => item.title));
+      console.log('New items changed:', _newConfigChanged, curentNewItems, newConfig.new_items);
+      if (_newConfigChanged) {
+        this._newItems = newConfig.new_items?.map((item) => item.title!) || [];
+        console.log('New items updated:', this._newItems);
+        this._initCombiPanels = this._initCombiPanels.filter((item) => !curentNewItems.includes(item));
+        console.log('Init combi panels:', this._initCombiPanels);
+        this._initCombiPanels = [...this._initCombiPanels, ...Array.from(this._newItems)];
+        console.log('Init combi panels updated:', this._initCombiPanels);
       }
     }
   }
@@ -418,9 +437,11 @@ export class SidebarConfigDialog extends LitElement {
 
     // Filter out defaultPanel and 'lovelace' from the current panel order
     const _sidebarItems = currentPanelOrder.filter((item: string) => item !== defaultPanel && item !== 'lovelace');
-
+    const configNewItems = this._sidebarConfig?.new_items || [];
+    this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
     // Initialize panel combinations
     this._initCombiPanels = [..._sidebarItems, ...initHiddenItems];
+    console.log('Init combi panels:', this._initCombiPanels);
     this._initPanelOrder = [..._sidebarItems];
 
     this._configLoaded = true;
@@ -436,7 +457,7 @@ export class SidebarConfigDialog extends LitElement {
   public get ungroupedItems(): string[] {
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
     const pickedItems = this.pickedItems;
-    const currentOrder = [...this._initCombiPanels, ...this._newItems];
+    const currentOrder = [...this._initCombiPanels];
     const ungroupedItems = currentOrder.filter((item) => !pickedItems.includes(item) && !hiddenItems.includes(item));
     return ungroupedItems;
   }
