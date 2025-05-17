@@ -92,14 +92,10 @@ export class SidebarConfigDialog extends LitElement {
         }
       }
       const curentNewItems = [...this._newItems];
-      console.log('Current new items:', curentNewItems);
-      console.log(
-        'new items:',
-        newConfig.new_items?.map((item) => item.title)
-      );
+
       const _newConfigChanged =
         JSON.stringify(curentNewItems) !== JSON.stringify(newConfig.new_items?.map((item) => item.title));
-      console.log('New items changed:', _newConfigChanged, curentNewItems, newConfig.new_items);
+
       if (_newConfigChanged) {
         this._newItems = newConfig.new_items?.map((item) => item.title!) || [];
         console.log('New items updated:', this._newItems);

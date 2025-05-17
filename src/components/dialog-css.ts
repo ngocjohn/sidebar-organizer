@@ -4,17 +4,9 @@ export const dialogStyles = css`
   :host *[hidden] {
     display: none;
   }
-  :host #customSelectorHidden {
-    --grid-flex-columns: repeat(auto-fill, minmax(30.5%, 1fr));
-  }
-  :host #customSelector {
-    --grid-flex-columns: repeat(auto-fill, minmax(40.5%, 1fr));
-  }
-  @media all and (max-width: 700px), all and (max-height: 500px) {
-    :host #customSelectorHidden,
-    :host #customSelector {
-      --grid-flex-columns: repeat(auto-fill, minmax(30.5%, 1fr));
-    }
+
+  :host ha-expansion-panel .container.expanded {
+    background-color: var(--primary-background-color) !important;
   }
 
   .config-content {
@@ -52,9 +44,9 @@ export const dialogStyles = css`
     display: flex;
     align-items: center;
   }
-  .group-name:hover {
+  .group-name:hover * {
     cursor: pointer;
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
   }
   .group-name > ha-icon {
     color: var(--secondary-text-color);
@@ -78,6 +70,11 @@ export const dialogStyles = css`
     margin-inline: var(--side-dialog-gutter);
     color: var(--secondary-text-color);
   }
+
+  /* .group-actions > ha-icon-button {
+    color: var(--secondary-text-color);
+    --mdc-icon-button-size: 36px;
+  } */
   .header-row {
     display: inline-flex;
     justify-content: space-between;
@@ -128,6 +125,11 @@ export const dialogStyles = css`
     border: 1px solid var(--divider-color);
     flex: 1 1 100%;
     height: 100%;
+  }
+  .selector-container {
+    display: block;
+    max-height: 300px;
+    overflow: auto;
   }
   .preview-container {
     min-width: 230px;

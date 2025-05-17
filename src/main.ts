@@ -35,6 +35,7 @@ import { isIcon } from '@utilities/is-icon';
 import { TRANSLATED } from '@utilities/localize';
 import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
+import { ACTION_TYPES, addHandlerActions } from '@utilities/tap-action';
 
 import './components/sidebar-dialog';
 
@@ -905,12 +906,13 @@ class SidebarOrganizer {
 
   private _handleNewPanelOrder() {
     const newPanelOrder = this.HaSidebar._panelOrder;
+
     const scrollbar = this._scrollbar;
     const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
     const spacer = scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
 
-    // rearrange the items in the sidebar by their new order with insertBefore
-    newPanelOrder.forEach((panel) => {
+    // rearrange the items in the sidebar by their new order
+    newPanelOrder.forEach((panel: string) => {
       const item = scrollbarItems.find((item) => item.getAttribute('data-panel') === panel);
       if (item) {
         // console.log('Rearranging Item:', item, 'Panel:', panel);
@@ -1039,12 +1041,14 @@ class SidebarOrganizer {
   }
 
   private _createNewItem(itemConfig: NewItemConfig): SidebarPanelItem {
+    const hasAction = ACTION_TYPES.some((action) => itemConfig[action] !== undefined);
     const item = document.createElement(ELEMENT.ITEM) as SidebarPanelItem;
     item.setAttribute(ATTRIBUTE.TYPE, 'link');
 
-    item.href = itemConfig.url_path ?? '#';
+    item.href = hasAction ? '#' : (itemConfig.url_path ?? '#');
     item.target = itemConfig.target ?? '';
     item.setAttribute('data-panel', itemConfig.title!);
+    item.setAttribute('has-action', hasAction.toString());
     item.tabIndex = -1;
 
     const span = document.createElement('span');
@@ -1059,6 +1063,9 @@ class SidebarOrganizer {
     haIcon.icon = itemConfig.icon!;
 
     item.prepend(haIcon);
+    if (hasAction) {
+      addHandlerActions(item, itemConfig);
+    }
     return item;
   }
 
@@ -1076,7 +1083,7 @@ class SidebarOrganizer {
     }
     if (this._config.new_items && this._config.new_items.length > 0) {
       const itemWithNotify = this._config.new_items.filter((item) => item.notification !== undefined);
-      console.log('Item with Notify:', itemWithNotify);
+
       if (itemWithNotify.length === 0) return;
       itemWithNotify.forEach((item) => {
         const panel = this._scrollbar.querySelector(`[data-panel="${item.title}"]`) as HTMLElement;

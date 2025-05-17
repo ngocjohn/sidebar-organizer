@@ -122,13 +122,10 @@ export class SidebarDialogPreview extends LitElement {
     const newItems = this._sidebarConfig?.new_items || [];
     if (newItems && newItems.length > 0) {
       const newItemsWithNotification = newItems.filter((item) => item.notification !== undefined);
-      console.log('New items with notification:', newItemsWithNotification);
       newItemsWithNotification.forEach((notify) => {
         const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === notify.title!);
         const notification = notify.notification;
-        console.log('New item:', notify, 'Panel:', panel, 'Notification:', notification);
         if (panel && notification) {
-          console.log('Panel:', panel);
           this._subscribeNotification(panel, notification);
         }
       });
@@ -139,7 +136,6 @@ export class SidebarDialogPreview extends LitElement {
       Object.entries(notification).forEach(([key, value]) => {
         const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === key);
         if (panel) {
-          console.log('Panel:', panel);
           this._subscribeNotification(panel, value);
         }
       });

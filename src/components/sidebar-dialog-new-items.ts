@@ -1,4 +1,4 @@
-import { mdiChevronLeft } from '@mdi/js';
+import { mdiChevronLeft, mdiGestureTap } from '@mdi/js';
 import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
 import { TRANSLATED } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
@@ -9,6 +9,7 @@ import memoizeOne from 'memoize-one';
 
 import { dialogStyles } from './dialog-css';
 import { SidebarConfigDialog } from './sidebar-dialog';
+const DEFAULT_ACTIONS = ['more-info', 'toggle', 'navigate', 'perform-action', 'assist'];
 
 const _configSchema = memoizeOne(
   () =>
@@ -44,17 +45,51 @@ const _configSchema = memoizeOne(
       {
         name: '',
         type: 'expandable',
-        title: 'Tap action configuration',
+        iconPath: mdiGestureTap,
+        title: 'Interactions action',
+        flatten: true,
         schema: [
           {
             name: 'entity',
             selector: { entity: {} },
           },
           {
-            name: 'tap_action',
-            selector: {
-              ui_action: {},
-            },
+            name: '',
+            type: 'optional_actions',
+            flatten: true,
+            schema: [
+              {
+                name: 'tap_action',
+                label: 'Tap Action',
+                selector: {
+                  ui_action: {
+                    actions: DEFAULT_ACTIONS,
+                    default_action: 'none',
+                  },
+                },
+              },
+              {
+                name: 'hold_action',
+                label: 'Hold Action',
+                selector: {
+                  ui_action: {
+                    actions: DEFAULT_ACTIONS,
+                    default_action: 'none',
+                  },
+                },
+              },
+
+              {
+                name: 'double_tap_action',
+                label: 'Double Tap Action',
+                selector: {
+                  ui_action: {
+                    actions: DEFAULT_ACTIONS,
+                    default_action: 'none',
+                  },
+                },
+              },
+            ],
           },
         ],
       },
@@ -69,7 +104,7 @@ export class SidebarDialogNewItems extends LitElement {
 
   @state() _selectedItemIndex: number | null = null;
   @state() _selectedItem: NewItemConfig | null = null;
-  @state() _yamlMode = false;
+  @state() _yamlMode: boolean = false;
 
   protected render(): TemplateResult {
     const itemsList = this._renderNewItemsList();
@@ -82,10 +117,12 @@ export class SidebarDialogNewItems extends LitElement {
     if (this._selectedItemIndex !== null) return nothing;
     const addBtn = html`
       <ha-button
+        outlined
         style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
+        .label=${'Add new item'}
         @click=${this._togglePromptNewItem}
-        >Add New Item</ha-button
       >
+      </ha-button>
     `;
     const newItems = this._sidebarConfig?.new_items || [];
     const newItemsList = html`
@@ -139,12 +176,13 @@ export class SidebarDialogNewItems extends LitElement {
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedItemIndex = null)}> </ha-icon-button>
       ${newItems.title}
       <ha-button
+        outlined
+        .label=${this._yamlMode ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR}
         style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
         @click=${() => {
           this._yamlMode = !this._yamlMode;
         }}
-        >${this._yamlMode ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR}</ha-button
-      >
+      ></ha-button>
     </div>`;
     const data = {
       ...this._sidebarConfig.new_items?.[this._selectedItemIndex!],
@@ -212,8 +250,13 @@ export class SidebarDialogNewItems extends LitElement {
     ev.stopPropagation();
     const index = this._selectedItemIndex;
     if (index === null) return;
+    let newItemConfig = ev.detail.value;
+    newItemConfig.title = newItemConfig.title.trim();
+    newItemConfig.url_path = newItemConfig.url_path?.trim();
+
     const newItems = [...(this._sidebarConfig.new_items || [])];
-    const newItem = { ...newItems[index], ...ev.detail.value };
+    const newItem = { ...newItems[index], ...newItemConfig };
+
     newItems[index] = newItem;
     this._sidebarConfig = {
       ...this._sidebarConfig,
@@ -222,7 +265,14 @@ export class SidebarDialogNewItems extends LitElement {
     this._dispatchConfig(this._sidebarConfig);
   }
 
-  private _handleDeleteItem(index: number): void {
+  private _handleDeleteItem = async (index: number) => {
+    const confirmDelete = await showConfirmDialog(
+      this,
+      `Are you sure you want to delete the item "${this._sidebarConfig.new_items![index].title}"?`,
+      'Delete'
+    );
+    if (!confirmDelete) return;
+
     const newItems = [...(this._sidebarConfig.new_items || [])];
     newItems.splice(index, 1);
     this._sidebarConfig = {
@@ -231,10 +281,11 @@ export class SidebarDialogNewItems extends LitElement {
     };
     this._dispatchConfig(this._sidebarConfig);
     this.requestUpdate();
-  }
+  };
   private _togglePromptNewItem = async () => {
-    const newItemTitle = await showPromptDialog(this, 'Enter new item title', 'New Item', 'Add', 'Cancel');
+    let newItemTitle = await showPromptDialog(this, 'Enter new item title', 'New Item', 'Add', 'Cancel');
     if (!newItemTitle || newItemTitle === '') return;
+    newItemTitle = newItemTitle.trim();
     if (this._sidebarConfig.new_items?.some((item) => item.title === newItemTitle)) {
       await showConfirmDialog(this, `Item with this name already exists. Do you want to edit it?`, 'Edit', 'Cancel');
       return;
@@ -267,6 +318,7 @@ export class SidebarDialogNewItems extends LitElement {
         this._selectedItem = this._sidebarConfig.new_items![this._selectedItemIndex];
       } else {
         this._selectedItem = null;
+        this._yamlMode = false;
       }
     }
   }

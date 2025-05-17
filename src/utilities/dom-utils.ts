@@ -1,5 +1,6 @@
 import { CLASS, ELEMENT, PATH, SELECTOR } from '@constants';
 import { mdiClose } from '@mdi/js';
+import { SidebarPanelItem } from '@types';
 import { HomeAssistant } from 'custom-card-helpers';
 import { html, TemplateResult } from 'lit';
 
@@ -35,7 +36,8 @@ export const createExpansionPanel = ({
   content: TemplateResult;
   options: { expanded?: boolean; header: string; icon?: string; secondary?: string };
 }): TemplateResult => {
-  const styles = 'margin-bottom: var(--side-dialog-padding);';
+  const styles = 'margin-bottom: var(--side-dialog-padding); --expansion-panel-content-padding: 0;';
+
   return html`
     <ha-expansion-panel
       style=${styles}
@@ -45,7 +47,8 @@ export const createExpansionPanel = ({
       .secondary=${options?.secondary || ''}
       .leftChevron=${true}
     >
-      ${options.icon ? html`<div slot="icons"><ha-icon icon=${options.icon}></ha-icon></div>` : ''} ${content}
+      ${options.icon ? html`<div slot="icons"><ha-icon icon=${options.icon}></ha-icon></div>` : ''}
+      <div style="background-color: var(--primary-background-color); padding: 1em;">${content}</div>
     </ha-expansion-panel>
   `;
 };
@@ -136,23 +139,30 @@ export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => 
   if (path === PATH.LOVELACE_DASHBOARD) {
     resetBottomItems(paperListbox);
   }
-  path = path.slice(1);
-  const listItems = Array.from(paperListbox.querySelectorAll(ELEMENT.ITEM)) as HTMLElement[];
 
-  const activeLink = paperListbox?.querySelector<HTMLElement>(`${ELEMENT.ITEM}[data-panel="${path}"]`);
+  const items = Array.from<SidebarPanelItem>(paperListbox.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM));
 
-  const configEl = paperListbox?.querySelector(`${ELEMENT.ITEM}[data-panel="config"]`) as HTMLElement;
-  configEl?.classList.toggle(CLASS.SELECTED, configEl === activeLink);
+  const activeItem = items.find((item: SidebarPanelItem): boolean => path === item.href);
 
-  if (activeLink) {
-    setTimeout(() => {
-      listItems.forEach((item: HTMLElement) => {
-        const isActive = item === activeLink;
-        item.classList.toggle(CLASS.SELECTED, isActive);
-        // item.setAttribute('aria-selected', isActive.toString());
-      });
-    }, 0);
-  }
+  const activeParentElement = activeItem
+    ? null
+    : items.reduce((acc: SidebarPanelItem | null, item: SidebarPanelItem): SidebarPanelItem | null => {
+        if (path.startsWith(item.href)) {
+          if (!acc || item.href.length > acc.href.length) {
+            acc = item;
+          }
+        }
+        return acc;
+      }, null);
+
+  // console.log('path', path, 'activeItem', activeItem, 'activeParentElement', activeParentElement);
+
+  items.forEach((item: HTMLElement) => {
+    const isActive = (activeItem && activeItem === item) || (!activeItem && activeParentElement === item);
+
+    item.classList.toggle(CLASS.SELECTED, isActive);
+    item.tabIndex = isActive ? 0 : -1;
+  });
 
   const dividers = paperListbox?.querySelectorAll('div.divider') as NodeListOf<HTMLElement>;
   if (dividers.length === 0) return;

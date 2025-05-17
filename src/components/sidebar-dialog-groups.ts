@@ -39,14 +39,14 @@ export class SidebarDialogGroups extends LitElement {
   // }
 
   protected updated(_changedProperties: PropertyValues) {
-    if (
-      (_changedProperties.has('_selectedTab') && this._selectedTab !== PANEL.CUSTOM_GROUP) ||
-      (_changedProperties.has('_selectedGroup') && this._selectedGroup !== undefined)
-    ) {
-      setTimeout(() => {
-        this._setGridSelector();
-      }, 50); // Small delay to ensure the ha-selector shadow DOM is rendered
-    }
+    // if (
+    //   (_changedProperties.has('_selectedTab') && this._selectedTab !== PANEL.CUSTOM_GROUP) ||
+    //   (_changedProperties.has('_selectedGroup') && this._selectedGroup !== undefined)
+    // ) {
+    //   setTimeout(() => {
+    //     this._setGridSelector();
+    //   }, 50); // Small delay to ensure the ha-selector shadow DOM is rendered
+    // }
 
     if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
       this._dialog._dialogPreview._toggleBottomPanel(this._selectedTab === PANEL.BOTTOM_PANEL);
@@ -300,7 +300,7 @@ export class SidebarDialogGroups extends LitElement {
 
     const bottomPanel = this._renderBottomItems();
     const hiddenItems = this._renderHiddenItems();
-    const customGroup = this._selectedGroup === null ? this._renderCustomGroupTab() : this._renderEditGroup();
+    const customGroup = this._selectedGroup === null ? this._renderCustomGroupList() : this._renderEditGroup();
     const notification = this._renderNotificationConfig();
 
     const tabMap = {
@@ -349,7 +349,7 @@ export class SidebarDialogGroups extends LitElement {
 
     const options = items.map((panel) => {
       const panelName = this.hass.localize(`panel.${hassPanels[panel]?.title}`) || hassPanels[panel]?.title || panel;
-      return { value: panel, label: panelName, icon: hassPanels[panel].icon };
+      return { value: panel, label: panelName, icon: hassPanels[panel]?.icon };
     });
     const selector = {
       select: {
@@ -504,14 +504,15 @@ export class SidebarDialogGroups extends LitElement {
     );
   }
 
-  private _renderCustomGroupTab(): TemplateResult {
+  private _renderCustomGroupList(): TemplateResult {
     const customGroupList = Object.keys(this._sidebarConfig.custom_groups || []);
     const addBtn = html`
       <ha-button
+        outlined
         style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
+        .label=${'Add New Group'}
         @click=${this._togglePromptNewGroup}
-        >Add New Group</ha-button
-      >
+      ></ha-button>
     `;
     const isCollapsed = (key: string): boolean => {
       return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
@@ -745,7 +746,7 @@ export class SidebarDialogGroups extends LitElement {
 
     const itemsToRemove = pickedItems.filter((item) => !selectedItems.includes(item));
     const itemsToChoose = currentItems.filter((item) => !itemsToRemove.includes(item));
-    console.log('itemsToChoose', itemsToChoose);
+    // console.log('itemsToChoose', itemsToChoose);
     const selector = this._createSelectorOptions(itemsToChoose);
 
     const renderItems = this._renderSelectedItems(selectedType, selectedItems);
@@ -756,17 +757,19 @@ export class SidebarDialogGroups extends LitElement {
           <div class="header-row flex-icon">
             <span>SELECT ITEMS</span>
           </div>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${selector}
-            .value=${selectedItems}
-            .configValue=${configValue}
-            .customGroup=${customGroup}
-            .required=${false}
-            id="customSelector"
-            @value-changed=${this._handleValueChange}
-          >
-          </ha-selector>
+          <div class="selector-container">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${selector}
+              .value=${selectedItems}
+              .configValue=${configValue}
+              .customGroup=${customGroup}
+              .required=${false}
+              id="customSelector"
+              @value-changed=${this._handleValueChange}
+            >
+            </ha-selector>
+          </div>
           ${this._renderSpacer()}
         </div>
         <div class="preview-container" ?hidden=${!selectedItems.length}>${renderItems}</div>
@@ -827,7 +830,7 @@ export class SidebarDialogGroups extends LitElement {
       title:
         this.hass.localize(`panel.${hassPanels[item]?.title}`) ||
         hassPanels[item]?.title ||
-        hassPanels[item].url_path ||
+        hassPanels[item]?.url_path ||
         item,
     }));
 

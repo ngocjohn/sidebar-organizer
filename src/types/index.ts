@@ -106,6 +106,8 @@ export interface NewItemConfig extends PanelInfo {
   target?: '_blank' | '_self';
   entity?: string;
   tap_action?: ActionConfig;
+  hold_action?: ActionConfig;
+  double_tap_action?: ActionConfig;
 }
 
 export interface SidebarConfig {
