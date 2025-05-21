@@ -145,7 +145,9 @@ export class SidebarDialogCodeEditor extends LitElement {
         const confirmDelete = await showConfirmDialog(this, ALERT_MSG.CONFIRM_DELETE, confirmText);
         console.log('Delete Config', confirmDelete);
         if (confirmDelete) {
-          removeStorage(STORAGE.UI_CONFIG);
+          [STORAGE.UI_CONFIG, STORAGE.PANEL_ORDER, STORAGE.COLLAPSE, STORAGE.HIDDEN_PANELS].forEach((key) => {
+            removeStorage(key);
+          });
           setTimeout(() => {
             window.location.reload();
           }, 200);

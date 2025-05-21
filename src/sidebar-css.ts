@@ -37,15 +37,22 @@ export const DIVIDER_ADDED_STYLE = css`
     padding-top: 1px;
     opacity: 0.5;
   }
+
+  :host ha-md-list-item > ha-icon.badge {
+    --mdc-icon-size: 20px !important;
+  }
+
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge {
     position: absolute;
-    inset-inline-start: 20px;
     inset-inline-start: 20px;
     inset-inline-end: initial;
     left: auto;
     max-width: 30px;
     top: 0px;
+  }
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge {
+    inset-inline-end: 4px !important;
   }
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge.large-badge {
     transform: translateX(50%);
