@@ -437,7 +437,7 @@ export class SidebarConfigDialog extends LitElement {
     this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
     // Initialize panel combinations
     this._initCombiPanels = [..._sidebarItems, ...initHiddenItems];
-    console.log('Init combi panels:', this._initCombiPanels);
+    // console.log('Init combi panels:', this._initCombiPanels);
     this._initPanelOrder = [..._sidebarItems];
 
     this._configLoaded = true;

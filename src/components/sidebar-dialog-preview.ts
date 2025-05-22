@@ -118,7 +118,7 @@ export class SidebarDialogPreview extends LitElement {
 
   private _addNotification(): void {
     if (!this._ready) {
-      console.log('Not ready to add notification');
+      // console.log('Not ready to add notification');
       return;
     }
     console.log('Adding notification');
