@@ -51,7 +51,8 @@ export const DIVIDER_ADDED_STYLE = css`
     max-width: 30px;
     top: 0px;
   }
-  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge {
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
+  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge.badge-number {
     inset-inline-end: 4px !important;
   }
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge.large-badge {
@@ -62,6 +63,10 @@ export const DIVIDER_ADDED_STYLE = css`
     text-overflow: ellipsis;
   }
 
+  ha-md-list-item[data-notification='true'] span.badge.no-visible {
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
   ha-md-list-item[data-notification='true'] > ha-icon.badge {
     padding: 0 !important;
     color: var(--accent-color);
@@ -70,7 +75,7 @@ export const DIVIDER_ADDED_STYLE = css`
 
   ha-md-list-item[data-notification='true'] > span.badge {
     /* padding: 0 5px !important; */
-    border-radius: 20px !important;
+    border-radius: 20px;
     font-size: 0.85em;
   }
 

@@ -38,6 +38,8 @@ export enum CLASS {
   SPACER = 'spacer',
   BADGE = 'badge',
   LARGE_BADGE = 'large-badge',
+  NO_VISIBLE = 'no-visible',
+  BADGE_NUMBER = 'badge-number',
 }
 
 export enum ATTRIBUTE {

@@ -613,10 +613,10 @@ class SidebarOrganizer {
     subscribeRenderTemplate(
       this.hass.connection,
       (result) => {
-        callback(result.result.toString());
+        callback(result.result);
       },
       {
-        template: value ?? '',
+        template: value,
         variables: {
           config: value,
           user: this.hass.user!.name,
@@ -1159,19 +1159,23 @@ class SidebarOrganizer {
 
     const callback = (resultContent: any) => {
       if (resultContent) {
+        console.log('Notification:', resultContent);
         if (typeof resultContent === 'string' && isIcon(resultContent)) {
           badge.remove();
           notifyIcon.setAttribute('icon', resultContent);
         } else {
           notifyIcon.remove();
           badge.innerHTML = resultContent;
+          badge.classList.toggle(CLASS.NO_VISIBLE, false);
+          badge.classList.toggle(CLASS.BADGE_NUMBER, !isNaN(resultContent));
           badge.classList.toggle(CLASS.LARGE_BADGE, resultContent.length >= 3);
         }
         panel.setAttribute(ATTRIBUTE.DATA_NOTIFICATION, 'true');
       } else {
-        badge.innerHTML = '';
         notifyIcon.removeAttribute('icon');
-        panel.removeAttribute(ATTRIBUTE.DATA_NOTIFICATION);
+        badge.innerHTML = '';
+        badge.classList.toggle(CLASS.NO_VISIBLE, true);
+        // panel.removeAttribute(ATTRIBUTE.DATA_NOTIFICATION);
       }
     };
     this._subscribeTemplate(value, callback);

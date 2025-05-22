@@ -1,6 +1,6 @@
 import { mdiChevronLeft, mdiGestureTap } from '@mdi/js';
 import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
-import { TRANSLATED } from '@utilities/localize';
+import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup } from 'lit';
 import { repeat } from 'lit-html/directives/repeat.js';
@@ -170,7 +170,7 @@ export class SidebarDialogNewItems extends LitElement {
 
   private _renderSelectedItem(): TemplateResult | typeof nothing {
     if (this._selectedItemIndex === null) return nothing;
-    const BTN_LABEL = TRANSLATED(this.hass).BTN_LABEL;
+    const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
     const newItems = this._sidebarConfig.new_items![this._selectedItemIndex!];
     const headerBack = html` <div class="header-row">
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedItemIndex = null)}> </ha-icon-button>
