@@ -15,6 +15,7 @@ export enum SELECTOR {
   ITEM_TEXT = '.item-text',
   ITEM_PROFILE = 'ha-md-list-item[href="/profile"]',
   DEV_TOOLS = 'ha-md-list-item[data-panel="developer-tools"]',
+  USER_ITEM = 'ha-md-list-item.user',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',

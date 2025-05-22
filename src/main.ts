@@ -32,7 +32,7 @@ import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-st
 import { fetchDashboards } from '@utilities/dashboard';
 import { addAction, createCloseHeading, onPanelLoaded, resetPanelOrder } from '@utilities/dom-utils';
 import { isIcon } from '@utilities/is-icon';
-import { TRANSLATED } from '@utilities/localize';
+import { TRANSLATED_LABEL } from '@utilities/localize';
 import * as LOGGER from '@utilities/logger';
 import { getHiddenPanels, isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 import { ACTION_TYPES, addHandlerActions } from '@utilities/tap-action';
@@ -312,24 +312,27 @@ class SidebarOrganizer {
     this._setupConfigBtn();
 
     if (!this.firstSetUpDone) {
-      this._setDataPanel();
+      await new Promise((resolve) => {
+        setTimeout(() => {
+          this._setDataPanel();
+          resolve(true);
+        }, 100);
+      });
     }
 
     if (this.firstSetUpDone && !this.setupConfigDone) {
       await this._getConfig();
       this._handleSidebarHeader();
       this.setupConfigDone = true;
-      // this._handleNotification();
     }
 
     const sidebar = customElements.get('ha-sidebar') as any;
     this._handleSidebarUpdate(sidebar);
   }
 
-  private _setDataPanel() {
+  private async _setDataPanel() {
     console.log('Setting Data Panel');
     const scrollbarItems = this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
-
     Array.from(scrollbarItems).forEach((item) => {
       const anchor = this._getAnchorElement(item);
       const panelName = anchor.getAttribute('href')?.replace('/', '');
@@ -354,6 +357,7 @@ class SidebarOrganizer {
       if (changedProperties.has('editMode') && this.editMode) {
         // _thisInstace._handleEditMode();
         resetPanelOrder(_thisInstace._scrollbar);
+        console.log('Edit Mode:', this.editMode);
         return;
       } else if (changedProperties.has('editMode') && !this.editMode) {
         const currentOrder = _thisInstace._baseOrder;
@@ -365,12 +369,17 @@ class SidebarOrganizer {
           JSON.stringify(currentHidden) !== JSON.stringify(hiddenPanels);
         if (hasChanged) {
           console.log('Something Changed:', {
+            'Current Order': currentOrder,
+            'New Order': newPanelOrder,
+            'Current Hidden': currentHidden,
+            'New Hidden': hiddenPanels,
             'Current Changed': JSON.stringify(currentOrder) !== JSON.stringify(newPanelOrder),
             'Hidden Changed': JSON.stringify(currentHidden) !== JSON.stringify(hiddenPanels),
           });
           _thisInstace._reloadSidebar(newPanelOrder, hiddenPanels);
           return;
         } else {
+          console.log('No Changes Detected');
           _thisInstace._refreshSidebar();
           return;
         }
@@ -511,11 +520,14 @@ class SidebarOrganizer {
     }
   }
 
-  private async _setupConfigBtn(): Promise<void> {
-    const profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
+  private async _setupConfigBtn() {
+    let profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
+    if (!profileEl) {
+      profileEl = this.sideBarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement;
+    }
     if (!profileEl) return;
     addAction(profileEl, this._addConfigDialog.bind(this));
-    await this.hass.loadFragmentTranslation('lovelace');
+    // await this.hass.loadFragmentTranslation('lovelace');
   }
 
   private _handleSidebarHeader(): void {
@@ -617,6 +629,7 @@ class SidebarOrganizer {
   private _initSidebarOrdering() {
     const currentPanel = this.HaSidebar._panelOrder;
     this._baseOrder = this._handleGroupedPanelOrder(currentPanel);
+    // console.log('Base Order:', this._baseOrder);
     setStorage(STORAGE.PANEL_ORDER, this._baseOrder);
     this.HaSidebar._panelOrder = [...this._baseOrder];
     this._handleNewPanelOrder();
@@ -643,23 +656,27 @@ class SidebarOrganizer {
     const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
     const divider = this.sideBarRoot!.querySelector(`${SELECTOR.DIVIDER}:not([added]):not([ungrouped])`) as HTMLElement;
 
-    bottomItems.reverse().forEach((item, index) => {
+    [...bottomItems].reverse().forEach((item, index) => {
       const panel = scrollbarItems.find((panel) => panel.getAttribute('data-panel') === item);
       if (panel) {
         panel.setAttribute('moved', '');
         this._scrollbar.insertBefore(panel, spacer.nextSibling);
         if (index === 0) {
+          const bottomDivider = divider.cloneNode(true) as HTMLElement;
+          bottomDivider.setAttribute('bottom', '');
           // console.log('Adding Divider', panel, item);
-          this._scrollbar.insertBefore(divider.cloneNode(true), panel.nextSibling);
+          this._scrollbar.insertBefore(bottomDivider, panel.nextSibling);
         }
       }
     });
     this._bottomItems = [...bottomItems];
+
+    // console.log('Config Bottom Items:', bottomItems, 'instace bottom items:', this._bottomItems);
     console.log('Bottom items setup done');
   }
 
   private _addConfigDialog() {
-    const BTN_LABEL = TRANSLATED(this.hass).BTN_LABEL;
+    const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
     this._haDrawer.open!! = false;
     // Remove any existing dialog
     const existingDialog = this.main.querySelector(SELECTOR.SIDEBAR_CONFIG_DIALOG) as HTMLElement;
@@ -744,6 +761,7 @@ class SidebarOrganizer {
       const codeBtn = haDialog.querySelector(`${ELEMENT.HA_BUTTON}[slot=${SLOT.SECONDARY_ACTION}]`) as HTMLElement;
       codeBtn.innerHTML = code;
     };
+
     this.main.appendChild(haDialog);
   }
 
@@ -766,9 +784,10 @@ class SidebarOrganizer {
 
       setStorage(STORAGE.UI_CONFIG, config);
       setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+      this._config = config;
+
+      this._refreshSidebar();
+      return;
     }
   }
 
@@ -802,19 +821,45 @@ class SidebarOrganizer {
     this._diffCheck = true;
   }
 
-  private _reloadSidebar(newPanelOrder: string[], hiddenPanels: string[]) {
+  private _reloadSidebar = async (newPanelOrder: string[], hiddenPanels: string[]) => {
     console.log('Reloading Sidebar');
     this._hiddenPanels = hiddenPanels;
-    this._config = validateConfig(this._config);
-    this._baseOrder = this._handleGroupedPanelOrder(newPanelOrder);
-    this.HaSidebar._panelOrder = [...this._baseOrder];
-    this._refreshSidebar();
-  }
 
-  private _refreshSidebar() {
+    const validateConfigPromise = new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(validateConfig(this._config, hiddenPanels));
+      }, 100);
+    });
+
+    const newPanelOrderPromise = new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(this._handleGroupedPanelOrder(newPanelOrder));
+      }, 100);
+    });
+
+    const [validatedConfig, newPanelOrderResolved] = await Promise.all([validateConfigPromise, newPanelOrderPromise]);
+    console.log('Validated Config:', validatedConfig, 'New Panel Order:', newPanelOrderResolved);
+    this._config = validatedConfig as SidebarConfig;
+    this._baseOrder = newPanelOrderResolved as string[];
+    this.HaSidebar._panelOrder = this._baseOrder;
+
+    // this._baseOrder = this._handleGroupedPanelOrder(newPanelOrder);
+    // this.HaSidebar._panelOrder = [...this._baseOrder];
+    this._refreshSidebar();
+  };
+
+  private _refreshSidebar = async () => {
+    console.log('Refreshing Sidebar');
+    await new Promise((resolve) => {
+      setTimeout(() => {
+        this._setDataPanel();
+        resolve(true);
+      }, 100);
+    });
+
     this._setupConfig(this._config);
     this._handleSidebarHeader();
-  }
+  };
 
   private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
     mode = mode ? mode : this.darkMode ? 'dark' : 'light';
@@ -901,14 +946,14 @@ class SidebarOrganizer {
     }
 
     // Combine grouped, default, and bottom items
-    return [...groupedItems, ...defaultItems, ...bottomMovedItems.reverse()];
+    return [...groupedItems, ...defaultItems, ...bottomMovedItems];
   }
 
   private _handleNewPanelOrder() {
     const newPanelOrder = this.HaSidebar._panelOrder;
-
+    // console.log('New Panel Order:', newPanelOrder);
     const scrollbar = this._scrollbar;
-    const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
+    const scrollbarItems = Array.from(this._scrollbarItems);
     const spacer = scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
 
     // rearrange the items in the sidebar by their new order
@@ -922,7 +967,7 @@ class SidebarOrganizer {
     // move bottom items to the end after the spacer
 
     const bottomItems = this._bottomItems || [];
-    bottomItems.forEach((item) => {
+    bottomItems.reverse().forEach((item) => {
       const bottomItem = scrollbarItems.find((panel) => panel.getAttribute('data-panel') === item);
       if (bottomItem) {
         // console.log('Moving Bottom Item:', bottomItem, 'Panel:', item);
@@ -1011,6 +1056,7 @@ class SidebarOrganizer {
     const bottomMovedItems = Array.from(scrollbarItems)
       .filter((item) => item.hasAttribute('moved'))
       .map((item) => item.getAttribute('data-panel'));
+
     // console.log('Bottom Moved Items:', bottomMovedItems);
     // console.log('Bottom Items:', bottom_items);
 
@@ -1028,7 +1074,9 @@ class SidebarOrganizer {
       };
       console.log('Diff Check:', logs);
       LOGGER.warn('Changes detected:', logs);
+
       window.location.reload();
+
       // this._refreshSidebar();
     } else {
       this._handleNotification();
