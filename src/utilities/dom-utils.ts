@@ -105,18 +105,20 @@ export function addAction(configItem: HTMLElement, action?: () => void, clickAct
     configItem.addEventListener(eventType, handleUpEvent);
   });
 }
-
 export const resetPanelOrder = (paperListBox: HTMLElement): void => {
-  const scrollbarItems = paperListBox!.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
-  const bottomItems = Array.from(scrollbarItems).filter((item) => item.hasAttribute('moved'));
-  if (bottomItems.length === 0) return;
-  bottomItems.forEach((item) => {
-    const nextItem = item.nextElementSibling;
-    if (nextItem && nextItem.classList.contains('divider')) {
-      paperListBox.removeChild(nextItem);
+  // Remove filtered panel items
+  paperListBox.querySelectorAll(ELEMENT.ITEM).forEach((item) => {
+    const panel = item.getAttribute('data-panel');
+    if (panel && panel !== 'config' && panel !== 'developer-tools') {
+      paperListBox.removeChild(item);
     }
-    item.removeAttribute('moved');
-    paperListBox.removeChild(item);
+  });
+
+  // Remove dividers for grouped items
+  paperListBox.querySelectorAll(ELEMENT.DIVIDER).forEach((divider) => {
+    if (divider.hasAttribute('added') || divider.hasAttribute('ungrouped') || divider.hasAttribute('bottom')) {
+      paperListBox.removeChild(divider);
+    }
   });
 };
 
