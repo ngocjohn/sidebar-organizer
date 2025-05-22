@@ -42,6 +42,7 @@ export class SidebarDialogPreview extends LitElement {
         this._setTheme(this._colorConfigMode);
       }, 0);
     }
+    this._addNotification();
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
@@ -116,6 +117,10 @@ export class SidebarDialogPreview extends LitElement {
   }
 
   private _addNotification(): void {
+    if (!this._ready) {
+      console.log('Not ready to add notification');
+      return;
+    }
     console.log('Adding notification');
     const groups = this.shadowRoot?.querySelector('div.groups-container');
     const items = groups!.querySelectorAll('a') as NodeListOf<HTMLElement>;

@@ -202,21 +202,6 @@ export class SidebarDialogGroups extends LitElement {
     }
   }
 
-  private _setGridSelector = (): void => {
-    const selectorEl =
-      this.shadowRoot?.getElementById('customSelector') || this.shadowRoot?.getElementById('customSelectorHidden');
-    if (selectorEl) {
-      const selector = selectorEl?.shadowRoot?.querySelector('ha-selector-select');
-      if (selector) {
-        const div = selector.shadowRoot?.querySelector('div');
-        if (div) {
-          div.style.display = 'grid';
-          div.style.gridTemplateColumns = 'var(--grid-flex-columns)';
-        }
-      }
-    }
-  };
-
   private _handleSortEnd(evt: Sortable.SortableEvent): void {
     if (!this._sidebarConfig || !this._sidebarConfig.custom_groups) return;
     evt.preventDefault();
@@ -734,7 +719,8 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
-    const currentItems = this._dialog._initCombiPanels;
+    const hiddenItems = this._sidebarConfig?.hidden_items || [];
+    const currentItems = this._dialog._initCombiPanels.filter((item) => !hiddenItems.includes(item));
     const pickedItems = this._dialog.pickedItems;
     const selectedType = customGroup ? customGroup : 'bottom_items';
 
