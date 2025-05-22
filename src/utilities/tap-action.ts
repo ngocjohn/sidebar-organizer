@@ -23,22 +23,24 @@ function sendAction(element: HTMLElement, config: NewItemConfig, actionType: Act
     hold_action: getAction('hold_action'),
     double_tap_action: getAction('double_tap_action'),
     entity: config?.entity || null,
-  };
+  } as NewItemConfig;
 
   // if (!config.entity || config.entity === null) {
   //   console.warn('No entity found for action');
   //   return;
   // }
 
-  const event = new CustomEvent('hass-action', {
-    detail: {
-      action: actionType,
-      config: actionConfig,
-    },
-    bubbles: true,
-    composed: true,
-  });
-  element.dispatchEvent(event);
+  setTimeout(() => {
+    const event = new CustomEvent('hass-action', {
+      detail: {
+        action: actionType,
+        config: actionConfig,
+      },
+      bubbles: true,
+      composed: true,
+    });
+    element.dispatchEvent(event);
+  }, 1);
 }
 
 class ActionHandler {
@@ -94,7 +96,7 @@ class ActionHandler {
       this.sendAction(this.element, this.config, 'double_tap');
     } else {
       this.tapTimeout = window.setTimeout(() => {
-        console.log('Single tap detected');
+        // console.log('Single tap detected');
         this.sendAction(this.element, this.config, 'tap');
       }, 300);
     }
