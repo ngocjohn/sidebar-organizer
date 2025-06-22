@@ -1,7 +1,8 @@
 import { CLASS, ELEMENT, PATH, SELECTOR } from '@constants';
 import { mdiClose } from '@mdi/js';
-import { SidebarPanelItem } from '@types';
+import { HaExtened, SidebarPanelItem } from '@types';
 import { HomeAssistant } from 'custom-card-helpers';
+import { getPromisableResult } from 'get-promisable-result';
 import { html, TemplateResult } from 'lit';
 
 const HOLD_DURATION = 300;
@@ -175,4 +176,27 @@ export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => 
     divider.classList.toggle('child-selected', childSelected);
     divider.setAttribute('aria-selected', childSelected.toString());
   });
+};
+
+export const getInitPanelOrder = async (haEl: HaExtened): Promise<string[]> => {
+  console.log('getInitPanelOrder', haEl);
+  const promisableResultOptions = {
+    retries: 100,
+    delay: 50,
+    shouldReject: false,
+  };
+
+  const dialog = haEl.shadowRoot
+    ?.querySelector('dialog-edit-sidebar')
+    ?.shadowRoot?.querySelector('ha-items-display-editor') as any;
+  console.log('getInitPanelOrder dialog', dialog);
+  const panelItems = await getPromisableResult<string[]>(
+    () => {
+      return dialog?.items?.map((item: any) => item.value) || [];
+    },
+    (result: string[]) => result.length > 0,
+    promisableResultOptions // Example condition for validation
+  );
+  console.log('getInitPanelOrder', panelItems);
+  return panelItems;
 };

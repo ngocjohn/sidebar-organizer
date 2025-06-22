@@ -10,7 +10,6 @@ import {
   getStorageConfig,
   getHiddenPanels,
 } from '@utilities/storage-utils';
-import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
@@ -19,6 +18,7 @@ import './sidebar-dialog-preview';
 import './sidebar-organizer-tab';
 import './sidebar-dialog-new-items';
 
+import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
 

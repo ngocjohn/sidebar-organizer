@@ -15,7 +15,8 @@ export const removeStorage = (key: string): void => {
 
 export const getHiddenPanels = (): string[] => {
   const hiddenPanels = localStorage.getItem(STORAGE.HIDDEN_PANELS);
-  return hiddenPanels ? JSON.parse(hiddenPanels) : [];
+  if (!hiddenPanels || hiddenPanels === 'null' || hiddenPanels === 'undefined') return [];
+  return JSON.parse(hiddenPanels);
 };
 
 export const sidebarUseConfigFile = (): boolean => {

@@ -70,6 +70,7 @@ export const DEFAULT_CONFIG: SidebarConfig = {
   hide_header_toggle: false,
   default_collapsed: [],
   hidden_items: [],
+  new_items: [],
 };
 
 export const ALERT_MSG = {

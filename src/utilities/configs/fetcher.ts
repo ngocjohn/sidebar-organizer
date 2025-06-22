@@ -27,7 +27,7 @@ export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfi
   if (config) {
     config = { ...DEFAULT_CONFIG, ...config };
     // console.log('Added with init config defaults', config);
-    const isValid = isItemsValid(config, hass);
+    const isValid = isItemsValid(config, hass, true);
     if (!isValid && sidebarUseConfigFile()) {
       config = DEFAULT_CONFIG;
     } else if (!isValid) {
