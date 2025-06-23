@@ -1,4 +1,4 @@
-import { CLASS, ELEMENT, PATH, SELECTOR } from '@constants';
+import { CLASS, ELEMENT, SELECTOR } from '@constants';
 import { mdiClose } from '@mdi/js';
 import { HaExtened, SidebarPanelItem } from '@types';
 import { HomeAssistant } from 'custom-card-helpers';
@@ -139,9 +139,9 @@ export const resetBottomItems = (paperListBox: HTMLElement): void => {
 };
 
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
-  if (path === PATH.LOVELACE_DASHBOARD) {
-    resetBottomItems(paperListbox);
-  }
+  // if (path === PATH.LOVELACE_DASHBOARD) {
+  //   resetBottomItems(paperListbox);
+  // }
 
   const items = Array.from<SidebarPanelItem>(paperListbox.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM));
 
@@ -179,7 +179,6 @@ export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => 
 };
 
 export const getInitPanelOrder = async (haEl: HaExtened): Promise<string[]> => {
-  console.log('getInitPanelOrder', haEl);
   const promisableResultOptions = {
     retries: 100,
     delay: 50,
@@ -199,4 +198,22 @@ export const getInitPanelOrder = async (haEl: HaExtened): Promise<string[]> => {
   );
   console.log('getInitPanelOrder', panelItems);
   return panelItems;
+};
+
+export const getSiderbarEditDialog = async (haEl: HaExtened): Promise<any> => {
+  console.log('get SiderbarEditDialog');
+  const promisableResultOptions = {
+    retries: 100,
+    delay: 50,
+    shouldReject: false,
+  };
+  const dialog = await getPromisableResult<HTMLElement>(
+    () => {
+      return haEl.shadowRoot?.querySelector('dialog-edit-sidebar') as any;
+    },
+    (result: any) => result !== undefined,
+    promisableResultOptions // Example condition for validation
+  );
+  console.log('get SiderbarEditDialog', dialog);
+  return dialog;
 };

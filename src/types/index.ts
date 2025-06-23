@@ -65,11 +65,12 @@ export interface PartialPanelResolver extends HTMLElement {
 export interface SidebarPanelItem extends HTMLElement {
   href: string;
   target: string;
+  newItem?: boolean;
+  'data-panel'?: string;
 }
 
 export interface PanelInfo {
   component_name?: string;
-
   icon: string | null;
   title: string | null;
   url_path?: string;
@@ -108,6 +109,7 @@ export interface NewItemConfig extends PanelInfo {
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;
+  group?: string;
 }
 
 export interface SidebarConfig {

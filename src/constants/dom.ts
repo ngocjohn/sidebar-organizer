@@ -51,6 +51,8 @@ export enum ATTRIBUTE {
   SLOT = 'slot',
   TYPE = 'type',
   DATA_NOTIFICATION = 'data-notification',
+  DATA_PANEL = 'data-panel',
+  NEW_ITEM = 'new-item',
 }
 
 export enum SLOT {
@@ -62,3 +64,5 @@ export enum CUSTOM_EVENT {
   CONFIG_DIFF = 'config-diff',
   UI_EDITOR = 'ui-editor',
 }
+
+export const SHOW_AFTER_BOTTOM = ['/developer-tools', '/config'];

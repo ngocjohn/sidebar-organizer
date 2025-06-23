@@ -15,19 +15,9 @@ const _configSchema = memoizeOne(
   () =>
     [
       {
-        name: 'title',
-        label: 'Item Title',
-        selector: { text: { type: 'text' } },
-      },
-      {
         name: 'icon',
         label: 'Item Icon',
         selector: { icon: {} },
-      },
-      {
-        name: 'url_path',
-        label: 'URL Path',
-        selector: { text: { type: 'text' } },
       },
       {
         name: '',
@@ -174,7 +164,6 @@ export class SidebarDialogNewItems extends LitElement {
     const newItems = this._sidebarConfig.new_items![this._selectedItemIndex!];
     const headerBack = html` <div class="header-row">
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedItemIndex = null)}> </ha-icon-button>
-      ${newItems.title}
       <ha-button
         outlined
         .label=${this._yamlMode ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR}
@@ -193,6 +182,22 @@ export class SidebarDialogNewItems extends LitElement {
       <div class="config-content">
         ${!this._yamlMode
           ? html`
+              <div class="group-item-row" style="padding-inline: 1rem">
+                <div class="group-name">
+                  <ha-icon icon=${newItems.icon}></ha-icon>
+                  <div class="group-name-items">
+                    ${newItems.title}
+                    <span>${this.getGroupName(newItems.title!)}</span>
+                  </div>
+                </div>
+                <div class="group-actions">
+                  <ha-button
+                    .label=${'Rename item'}
+                    @click=${this._toggleRenameItem.bind(this, this._selectedItemIndex!)}
+                  ></ha-button>
+                </div>
+              </div>
+
               <ha-form
                 .hass=${this.hass}
                 .data=${data}
@@ -251,8 +256,6 @@ export class SidebarDialogNewItems extends LitElement {
     const index = this._selectedItemIndex;
     if (index === null) return;
     let newItemConfig = ev.detail.value;
-    newItemConfig.title = newItemConfig.title.trim();
-    newItemConfig.url_path = newItemConfig.url_path?.trim();
 
     const newItems = [...(this._sidebarConfig.new_items || [])];
     const newItem = { ...newItems[index], ...newItemConfig };
@@ -282,6 +285,61 @@ export class SidebarDialogNewItems extends LitElement {
     this._dispatchConfig(this._sidebarConfig);
     this.requestUpdate();
   };
+
+  private _toggleRenameItem = async (index: number) => {
+    const currentTitle = this._sidebarConfig.new_items![index].title!;
+    let newItemTitle = await showPromptDialog(this, 'Enter new item title', 'Rename Item', 'Rename', 'Cancel');
+    if (!newItemTitle || newItemTitle === '') return;
+    newItemTitle = newItemTitle.trim();
+
+    if (this._sidebarConfig.new_items?.some((item) => item.title === newItemTitle)) {
+      await showConfirmDialog(this, `Item with this name already exists. Do you want to edit it?`, 'Edit', 'Cancel');
+      return;
+    }
+
+    const inGroups = this.getGroupName(currentTitle);
+
+    if (inGroups !== 'Ungrouped') {
+      // If item is in group, we need to update that item in the group
+      if (inGroups === 'Bottom Panels') {
+        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+        const itemIndex = bottomItems.indexOf(currentTitle);
+        if (itemIndex !== -1) {
+          bottomItems[itemIndex] = newItemTitle;
+          this._sidebarConfig = {
+            ...this._sidebarConfig,
+            bottom_items: bottomItems,
+          };
+        }
+      } else {
+        const customGroups = { ...this._sidebarConfig.custom_groups };
+        const groupItems = customGroups[inGroups] || [];
+        const itemIndex = groupItems.indexOf(currentTitle);
+        if (itemIndex !== -1) {
+          groupItems[itemIndex] = newItemTitle;
+          customGroups[inGroups] = groupItems;
+          this._sidebarConfig = {
+            ...this._sidebarConfig,
+            custom_groups: customGroups,
+          };
+        }
+      }
+    }
+    // Update the new item title
+    const newItems = [...(this._sidebarConfig.new_items || [])];
+    newItems[index] = {
+      ...newItems[index],
+      title: newItemTitle,
+    };
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      new_items: newItems,
+    };
+    this._dispatchConfig(this._sidebarConfig);
+    this._selectedItemIndex = index;
+    this.requestUpdate();
+  };
+
   private _togglePromptNewItem = async () => {
     let newItemTitle = await showPromptDialog(this, 'Enter new item title', 'New Item', 'Add', 'Cancel');
     if (!newItemTitle || newItemTitle === '') return;
