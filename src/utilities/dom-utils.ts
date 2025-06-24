@@ -143,7 +143,7 @@ export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => 
   //   resetBottomItems(paperListbox);
   // }
 
-  const items = Array.from<SidebarPanelItem>(paperListbox.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM));
+  const items = Array.from<SidebarPanelItem>(paperListbox?.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM));
 
   const activeItem = items.find((item: SidebarPanelItem): boolean => path === item.href);
 

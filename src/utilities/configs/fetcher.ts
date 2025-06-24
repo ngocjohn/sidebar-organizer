@@ -27,11 +27,18 @@ export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfi
   if (config) {
     config = { ...DEFAULT_CONFIG, ...config };
     // console.log('Added with init config defaults', config);
-    const isValid = isItemsValid(config, hass, true);
-    if (!isValid && sidebarUseConfigFile()) {
-      config = DEFAULT_CONFIG;
-    } else if (!isValid) {
+    let isValid = isItemsValid(config, hass, true);
+    if (typeof isValid === 'object') {
+      isValid = isValid.configValid;
+    }
+    console.log('Config is valid:', isValid, 'config:', config);
+    if (!isValid && !sidebarUseConfigFile()) {
+      console.log('Config is not valid. Trying to correct it.');
+      // Try to correct the config
       config = tryCorrectConfig(config, hass);
+      return config;
+    } else if (!isValid && sidebarUseConfigFile()) {
+      config = DEFAULT_CONFIG;
       return config;
     } else {
       config = validateConfig(config);

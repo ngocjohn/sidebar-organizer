@@ -12,13 +12,37 @@ import { SidebarConfigDialog } from './sidebar-dialog';
 const DEFAULT_ACTIONS = ['more-info', 'toggle', 'navigate', 'perform-action', 'assist'];
 
 const _configSchema = memoizeOne(
-  () =>
+  (groupsOptions) =>
     [
       {
-        name: 'icon',
-        label: 'Item Icon',
-        selector: { icon: {} },
+        name: '',
+        type: 'grid',
+        schema: [
+          {
+            name: 'icon',
+            label: 'Item Icon',
+            selector: { icon: {} },
+          },
+          {
+            name: 'group',
+            label: 'Item Group',
+            required: false,
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: [
+                  { value: 'bottom', label: 'Bottom Panels' },
+                  ...groupsOptions.map((group: string) => ({
+                    value: group,
+                    label: group.replace(/_/g, ' ').toUpperCase(),
+                  })),
+                ],
+              },
+            },
+          },
+        ],
       },
+
       {
         name: '',
         type: 'expandable',
@@ -176,7 +200,7 @@ export class SidebarDialogNewItems extends LitElement {
     const data = {
       ...this._sidebarConfig.new_items?.[this._selectedItemIndex!],
     };
-    const configSchema = _configSchema();
+    const groupKeys = Object.keys(this._sidebarConfig.custom_groups || {});
     return html`
       ${headerBack}
       <div class="config-content">
@@ -201,7 +225,7 @@ export class SidebarDialogNewItems extends LitElement {
               <ha-form
                 .hass=${this.hass}
                 .data=${data}
-                .schema=${configSchema}
+                .schema=${_configSchema(groupKeys)}
                 .computeLabel=${this._computeLabel}
                 @value-changed=${this._valueChanged}
               >
@@ -255,8 +279,9 @@ export class SidebarDialogNewItems extends LitElement {
     ev.stopPropagation();
     const index = this._selectedItemIndex;
     if (index === null) return;
-    let newItemConfig = ev.detail.value;
-
+    const newItemConfig = ev.detail.value;
+    const { title, group } = newItemConfig;
+    this._handleGroupChange(title, group);
     const newItems = [...(this._sidebarConfig.new_items || [])];
     const newItem = { ...newItems[index], ...newItemConfig };
 
@@ -266,6 +291,128 @@ export class SidebarDialogNewItems extends LitElement {
       new_items: newItems,
     };
     this._dispatchConfig(this._sidebarConfig);
+  }
+
+  // private _handleGroupChange(title: string, group: string | undefined): void {
+  //   const inGroup = this.getGroupName(title);
+  //   if (!group || group === '') {
+  //     // If group is empty, remove item from its current group
+  //     if (inGroup !== 'Ungrouped') {
+  //       if (inGroup === 'Bottom Panels') {
+  //         const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+  //         const itemIndex = bottomItems.indexOf(title);
+  //         if (itemIndex !== -1) {
+  //           bottomItems.splice(itemIndex, 1);
+  //           this._sidebarConfig = {
+  //             ...this._sidebarConfig,
+  //             bottom_items: bottomItems,
+  //           };
+  //         }
+  //       } else {
+  //         const customGroups = { ...this._sidebarConfig.custom_groups };
+  //         const groupItems = customGroups[inGroup] || [];
+  //         const itemIndex = groupItems.indexOf(title);
+  //         if (itemIndex !== -1) {
+  //           groupItems.splice(itemIndex, 1);
+  //           customGroups[inGroup] = groupItems;
+  //           this._sidebarConfig = {
+  //             ...this._sidebarConfig,
+  //             custom_groups: customGroups,
+  //           };
+  //         }
+  //       }
+  //     }
+  //   } else {
+  //     // If group is set, move item to the new group
+  //     if (inGroup !== group) {
+  //       if (inGroup === 'Bottom Panels') {
+  //         const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+  //         const itemIndex = bottomItems.indexOf(title);
+  //         if (itemIndex !== -1) {
+  //           bottomItems.splice(itemIndex, 1);
+  //           this._sidebarConfig = {
+  //             ...this._sidebarConfig,
+  //             bottom_items: bottomItems,
+  //           };
+  //         }
+  //       } else {
+  //         const customGroups = { ...this._sidebarConfig.custom_groups };
+  //         const groupItems = customGroups[inGroup] || [];
+  //         const itemIndex = groupItems.indexOf(title);
+  //         if (itemIndex !== -1) {
+  //           groupItems.splice(itemIndex, 1);
+  //           customGroups[inGroup] = groupItems;
+  //           this._sidebarConfig = {
+  //             ...this._sidebarConfig,
+  //             custom_groups: customGroups,
+  //           };
+  //         }
+  //       }
+
+  //       // Add item to the new group
+  //       if (!this._sidebarConfig.custom_groups) {
+  //         this._sidebarConfig.custom_groups = {};
+  //       }
+  //       this._sidebarConfig.custom_groups[group].push(title);
+  //     }
+  //   }
+  // }
+  private _handleGroupChange(title: string, group: string | undefined): void {
+    const inGroup = this.getGroupName(title);
+
+    const removeFromGroup = () => {
+      if (inGroup === 'Bottom Panels') {
+        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+        const index = bottomItems.indexOf(title);
+        if (index !== -1) {
+          bottomItems.splice(index, 1);
+          this._sidebarConfig = {
+            ...this._sidebarConfig,
+            bottom_items: bottomItems,
+          };
+        }
+      } else if (inGroup !== 'Ungrouped') {
+        const customGroups = { ...this._sidebarConfig.custom_groups };
+        const groupItems = customGroups[inGroup] || [];
+        const index = groupItems.indexOf(title);
+        if (index !== -1) {
+          groupItems.splice(index, 1);
+          customGroups[inGroup] = groupItems;
+          this._sidebarConfig = {
+            ...this._sidebarConfig,
+            custom_groups: customGroups,
+          };
+        }
+      }
+    };
+
+    if (!group || group === '') {
+      removeFromGroup();
+    } else if (inGroup !== group) {
+      removeFromGroup();
+      // If group is 'bottom', we handle it separately
+      if (group === 'bottom') {
+        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+        if (!bottomItems.includes(title)) {
+          bottomItems.push(title);
+          this._sidebarConfig = {
+            ...this._sidebarConfig,
+            bottom_items: bottomItems,
+          };
+        }
+        return;
+      }
+      // Add to new group
+      const customGroups = { ...this._sidebarConfig.custom_groups };
+      if (!customGroups[group]) {
+        customGroups[group] = [];
+      }
+      customGroups[group].push(title);
+      this._sidebarConfig = {
+        ...this._sidebarConfig,
+        custom_groups: customGroups,
+      };
+    }
   }
 
   private _handleDeleteItem = async (index: number) => {

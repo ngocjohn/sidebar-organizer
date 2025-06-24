@@ -30,6 +30,7 @@ export enum ELEMENT {
   HA_BUTTON = 'ha-button',
   ADDED_DIVIDER = 'div.divider[added]',
   DIVIDER = 'div.divider',
+  CONFIG_DASHBOARDS = 'ha-config-lovelace-dashboards',
 }
 
 export enum CLASS {

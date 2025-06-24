@@ -51,14 +51,26 @@ export interface HaExtened extends HTMLElement {
   hass: HA & defaultPanel & { selectedTheme: ThemeSettings | null };
 }
 
+export interface Router extends HTMLElement {
+  routerOptions: {
+    routes: Record<
+      string,
+      {
+        load: () => Promise<void>;
+        tag: string;
+      }
+    >;
+  };
+}
+
 export interface Route {
   prefix: string;
   path: string;
 }
 
-export interface PartialPanelResolver extends HTMLElement {
+export interface PartialPanelResolver extends Router {
   narrow: boolean;
-  route?: Route | null;
+  route: Route;
   panel?: PanelInfo;
 }
 
