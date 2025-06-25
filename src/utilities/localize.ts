@@ -17,3 +17,14 @@ export const TRANSLATED = (hass: HomeAssistant) => ({
     SHOW_VISUAL_EDITOR: t(hass, `${PATH.UI_LOVELACE}editor.edit_card.show_visual_editor`),
   },
 });
+
+export const TRANSLATED_LABEL = {
+  BTN_LABEL: {
+    CANCEL: 'Cancel',
+    DELETE: 'Delete',
+    SAVE: 'Save',
+    DOWNLOAD: 'Download',
+    SHOW_CODE_EDITOR: 'Show code editor',
+    SHOW_VISUAL_EDITOR: 'Show visual editor',
+  },
+};

@@ -45,7 +45,7 @@ export const convertPreviewCustomStyles = (
   const styleObj: { [key: string]: string } = {};
 
   customStyles
-    .filter((style) => style && typeof style === 'object') // Filter out null, undefined, or non-objects
+    .filter((style) => style && typeof style === 'object') // Filter out null, undefined, or  non-objects
     .forEach((style) => {
       Object.entries(style).forEach(([key, value]) => {
         if (value != null) {
@@ -59,29 +59,21 @@ export const convertPreviewCustomStyles = (
 };
 
 export const getDefaultThemeColors = (element?: HTMLElement): DividerColorSettings => {
-  const getCssValue = (cssKey: string): string => {
-    if (element) {
-      return window.getComputedStyle(element).getPropertyValue(cssKey);
-    }
-    return window.getComputedStyle(document.documentElement).getPropertyValue(cssKey);
-  };
-  const divider_color = getCssValue('--divider-color');
-  const scrollbarColor = getCssValue('--scrollbar-thumb-color');
-  const custom_sidebar_background_color = getCssValue('--sidebar-background-color');
-  const textColor = getCssValue('--sidebar-text-color');
-  const iconColor = getCssValue('--sidebar-icon-color');
+  const styles = window.getComputedStyle(element ?? document.documentElement);
 
+  const divider_color = styles.getPropertyValue('--divider-color');
+  const defaultScrollbarThumbColor = styles.getPropertyValue('--scrollbar-thumb-color');
   const background_color = color2rgba(divider_color, 3) || divider_color;
   const border_top_color = divider_color;
-  const scrollbar_thumb_color = scrollbarColor;
+  const scrollbar_thumb_color = color2rgba(divider_color, 3) || defaultScrollbarThumbColor;
 
   return {
     divider_color,
     background_color,
     border_top_color,
     scrollbar_thumb_color,
-    custom_sidebar_background_color,
-    divider_text_color: textColor,
-    sidebar_icon_color: iconColor,
+    custom_sidebar_background_color: styles.getPropertyValue('--sidebar-background-color'),
+    divider_text_color: styles.getPropertyValue('--sidebar-text-color'),
+    sidebar_icon_color: styles.getPropertyValue('--sidebar-icon-color'),
   };
 };

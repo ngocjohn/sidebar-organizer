@@ -5,13 +5,13 @@ import { validateConfig } from '@utilities/configs/validators';
 import { isIcon } from '@utilities/is-icon';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
-import { html, css, LitElement, TemplateResult, nothing, PropertyValues, CSSResult } from 'lit';
+import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup } from 'lit';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { customElement, property, state } from 'lit/decorators';
 import Sortable from 'sortablejs';
 
+import { dialogStyles } from './dialog-css';
 import { SidebarConfigDialog } from './sidebar-dialog';
-
 // type PANEL_TABS = 'bottomPanel' | 'customGroups' | 'hiddenItems';
 enum PANEL {
   BOTTOM_PANEL = 'bottomPanel',
@@ -34,19 +34,19 @@ export class SidebarDialogGroups extends LitElement {
   @state() private _sortable: Sortable | null = null;
   @state() private _panelSortable: Sortable | null = null;
 
-  protected firstUpdated(): void {
-    this._setGridSelector();
-  }
+  // protected firstUpdated(): void {
+  //     this._setGridSelector();
+  // }
 
   protected updated(_changedProperties: PropertyValues) {
-    if (
-      (_changedProperties.has('_selectedTab') && this._selectedTab !== PANEL.CUSTOM_GROUP) ||
-      (_changedProperties.has('_selectedGroup') && this._selectedGroup !== undefined)
-    ) {
-      setTimeout(() => {
-        this._setGridSelector();
-      }, 50); // Small delay to ensure the ha-selector shadow DOM is rendered
-    }
+    // if (
+    //   (_changedProperties.has('_selectedTab') && this._selectedTab !== PANEL.CUSTOM_GROUP) ||
+    //   (_changedProperties.has('_selectedGroup') && this._selectedGroup !== undefined)
+    // ) {
+    //   setTimeout(() => {
+    //     this._setGridSelector();
+    //   }, 50); // Small delay to ensure the ha-selector shadow DOM is rendered
+    // }
 
     if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
       this._dialog._dialogPreview._toggleBottomPanel(this._selectedTab === PANEL.BOTTOM_PANEL);
@@ -116,7 +116,7 @@ export class SidebarDialogGroups extends LitElement {
           this._handleSortEnd(evt);
         },
       });
-      // console.log('sortable initialized');
+      console.log('sortable initialized for group list');
     }
   };
 
@@ -132,7 +132,7 @@ export class SidebarDialogGroups extends LitElement {
           this._handlePanelSortEnd(evt);
         },
       });
-      console.log('panel sortable initialized');
+      console.log('panel sortable initialized for selected items');
     }
   };
 
@@ -201,21 +201,6 @@ export class SidebarDialogGroups extends LitElement {
       }, 200);
     }
   }
-
-  private _setGridSelector = (): void => {
-    const selectorEl =
-      this.shadowRoot?.getElementById('customSelector') || this.shadowRoot?.getElementById('customSelectorHidden');
-    if (selectorEl) {
-      const selector = selectorEl?.shadowRoot?.querySelector('ha-selector-select');
-      if (selector) {
-        const div = selector.shadowRoot?.querySelector('div');
-        if (div) {
-          div.style.display = 'grid';
-          div.style.gridTemplateColumns = 'var(--grid-flex-columns)';
-        }
-      }
-    }
-  };
 
   private _handleSortEnd(evt: Sortable.SortableEvent): void {
     if (!this._sidebarConfig || !this._sidebarConfig.custom_groups) return;
@@ -300,7 +285,7 @@ export class SidebarDialogGroups extends LitElement {
 
     const bottomPanel = this._renderBottomItems();
     const hiddenItems = this._renderHiddenItems();
-    const customGroup = this._selectedGroup === null ? this._renderCustomGroupTab() : this._renderEditGroup();
+    const customGroup = this._selectedGroup === null ? this._renderCustomGroupList() : this._renderEditGroup();
     const notification = this._renderNotificationConfig();
 
     const tabMap = {
@@ -318,7 +303,8 @@ export class SidebarDialogGroups extends LitElement {
 
   private _renderHiddenItems() {
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
-    const initPanelItems = this._dialog._initCombiPanels;
+    const newItems = this._sidebarConfig?.new_items?.map((item) => item.title) || [];
+    const initPanelItems = this._dialog._initCombiPanels.filter((item) => !newItems.includes(item));
 
     const selector = this._createSelectorOptions(initPanelItems, 'dropdown');
 
@@ -343,26 +329,32 @@ export class SidebarDialogGroups extends LitElement {
 
   private _renderNotificationConfig() {
     const hassPanels = this.hass?.panels;
-    const items = this._dialog._initCombiPanels;
+    const newItems = this._sidebarConfig?.new_items?.map((item) => item.title) || [];
+    const items = this._dialog._initCombiPanels.filter((item) => !newItems.includes(item));
+
     const options = items.map((panel) => {
       const panelName = this.hass.localize(`panel.${hassPanels[panel]?.title}`) || hassPanels[panel]?.title || panel;
-      return { value: panel, label: panelName, icon: hassPanels[panel].icon };
+      return { value: panel, label: panelName, icon: hassPanels[panel]?.icon };
     });
     const selector = {
       select: {
         multiple: false,
-        custom_value: true,
+        custom_value: false,
         mode: 'dropdown',
         options: options,
         sort: true,
+        required: false,
       },
     };
 
     const selectedNotification = this._sidebarConfig.notification || {};
-    const selected = options.filter((item) => {
-      const selectedItem = Object.keys(selectedNotification).includes(item.value);
-      return selectedItem;
-    });
+
+    const selected = options.filter((item) => Object.keys(selectedNotification).includes(item.value));
+
+    // const selected = options.filter((item) => {
+    //   const selectedItem = Object.keys(selectedNotification).includes(item.value);
+    //   return selectedItem;
+    // });
 
     const selectedEl = html`
       <div class="group-list">
@@ -501,14 +493,15 @@ export class SidebarDialogGroups extends LitElement {
     );
   }
 
-  private _renderCustomGroupTab(): TemplateResult {
+  private _renderCustomGroupList(): TemplateResult {
     const customGroupList = Object.keys(this._sidebarConfig.custom_groups || []);
     const addBtn = html`
       <ha-button
+        outlined
         style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
+        .label=${'Add New Group'}
         @click=${this._togglePromptNewGroup}
-        >Add New Group</ha-button
-      >
+      ></ha-button>
     `;
     const isCollapsed = (key: string): boolean => {
       return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
@@ -730,8 +723,9 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
-    const currentItems = this._dialog._initPanelOrder;
-    const pickedItems = this.pickedItems;
+    const hiddenItems = this._sidebarConfig?.hidden_items || [];
+    const currentItems = this._dialog._initCombiPanels.filter((item) => !hiddenItems.includes(item));
+    const pickedItems = this._dialog.pickedItems;
     const selectedType = customGroup ? customGroup : 'bottom_items';
 
     const configItems = customGroup
@@ -742,7 +736,7 @@ export class SidebarDialogGroups extends LitElement {
 
     const itemsToRemove = pickedItems.filter((item) => !selectedItems.includes(item));
     const itemsToChoose = currentItems.filter((item) => !itemsToRemove.includes(item));
-
+    // console.log('itemsToChoose', itemsToChoose);
     const selector = this._createSelectorOptions(itemsToChoose);
 
     const renderItems = this._renderSelectedItems(selectedType, selectedItems);
@@ -753,17 +747,19 @@ export class SidebarDialogGroups extends LitElement {
           <div class="header-row flex-icon">
             <span>SELECT ITEMS</span>
           </div>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${selector}
-            .value=${selectedItems}
-            .configValue=${configValue}
-            .customGroup=${customGroup}
-            .required=${false}
-            id="customSelector"
-            @value-changed=${this._handleValueChange}
-          >
-          </ha-selector>
+          <div class="selector-container">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${selector}
+              .value=${selectedItems}
+              .configValue=${configValue}
+              .customGroup=${customGroup}
+              .required=${false}
+              id="customSelector"
+              @value-changed=${this._handleValueChange}
+            >
+            </ha-selector>
+          </div>
           ${this._renderSpacer()}
         </div>
         <div class="preview-container" ?hidden=${!selectedItems.length}>${renderItems}</div>
@@ -779,7 +775,8 @@ export class SidebarDialogGroups extends LitElement {
         title:
           this.hass.localize(`panel.${hassPanels[item]?.title}`) ||
           hassPanels[item]?.title ||
-          hassPanels[item].url_path,
+          hassPanels[item]?.url_path ||
+          item,
       };
     });
 
@@ -821,7 +818,10 @@ export class SidebarDialogGroups extends LitElement {
     const itemsWithTitles = selectedItems.map((item) => ({
       key: item,
       title:
-        this.hass.localize(`panel.${hassPanels[item]?.title}`) || hassPanels[item]?.title || hassPanels[item].url_path,
+        this.hass.localize(`panel.${hassPanels[item]?.title}`) ||
+        hassPanels[item]?.title ||
+        hassPanels[item]?.url_path ||
+        item,
     }));
 
     // Sort in ascending order by title (case-insensitive)
@@ -992,195 +992,8 @@ export class SidebarDialogGroups extends LitElement {
     this.dispatchEvent(event);
   }
 
-  static get styles(): CSSResult {
-    return css`
-      :host *[hidden] {
-        display: none;
-      }
-      :host #customSelectorHidden {
-        --grid-flex-columns: repeat(auto-fill, minmax(30.5%, 1fr));
-      }
-      :host #customSelector {
-        --grid-flex-columns: repeat(auto-fill, minmax(40.5%, 1fr));
-      }
-      @media all and (max-width: 700px), all and (max-height: 500px) {
-        :host #customSelectorHidden,
-        :host #customSelector {
-          --grid-flex-columns: repeat(auto-fill, minmax(30.5%, 1fr));
-        }
-      }
-
-      .config-content {
-        display: flex;
-        flex-direction: column;
-        gap: var(--side-dialog-gutter);
-        margin-top: 1rem;
-        min-height: 250px;
-      }
-
-      .group-list {
-        /* border-block: solid 1px var(--divider-color); */
-        border-block: 0.5px solid var(--divider-color);
-        --mdc-icon-button-size: 42px;
-      }
-
-      .group-item-row {
-        position: relative;
-        width: 100%;
-        justify-content: space-between;
-        display: flex;
-        align-items: center;
-        margin-block: var(--side-dialog-gutter);
-      }
-      .group-item-row .handle {
-        cursor: grab;
-        color: var(--secondary-text-color);
-        margin-inline-end: var(--side-dialog-padding);
-        flex: 0 0 42px;
-      }
-      .group-name {
-        flex: 1 1 auto;
-        gap: var(--side-dialog-padding);
-        display: flex;
-        align-items: center;
-      }
-      .group-name:hover {
-        cursor: pointer;
-        color: var(--primary-color);
-      }
-      .group-name > ha-icon {
-        color: var(--secondary-text-color);
-      }
-      .group-name-items {
-        display: flex;
-        flex-direction: column;
-      }
-
-      .group-name-items span {
-        font-size: 0.8rem;
-        color: var(--secondary-text-color);
-        line-height: 0.8rem;
-      }
-
-      .group-actions {
-        display: flex;
-        /* gap: 8px; */
-        align-items: center;
-        /* opacity: 1 !important; */
-        margin-inline: var(--side-dialog-gutter);
-        color: var(--secondary-text-color);
-      }
-      .header-row {
-        display: inline-flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        --mdc-icon-button-size: 42px;
-        height: auto;
-      }
-      .header-row.center {
-        justify-content: center;
-      }
-      .header-row.flex-end {
-        justify-content: flex-end;
-      }
-
-      .header-row.flex-icon {
-        justify-content: flex-end;
-        background-color: var(--divider-color);
-        min-height: 42px;
-      }
-      .header-row.flex-icon > span {
-        margin-inline-start: 0.5rem;
-        flex: 1;
-      }
-      .header-row.flex-icon > ha-icon {
-        margin-inline-end: 0.5rem;
-        flex: 0;
-      }
-
-      .sortable-ghost {
-        opacity: 0.5;
-        background-color: var(--primary-color);
-      }
-
-      #items-preview-wrapper {
-        display: flex;
-        flex-direction: row;
-        gap: var(--side-dialog-gutter);
-        justify-content: center;
-      }
-      @media all and (max-width: 700px), all and (max-height: 500px) {
-        #items-preview-wrapper {
-          flex-wrap: wrap;
-        }
-      }
-      .items-container {
-        display: block;
-        border: 1px solid var(--divider-color);
-        flex: 1 1 100%;
-        height: 100%;
-      }
-      .preview-container {
-        min-width: 230px;
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        border: 1px solid var(--divider-color);
-        /* display: block; */
-      }
-      ul.selected-items {
-        list-style-type: none;
-        padding-inline-start: 0px;
-        font-family: monospace;
-        color: var(--codemirror-atom);
-        text-align: center;
-        line-height: 150%;
-        margin: 0;
-      }
-      ul.selected-items li {
-        padding: 0.5rem;
-        border-bottom: 0.5px solid var(--divider-color);
-        display: flex;
-        align-items: anchor-center;
-      }
-      ul.selected-items li:last-child {
-        border-bottom: none;
-      }
-
-      ul.selected-items li .handle {
-        cursor: grab;
-        flex: 0 0 42px;
-        color: var(--secondary-text-color);
-        margin-inline-end: var(--side-dialog-padding);
-      }
-      ul.selected-items li .handle:hover {
-        cursor: grabbing;
-      }
-
-      code {
-        font-family: monospace;
-        background-color: var(--code-editor-background-color);
-        color: var(--codemirror-atom);
-        border: 0.5px solid var(--divider-color);
-        padding: 2px 4px;
-        font-size: inherit;
-        text-align: center;
-        line-height: 150%;
-      }
-
-      pre.rendered {
-        clear: both;
-        white-space: pre-wrap;
-        background-color: var(--secondary-background-color);
-        padding: 8px;
-        margin-top: 0px;
-        margin-bottom: 0px;
-        direction: ltr;
-        overflow: auto;
-        max-height: calc(var(--code-mirror-max-height) - 30px);
-      }
-    `;
+  static get styles(): CSSResultGroup {
+    return [dialogStyles];
   }
 }
 

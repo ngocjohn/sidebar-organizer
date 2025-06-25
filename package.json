@@ -19,6 +19,7 @@
     "@jaames/iro": "^5.5.2",
     "@mdi/js": "^7.4.47",
     "custom-card-helpers": "^1.9.0",
+    "get-promisable-result": "^1.0.1",
     "home-assistant-query-selector": "^4.3.0",
     "home-assistant-styles-manager": "^3.1.0",
     "lit": "^3.2.1",

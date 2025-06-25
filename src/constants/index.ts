@@ -34,6 +34,8 @@ export enum HA_EVENT {
   DEFAULT_PANEL = 'hass-default-panel',
   DIALOG_CLOSED = 'dialog-closed',
   LOCATION_CHANGED = 'location-changed',
+  SHOW_DIALOG = 'show-dialog',
+  SIDEBAR_CONFIG_SAVED = 'save-sidebar-organizer-config',
 }
 
 export const PANEL_ICONS = {
@@ -70,6 +72,7 @@ export const DEFAULT_CONFIG: SidebarConfig = {
   hide_header_toggle: false,
   default_collapsed: [],
   hidden_items: [],
+  new_items: [],
 };
 
 export const ALERT_MSG = {
@@ -81,4 +84,5 @@ export const ALERT_MSG = {
   CONFIRM_DELETE: 'Are you sure you want to delete the current configuration?',
   NOT_COMPATIBLE: 'Sidebar Organizer is not compatible with this version of Home Assistant',
   VERSION_INFO: `More info: ${REPO_URL}/issues/16`,
+  HAS_SIDEBAR_CONFIG_WARNING: `You have a saved sidebar configuration in your browser's local storage. Modifying the sidebar using the built-in Home Assistant dialog will disable Sidebar Organizer configuration and reset the sidebar to its default state. Do you want to edit the sidebar using Sidebar Organizer instead?`,
 };

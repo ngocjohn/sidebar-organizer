@@ -53,10 +53,13 @@ export const isItemsValid = (
   if (allItems.length === 0) {
     return log ? { configValid: false, config, duplikatedItems: [], invalidItems: [], noTitleItems: [] } : false;
   }
+  const newConfigItems = config.new_items || [];
+  const newItems = newConfigItems.map((item) => item.title!);
   const customGroups = Object.values(config.custom_groups || {}).flat();
+
   const duplikatedItems = customGroups.filter((item, index) => customGroups.indexOf(item) !== index) || [];
   const haPanelKeys = Object.keys(hass.panels);
-  const invalidItems = allItems.filter((item) => !haPanelKeys.includes(item));
+  const invalidItems = allItems.filter((item) => !haPanelKeys.includes(item) && !newItems.includes(item));
   const noTitleItems = allItems.filter((item) => hass.panels[item] && !hass.panels[item].title);
 
   const configValid = duplikatedItems.length === 0 && invalidItems.length === 0 && noTitleItems.length === 0;
@@ -67,7 +70,7 @@ export const isItemsValid = (
   }
 
   if (invalidItems.length > 0) {
-    LOGGER.warn(`${CONFIG_NAME}: Config is not valid. Diff items: ${invalidItems.join(', ')}`);
+    LOGGER.warn(`${CONFIG_NAME}: Config is not valid. Items not in panels: ${invalidItems.join(', ')}`);
     console.table(invalidItems);
   }
 
@@ -84,17 +87,31 @@ export const isItemsValid = (
 };
 
 export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass']): SidebarConfig => {
+  console.log('before tryCorrectConfig', config);
   const haPanelKeys = Object.keys(hass.panels);
   const allItems = [
     ...Object.values(config.custom_groups || {}).flat(),
     ...(config.bottom_items || []),
     ...(config.hidden_items || []),
   ];
+  const newConfigItems = config.new_items || [];
+  const newItems = newConfigItems.map((item) => item.title!);
 
-  const diffItems = allItems.filter((item) => !haPanelKeys.includes(item));
-  const noTitleItems = allItems.filter((item) => hass.panels[item] && !hass.panels[item].title);
+  // Filter out new items from allItems
+  const filteredItems = allItems.filter((item) => !newItems.includes(item));
+
+  const diffItems = filteredItems.filter((item) => !haPanelKeys.includes(item));
+  const noTitleItems = filteredItems.filter((item) => hass.panels[item] && !hass.panels[item].title);
 
   const invalidItems = new Set([...diffItems, ...noTitleItems]);
+  console.log('tryCorrectConfig', {
+    diffItems,
+    noTitleItems,
+    invalidItems: Array.from(invalidItems),
+    allItems,
+    haPanelKeys,
+    filteredItems,
+  });
 
   const cleanGroupItems = (group: string[]) => group.filter((item) => !invalidItems.has(item));
   const updatedGroups = Object.fromEntries(

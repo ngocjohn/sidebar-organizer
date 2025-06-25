@@ -1,6 +1,8 @@
-import { CLASS, ELEMENT, PATH, SELECTOR } from '@constants';
+import { CLASS, ELEMENT, SELECTOR } from '@constants';
 import { mdiClose } from '@mdi/js';
+import { HaExtened, SidebarPanelItem } from '@types';
 import { HomeAssistant } from 'custom-card-helpers';
+import { getPromisableResult } from 'get-promisable-result';
 import { html, TemplateResult } from 'lit';
 
 const HOLD_DURATION = 300;
@@ -35,7 +37,8 @@ export const createExpansionPanel = ({
   content: TemplateResult;
   options: { expanded?: boolean; header: string; icon?: string; secondary?: string };
 }): TemplateResult => {
-  const styles = 'margin-bottom: var(--side-dialog-padding);';
+  const styles = 'margin-bottom: var(--side-dialog-padding); --expansion-panel-content-padding: 0;';
+
   return html`
     <ha-expansion-panel
       style=${styles}
@@ -45,7 +48,8 @@ export const createExpansionPanel = ({
       .secondary=${options?.secondary || ''}
       .leftChevron=${true}
     >
-      ${options.icon ? html`<div slot="icons"><ha-icon icon=${options.icon}></ha-icon></div>` : ''} ${content}
+      ${options.icon ? html`<div slot="icons"><ha-icon icon=${options.icon}></ha-icon></div>` : ''}
+      <div style="background-color: var(--primary-background-color); padding: 1em;">${content}</div>
     </ha-expansion-panel>
   `;
 };
@@ -102,18 +106,20 @@ export function addAction(configItem: HTMLElement, action?: () => void, clickAct
     configItem.addEventListener(eventType, handleUpEvent);
   });
 }
-
 export const resetPanelOrder = (paperListBox: HTMLElement): void => {
-  const scrollbarItems = paperListBox!.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
-  const bottomItems = Array.from(scrollbarItems).filter((item) => item.hasAttribute('moved'));
-  if (bottomItems.length === 0) return;
-  bottomItems.forEach((item) => {
-    const nextItem = item.nextElementSibling;
-    if (nextItem && nextItem.classList.contains('divider')) {
-      paperListBox.removeChild(nextItem);
+  // Remove filtered panel items
+  paperListBox.querySelectorAll(ELEMENT.ITEM).forEach((item) => {
+    const panel = item.getAttribute('data-panel');
+    if (panel && panel !== 'config' && panel !== 'developer-tools') {
+      paperListBox.removeChild(item);
     }
-    item.removeAttribute('moved');
-    paperListBox.removeChild(item);
+  });
+
+  // Remove dividers for grouped items
+  paperListBox.querySelectorAll(ELEMENT.DIVIDER).forEach((divider) => {
+    if (divider.hasAttribute('added') || divider.hasAttribute('ungrouped') || divider.hasAttribute('bottom')) {
+      paperListBox.removeChild(divider);
+    }
   });
 };
 
@@ -133,26 +139,33 @@ export const resetBottomItems = (paperListBox: HTMLElement): void => {
 };
 
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
-  if (path === PATH.LOVELACE_DASHBOARD) {
-    resetBottomItems(paperListbox);
-  }
-  path = path.slice(1);
-  const listItems = Array.from(paperListbox.querySelectorAll(ELEMENT.ITEM)) as HTMLElement[];
+  // if (path === PATH.LOVELACE_DASHBOARD) {
+  //   resetBottomItems(paperListbox);
+  // }
 
-  const activeLink = paperListbox?.querySelector<HTMLElement>(`${ELEMENT.ITEM}[data-panel="${path}"]`);
+  const items = Array.from<SidebarPanelItem>(paperListbox?.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM));
 
-  const configEl = paperListbox?.querySelector(`${ELEMENT.ITEM}[data-panel="config"]`) as HTMLElement;
-  configEl?.classList.toggle(CLASS.SELECTED, configEl === activeLink);
+  const activeItem = items.find((item: SidebarPanelItem): boolean => path === item.href);
 
-  if (activeLink) {
-    setTimeout(() => {
-      listItems.forEach((item: HTMLElement) => {
-        const isActive = item === activeLink;
-        item.classList.toggle(CLASS.SELECTED, isActive);
-        // item.setAttribute('aria-selected', isActive.toString());
-      });
-    }, 0);
-  }
+  const activeParentElement = activeItem
+    ? null
+    : items.reduce((acc: SidebarPanelItem | null, item: SidebarPanelItem): SidebarPanelItem | null => {
+        if (path.startsWith(item.href)) {
+          if (!acc || item.href.length > acc.href.length) {
+            acc = item;
+          }
+        }
+        return acc;
+      }, null);
+
+  // console.log('path', path, 'activeItem', activeItem, 'activeParentElement', activeParentElement);
+
+  items.forEach((item: HTMLElement) => {
+    const isActive = (activeItem && activeItem === item) || (!activeItem && activeParentElement === item);
+
+    item.classList.toggle(CLASS.SELECTED, isActive);
+    item.tabIndex = isActive ? 0 : -1;
+  });
 
   const dividers = paperListbox?.querySelectorAll('div.divider') as NodeListOf<HTMLElement>;
   if (dividers.length === 0) return;
@@ -163,4 +176,44 @@ export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => 
     divider.classList.toggle('child-selected', childSelected);
     divider.setAttribute('aria-selected', childSelected.toString());
   });
+};
+
+export const getInitPanelOrder = async (haEl: HaExtened): Promise<string[]> => {
+  const promisableResultOptions = {
+    retries: 100,
+    delay: 50,
+    shouldReject: false,
+  };
+
+  const dialog = haEl.shadowRoot
+    ?.querySelector('dialog-edit-sidebar')
+    ?.shadowRoot?.querySelector('ha-items-display-editor') as any;
+  console.log('getInitPanelOrder dialog', dialog);
+  const panelItems = await getPromisableResult<string[]>(
+    () => {
+      return dialog?.items?.map((item: any) => item.value) || [];
+    },
+    (result: string[]) => result.length > 0,
+    promisableResultOptions // Example condition for validation
+  );
+  console.log('getInitPanelOrder', panelItems);
+  return panelItems;
+};
+
+export const getSiderbarEditDialog = async (haEl: HaExtened): Promise<any> => {
+  console.log('get SiderbarEditDialog');
+  const promisableResultOptions = {
+    retries: 100,
+    delay: 50,
+    shouldReject: false,
+  };
+  const dialog = await getPromisableResult<HTMLElement>(
+    () => {
+      return haEl.shadowRoot?.querySelector('dialog-edit-sidebar') as any;
+    },
+    (result: any) => result !== undefined,
+    promisableResultOptions // Example condition for validation
+  );
+  console.log('get SiderbarEditDialog', dialog);
+  return dialog;
 };

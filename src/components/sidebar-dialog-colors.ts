@@ -259,7 +259,7 @@ export class SidebarDialogColors extends LitElement {
       this._getDefaultColors();
       this._initCustomStyles = this._sidebarConfig.color_config?.[mode]?.custom_styles || [];
     }, 0);
-    console.log('Color compoment applied theme:', theme, 'mode:', mode);
+    // console.log('Color compoment applied theme:', theme, 'mode:', mode);
     if (this._dialog._dialogPreview && this._dialog._dialogPreview._colorConfigMode !== mode) {
       this._dialog._dialogPreview._colorConfigMode = mode;
     }
@@ -344,9 +344,7 @@ export class SidebarDialogColors extends LitElement {
       <ha-button @click=${() => this._handleColorPicker('save')}>Save</ha-button>
     </div>`;
 
-    const content = html`
-      ${themeSelect} ${headerInfo}
-
+    const colorConfigContent = html`
       <div class="config-colors grid">
         ${COLOR_CONFIG_KEYS.map((item) => this._renderDividerColor(item.value, item.label))}
         ${this._renderBorderRadiusField()} ${this._renderCustomStylesField()}
@@ -355,6 +353,19 @@ export class SidebarDialogColors extends LitElement {
         <div id="picker"></div>
         ${pickerActive}
       </div>
+    `;
+
+    const colorConfig = createExpansionPanel({
+      content: colorConfigContent,
+      options: {
+        expanded: false,
+        header: 'Custom colors and styles',
+      },
+    });
+
+    const content = html`
+      <div>${themeSelect} ${headerInfo}</div>
+      ${colorConfig}
     `;
 
     return createExpansionPanel({

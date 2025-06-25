@@ -21,7 +21,6 @@ export class SidebarDialogPreview extends LitElement {
   @state() private _baseColorFromTheme: DividerColorSettings = {};
 
   @state() private _ready = false;
-  @state() private _customThemeSetUp = false;
 
   protected firstUpdated(): void {
     // console.log('colorMode', colorMode);
@@ -43,6 +42,7 @@ export class SidebarDialogPreview extends LitElement {
         this._setTheme(this._colorConfigMode);
       }, 0);
     }
+    this._addNotification();
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
@@ -64,11 +64,13 @@ export class SidebarDialogPreview extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
       const newConfig = this._sidebarConfig;
+
       if (oldConfig && newConfig) {
         const bottomChanged = JSON.stringify(oldConfig.bottom_items) !== JSON.stringify(newConfig.bottom_items);
         const customGroupsChanged = JSON.stringify(oldConfig.custom_groups) !== JSON.stringify(newConfig.custom_groups);
         const hiddenItemsChanged = JSON.stringify(oldConfig.hidden_items) !== JSON.stringify(newConfig.hidden_items);
-        if (bottomChanged || customGroupsChanged || hiddenItemsChanged) {
+        const newItemsChanged = JSON.stringify(oldConfig.new_items) !== JSON.stringify(newConfig.new_items);
+        if (bottomChanged || customGroupsChanged || hiddenItemsChanged || newItemsChanged) {
           console.log('Items changed');
           this._updateListbox(newConfig);
         }
@@ -78,12 +80,6 @@ export class SidebarDialogPreview extends LitElement {
           JSON.stringify(newConfig.color_config?.custom_theme?.theme);
 
         if (themeChanged) {
-          // console.log(
-          //   'Theme changed',
-          //   oldConfig.color_config?.custom_theme?.theme,
-          //   '->',
-          //   newConfig.color_config?.custom_theme?.theme
-          // );
           if (newConfig.color_config?.custom_theme?.theme === undefined) {
             const themeCon = this.shadowRoot?.getElementById('theme-container');
             themeCon?.removeAttribute('style');
@@ -94,7 +90,12 @@ export class SidebarDialogPreview extends LitElement {
             this._setTheme(this._colorConfigMode);
           }
         }
-        const notificationChanged = JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification);
+        const notificationChanged =
+          JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification) ||
+          JSON.stringify(
+            oldConfig.new_items?.every((item) => item.notification) !==
+              newConfig.new_items?.every((item) => item.notification)
+          );
         if (notificationChanged) {
           console.log('Notification changed');
           this._handleNotifyChange();
@@ -110,43 +111,70 @@ export class SidebarDialogPreview extends LitElement {
         this._setTheme(newMode);
       }
     }
-
     if (_changedProperties.has('_ready') && this._ready) {
-      this._addNotification();
+      this._handleNotifyChange();
     }
   }
 
   private _addNotification(): void {
-    console.log('Adding notification');
-    const notification = this._sidebarConfig?.notification || {};
-    if (!notification || Object.keys(notification).length === 0) {
+    if (!this._ready) {
+      // console.log('Not ready to add notification');
       return;
+    }
+    console.log('Adding notification');
+    const groups = this.shadowRoot?.querySelector('div.groups-container');
+    const items = groups!.querySelectorAll('a') as NodeListOf<HTMLElement>;
+    const newItems = this._sidebarConfig?.new_items || [];
+    if (newItems && newItems.length > 0) {
+      const newItemsWithNotification = newItems.filter((item) => item.notification !== undefined);
+      newItemsWithNotification.forEach((notify) => {
+        const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === notify.title!);
+        const notification = notify.notification;
+        if (panel && notification) {
+          this._subscribeNotification(panel, notification);
+        }
+      });
     }
 
-    const groups = this.shadowRoot?.querySelector('div.groups-container');
-    const items = groups?.querySelectorAll('a') as NodeListOf<HTMLElement>;
-    if (!items) {
-      console.log('No items found');
-      return;
+    const notification = this._sidebarConfig?.notification || {};
+    if (notification && Object.keys(notification).length > 0) {
+      Object.entries(notification).forEach(([key, value]) => {
+        const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === key);
+        if (panel) {
+          this._subscribeNotification(panel, value);
+        }
+      });
     }
-    Object.entries(notification).forEach(([key, value]) => {
-      const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === key);
-      if (panel) {
-        this._subscribeTemplate(value, (result: string) => {
-          if (isIcon(result)) {
-            const icon = document.createElement('ha-icon');
-            icon.classList.add('notification-badge');
-            icon.setAttribute('icon', result);
-            panel.querySelector('div.icon-item')?.appendChild(icon);
-          } else {
-            const span = document.createElement('span');
-            span.classList.add('notification-badge');
-            span.innerHTML = result;
-            panel.querySelector('div.icon-item')?.appendChild(span);
-          }
-        });
+  }
+
+  private _subscribeNotification(panel: HTMLElement, configValue: string) {
+    let badge = panel.querySelector('span.notification-badge') as HTMLElement;
+    let icon = panel.querySelector('ha-icon.notification-badge') as HTMLElement;
+    if (!badge && !icon) {
+      badge = document.createElement('span');
+      badge.classList.add('notification-badge');
+      panel.querySelector('div.icon-item')?.appendChild(badge);
+      icon = document.createElement('ha-icon');
+      icon.classList.add('notification-badge');
+      panel.querySelector('div.icon-item')?.appendChild(icon);
+    }
+
+    const callback = (result: any) => {
+      if (result) {
+        if (typeof result === 'string' && isIcon(result)) {
+          badge.remove();
+          icon.setAttribute('icon', result);
+        } else {
+          icon.remove();
+          badge.innerHTML = result;
+        }
+      } else {
+        badge.remove();
+        icon.remove();
       }
-    });
+    };
+
+    this._subscribeTemplate(configValue, callback);
   }
 
   private _subscribeTemplate(configValue: string, callback: (result: string) => void): void {
@@ -181,7 +209,7 @@ export class SidebarDialogPreview extends LitElement {
     notifyItems.forEach((item) => item.remove());
     setTimeout(() => {
       this._addNotification();
-    }, 100);
+    }, 0);
   }
 
   public _updateListbox(newConfig?: SidebarConfig): void {
@@ -261,14 +289,10 @@ export class SidebarDialogPreview extends LitElement {
     });
 
     const ungroupedPanel = () => {
-      if (ungroupedItems && ungroupedItems.length > 0) {
-        const ungroupedItemsEl = _createPanelItems(this.hass, ungroupedItems);
-        return ungroupedItemsEl.map((item: PanelInfo) => {
-          return _renderPanelItem(item);
-        });
-      } else {
-        return nothing;
-      }
+      if (!ungroupedItems?.length) return nothing;
+
+      const ungroupedItemsEl = _createPanelItems(this.hass, ungroupedItems, this._dialog);
+      return [...ungroupedItemsEl].map(_renderPanelItem);
     };
 
     return html` <div id="theme-container"></div>

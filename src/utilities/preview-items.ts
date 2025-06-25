@@ -1,20 +1,22 @@
 import { PANEL_ICONS } from '@constants';
 import { SidebarConfigDialog } from 'components/sidebar-dialog';
 
-import { HaExtened, SidebarConfig, PanelInfo, Panels } from '../types';
+import { HaExtened, SidebarConfig, PanelInfo, Panels, NewItemConfig } from '../types';
 
 export const getPreviewItems = (dialog: SidebarConfigDialog, config: SidebarConfig) => {
   const hass = dialog.hass as HaExtened['hass'];
   const hassPanels = hass?.panels as Panels;
   const defaultPanel = hass.defaultPanel;
+
   const createPanelItems = (items: string[]) => {
-    return _createPanelItems(hass, [...items]);
+    return _createPanelItems(hass, [...items], dialog);
   };
 
   // Default Lovelace panel
   const _panelItems: Record<string, PanelInfo[]> = {
     defaultPage: [
       {
+        component_name: hassPanels[defaultPanel]?.title || hass.localize('panel.states'),
         title: hassPanels[defaultPanel]?.title || hass.localize('panel.states'),
         icon: hassPanels[defaultPanel]?.icon || PANEL_ICONS.lovelace,
       },
@@ -50,11 +52,27 @@ export const getPreviewItems = (dialog: SidebarConfigDialog, config: SidebarConf
 };
 
 // Helper function to create PanelInfo items
-export const _createPanelItems = (hass: HaExtened['hass'], items: string[]): PanelInfo[] => {
+export const _createPanelItems = (
+  hass: HaExtened['hass'],
+  items: string[],
+  dialog: SidebarConfigDialog
+): PanelInfo[] => {
   const hassPanels = hass?.panels as Panels;
-  return items.map((item) => ({
-    component_name: item,
-    title: hass.localize(`panel.${hassPanels[item]?.title}`) || hassPanels[item]?.title || item,
-    icon: hassPanels[item]?.icon || PANEL_ICONS[item],
-  }));
+  const newItemConfig = dialog?._newItemMap as Map<string, NewItemConfig>;
+
+  const itemsList = items.map((item) => {
+    if (newItemConfig.has(item)) {
+      return {
+        ...newItemConfig.get(item),
+        component_name: item,
+      } as NewItemConfig;
+    } else {
+      return {
+        component_name: item,
+        title: hass.localize(`panel.${hassPanels[item]?.title}`) || hassPanels[item]?.title || item,
+        icon: hassPanels[item]?.icon || PANEL_ICONS[item],
+      };
+    }
+  });
+  return itemsList;
 };

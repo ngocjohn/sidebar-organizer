@@ -1,3 +1,4 @@
+import { ActionConfig } from '@utilities/action';
 import { HomeAssistant } from 'custom-card-helpers';
 
 interface defaultPanel extends HomeAssistant {
@@ -51,25 +52,43 @@ export interface HaExtened extends HTMLElement {
   hass: HA & defaultPanel & { selectedTheme: ThemeSettings | null };
 }
 
+export interface Router extends HTMLElement {
+  routerOptions: {
+    routes: Record<
+      string,
+      {
+        load: () => Promise<void>;
+        tag: string;
+      }
+    >;
+  };
+}
+
 export interface Route {
   prefix: string;
   path: string;
 }
 
-export interface PartialPanelResolver extends HTMLElement {
+export interface PartialPanelResolver extends Router {
   narrow: boolean;
-  route?: Route | null;
+  route: Route;
   panel?: PanelInfo;
 }
 
-export interface PanelInfo<T = Record<string, any> | null> {
+export interface SidebarPanelItem extends HTMLElement {
+  href: string;
+  target: string;
+  newItem?: boolean;
+  'data-panel'?: string;
+}
+
+export interface PanelInfo {
   component_name?: string;
-  config?: T;
   icon: string | null;
   title: string | null;
   url_path?: string;
   config_panel_domain?: string;
-  notification?: string | boolean;
+  notification?: string;
 }
 export type Panels = Record<string, PanelInfo>;
 
@@ -97,6 +116,15 @@ export interface NotificationConfig {
   [key: string]: string;
 }
 
+export interface NewItemConfig extends PanelInfo {
+  target?: '_blank' | '_self';
+  entity?: string;
+  tap_action?: ActionConfig;
+  hold_action?: ActionConfig;
+  double_tap_action?: ActionConfig;
+  group?: string;
+}
+
 export interface SidebarConfig {
   bottom_items?: string[];
   custom_groups?: {
@@ -113,4 +141,5 @@ export interface SidebarConfig {
     custom_theme?: CustomTheme;
   };
   notification?: NotificationConfig;
+  new_items?: NewItemConfig[];
 }

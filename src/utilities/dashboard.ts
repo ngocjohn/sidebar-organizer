@@ -1,3 +1,5 @@
+import { LitElement } from 'lit';
+
 import type { HA as HomeAssistant } from '../types';
 
 export type LovelaceDashboard = LovelaceYamlDashboard | LovelaceStorageDashboard;
@@ -55,3 +57,7 @@ export const deleteDashboard = (hass: HomeAssistant, id: string) =>
     type: 'lovelace/dashboards/delete',
     dashboard_id: id,
   });
+
+export interface HaConfigDashboards extends LitElement {
+  _dashboards: LovelaceDashboard[];
+}
