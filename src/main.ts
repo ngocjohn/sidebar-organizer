@@ -2,21 +2,14 @@ import {
   ALERT_MSG,
   ATTRIBUTE,
   CLASS,
-  CUSTOM_EVENT,
   ELEMENT,
   HA_EVENT,
   NAMESPACE,
-  NAMESPACE_TITLE,
   PATH,
-  REPO_URL,
   SELECTOR,
   SHOW_AFTER_BOTTOM,
-  SLOT,
   STORAGE,
-  TAB_STATE,
-  VERSION,
 } from '@constants';
-import { mdiInformation, mdiArrowExpand } from '@mdi/js';
 import {
   HaExtened,
   NewItemConfig,
@@ -27,35 +20,28 @@ import {
   ThemeSettings,
 } from '@types';
 import { applyTheme } from '@utilities/apply-theme';
-import { fetchConfig, validateConfig } from '@utilities/configs';
+import { fetchConfig } from '@utilities/configs';
 import { getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
-import {
-  addAction,
-  createCloseHeading,
-  getInitPanelOrder,
-  getSiderbarEditDialog,
-  onPanelLoaded,
-} from '@utilities/dom-utils';
+import { fetchDashboards } from '@utilities/dashboard';
+import { addAction, getInitPanelOrder, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
+import { ValidHassDomEvent } from '@utilities/fire_event';
 import { fetchFrontendUserData, saveFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
-import { TRANSLATED_LABEL } from '@utilities/localize';
 import * as LOGGER from '@utilities/logger';
-import { showAlertDialog, showConfirmDialog } from '@utilities/show-dialog-box';
 
 import './components/sidebar-dialog';
 
-import { getHiddenPanels, getStorage, removeStorage, setStorage } from '@utilities/storage-utils';
+import { showAlertDialog, showConfirmDialog } from '@utilities/show-dialog-box';
+import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
+import { setStorage } from '@utilities/storage-utils';
 import { ACTION_TYPES, addHandlerActions } from '@utilities/tap-action';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { getPromisableResult } from 'get-promisable-result';
 import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnPanelLoadDetail } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
-import { html } from 'lit';
 
-import { SidebarConfigDialog } from './components/sidebar-dialog';
-import { DIALOG_STYLE, DIVIDER_ADDED_STYLE } from './sidebar-css';
+import { DIVIDER_ADDED_STYLE } from './sidebar-css';
 
 class SidebarOrganizer {
   constructor() {
@@ -90,9 +76,17 @@ class SidebarOrganizer {
 
     window.addEventListener('storage', this._storageListener.bind(this));
     // Listen for HA Events
-    [HA_EVENT.SETTHEME, HA_EVENT.DEFAULT_PANEL, HA_EVENT.DIALOG_CLOSED, HA_EVENT.LOCATION_CHANGED].forEach((event) => {
+    [
+      HA_EVENT.SETTHEME,
+      HA_EVENT.DEFAULT_PANEL,
+      HA_EVENT.DIALOG_CLOSED,
+      HA_EVENT.LOCATION_CHANGED,
+      HA_EVENT.SHOW_DIALOG,
+      HA_EVENT.SIDEBAR_CONFIG_SAVED,
+    ].forEach((event) => {
       window.addEventListener(event, this._handleHaEvents.bind(this));
     });
+
     this._currentPath = window.location.pathname;
     this._watchPathChanges();
     this._sidebarItems = [];
@@ -109,11 +103,8 @@ class SidebarOrganizer {
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
   private _styleManager: HomeAssistantStylesManager;
-  private _sidebarDialog?: SidebarConfigDialog;
   private collapsedItems = new Set<string>();
   private _bottomItems: string[] = [];
-  private _newItems: string[] = [];
-  private _dialogLarge: boolean = false;
   private firstSetUpDone = false;
   private setupConfigDone = false;
   private _diffCheck: boolean = false;
@@ -123,9 +114,7 @@ class SidebarOrganizer {
   private _hassPanelsChanged: boolean = false;
   private _notCompatible: boolean = false;
   private _userHasSidebarSettings: boolean = false;
-  private _itemsLength: number | null = null;
   private _sidebarItems: SidebarPanelItem[];
-  private _currentDashboards: LovelaceDashboard[] = [];
 
   get hass(): HaExtened['hass'] {
     return this.ha!.hass;
@@ -168,41 +157,30 @@ class SidebarOrganizer {
     return customPanels;
   }
 
-  private async _checkUserSidebarSettings() {
-    const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
-    this._userHasSidebarSettings = (userData && userData?.panelOrder?.length > 0) || false;
-    console.log('User has sidebar settings:', this._userHasSidebarSettings);
-  }
-
   private _watchEditSidebar() {
-    this.main.addEventListener('show-dialog', async (ev: any) => {
-      if (ev.detail?.dialogTag === 'dialog-edit-sidebar') {
-        console.log('Edit Sidebar Dialog Opened');
-        if (!this._userHasSidebarSettings && this._hasSidebarConfig) {
-          console.log('User has no sidebar settings, showing alert');
-          setTimeout(async () => {
-            const dialog = await getSiderbarEditDialog(this.ha!);
-            if (dialog) {
-              dialog._open = false; // Close the dialog if it was opened
-              const confirm = await showConfirmDialog(
-                this._haDrawer,
-                `You have a saved sidebar configuration in your browser's local storage. Modifying the sidebar using the built-in Home Assistant editor will not apply your saved configuration and the sidebar will revert to the default state. Do you want to show the sidebar organizer dialog instead?`,
-                'Show Sidebar Organizer',
-                'Cancel'
-              );
-              if (confirm) {
-                dialog._open = false; // Close the dialog if it was opened
-                dialog?.remove();
-                this._addConfigDialog();
-              } else {
-                console.log('User chose to continue with the default sidebar editor');
-                dialog._open = true; // Keep the dialog open
-              }
-            }
-          }, 100);
+    if (!this._userHasSidebarSettings && this._hasSidebarConfig) {
+      console.log('User has no sidebar settings, showing alert');
+      setTimeout(async () => {
+        const dialog = await getSiderbarEditDialog(this.ha!);
+        if (dialog) {
+          dialog._open = false; // Close the dialog if it was opened
+          const confirm = await showConfirmDialog(
+            this._haDrawer,
+            ALERT_MSG.HAS_SIDEBAR_CONFIG_WARNING,
+            'Edit with Sidebar Organizer',
+            'Continue'
+          );
+          if (confirm) {
+            dialog._open = false; // Close the dialog if it was opened
+            dialog?.remove();
+            this._addConfigDialog();
+          } else {
+            console.log('User chose to continue with the default sidebar editor');
+            dialog._open = true; // Keep the dialog open
+          }
         }
-      }
-    });
+      }, 200); // Delay to ensure dialog is ready
+    }
   }
 
   private _watchPathChanges() {
@@ -243,91 +221,6 @@ class SidebarOrganizer {
     };
 
     window.addEventListener('popstate', callback);
-  }
-
-  // private _watchPathChanges() {
-  //   const callback = () => {
-  //     // Delay the check to allow path to update fully
-  //     if (this._delayTimeout) {
-  //       clearTimeout(this._delayTimeout);
-  //     }
-
-  //     this._delayTimeout = window.setTimeout(() => {
-  //       const newPath = window.location.pathname;
-  //       if (newPath !== this._currentPath) {
-  //         this._prevPath = this._currentPath;
-  //         this._currentPath = newPath;
-  //         if (
-  //           this._prevPath !== null &&
-  //           this._prevPath === PATH.LOVELACE_DASHBOARD &&
-  //           this._currentPath !== PATH.LOVELACE_DASHBOARD
-  //         ) {
-  //           // this._checkDashboardChange();
-  //         }
-  //       }
-  //     }, 200); // Delay in ms
-  //   };
-
-  //   const pushState = history.pushState;
-  //   const replaceState = history.replaceState;
-
-  //   history.pushState = function (...args) {
-  //     pushState.apply(this, args);
-  //     callback();
-  //   };
-
-  //   history.replaceState = function (...args) {
-  //     replaceState.apply(this, args);
-  //     callback();
-  //   };
-
-  //   window.addEventListener('popstate', callback);
-  // }
-
-  private async _handleDashboardChanged(dashboard: LovelaceDashboard): Promise<void> {
-    if (!dashboard) return;
-    const { url_path, show_in_sidebar } = dashboard;
-    console.log('Dashboard URL Path:', url_path, 'in config:', this._getItemInConfig(url_path));
-    if (!this._getItemInConfig(url_path)) return;
-
-    const currentDashboards = await fetchDashboards(this.hass);
-    const changedItem = currentDashboards.find((d: LovelaceDashboard) => d.url_path === url_path)!;
-    console.log('Current Item:', changedItem, 'Changed Dashboard:', dashboard);
-    if (show_in_sidebar !== changedItem.show_in_sidebar && !changedItem.show_in_sidebar) {
-      // item was hidden from sidebar
-      console.log('Dashboard was hidden from sidebar:', url_path);
-      // Remove from config
-      const config = { ...this._config };
-      const { custom_groups = {}, bottom_items = [], hidden_items = [] } = config;
-      const inGroup = this._getItemInConfig(url_path);
-      if (inGroup === 'bottom_items' || inGroup === 'hidden_items') {
-        [bottom_items, hidden_items].forEach((list) => {
-          const index = list.indexOf(url_path);
-          if (index !== -1) {
-            list.splice(index, 1);
-          }
-        });
-      } else {
-        // remove from custom groups
-        Object.entries(custom_groups).forEach(([key, value]) => {
-          if (value.includes(url_path)) {
-            custom_groups[key] = value.filter((item) => item !== url_path);
-          }
-        });
-      }
-      // remove from panel order
-      const _baseOrder = this._baseOrder.filter((panel) => panel !== url_path);
-      Object.assign(config, {
-        custom_groups,
-        bottom_items,
-        hidden_items,
-      });
-      setStorage(STORAGE.UI_CONFIG, config);
-      setStorage(STORAGE.HIDDEN_PANELS, hidden_items);
-      setStorage(STORAGE.PANEL_ORDER, _baseOrder);
-      this._config = config;
-      console.log('Updated Config:', this._config);
-    }
   }
 
   private async _checkDashboardChange(): Promise<void> {
@@ -444,35 +337,34 @@ class SidebarOrganizer {
     await this._checkUserSidebarSettings();
     this._setupConfigBtn();
 
-    this._watchEditSidebar();
-
     if (!this.firstSetUpDone && !this._userHasSidebarSettings) {
       await this._getConfig();
       this._processConfig();
     }
-    // if (!this.firstSetUpDone) {
-    //   await this._setDataPanel();
-    //   await new Promise((resolve) => {
-    //     setTimeout(() => {
-    //       this._handleFirstConfig();
-    //       resolve(true);
-    //     }, 0);
-    //   });
-    // }
+  }
 
-    // if (this.firstSetUpDone && !this.setupConfigDone) {
-    //   await this._getConfig();
-    //   this._handleSidebarHeader();
-    //   this.setupConfigDone = true;
-    // }
-    // if (this.firstSetUpDone && !this.setupConfigDone) {
-    //   await this._getConfig();
-    //   this._handleSidebarHeader();
-    //   this.setupConfigDone = true;
-    // }
+  private async _checkUserSidebarSettings() {
+    const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
+    this._userHasSidebarSettings = (userData && userData?.panelOrder?.length > 0) || false;
+    console.log('User has sidebar settings:', this._userHasSidebarSettings);
+  }
 
-    // const sidebar = customElements.get('ha-sidebar') as any;
-    // this._handleSidebarUpdate(sidebar);
+  private async _setupConfigBtn() {
+    let profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
+    if (!profileEl) {
+      profileEl = this.sideBarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement;
+    }
+    if (!profileEl) return;
+    if (this._userHasSidebarSettings) {
+      // console.log('User has sidebar settings, adding remove legacy data action');
+      addAction(profileEl, this._addDiaglogRemoveLegacyUserData.bind(this));
+      return;
+    } else {
+      // console.log('User does not have sidebar settings, adding config dialog action');
+      addAction(profileEl, this._addConfigDialog.bind(this));
+    }
+    // Load translations for dialog later
+    await this.hass.loadFragmentTranslation('lovelace');
   }
 
   private _processConfig(): void {
@@ -493,7 +385,7 @@ class SidebarOrganizer {
         .filter((item) => !SHOW_AFTER_BOTTOM.includes(item.href))
         .map((item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', ''));
 
-      const combinedOrder = this._handleGroupedPanelOrder(initOrder);
+      const combinedOrder = this._computePanels(initOrder);
       // console.log('Combined Order:', combinedOrder);
       this._baseOrder = combinedOrder;
       setStorage(STORAGE.PANEL_ORDER, combinedOrder);
@@ -539,7 +431,7 @@ class SidebarOrganizer {
       // Handle bottom items
       if (bottom_items && bottom_items.length > 0) {
         this._bottomItems = bottom_items;
-        this._addBootomItems();
+        this._addBottomItems();
       }
 
       // Handle custom groups
@@ -601,7 +493,7 @@ class SidebarOrganizer {
     }
   }
 
-  private async _handleHaEvents(event: any) {
+  private async _handleHaEvents(event: HASSDomEvents[ValidHassDomEvent]) {
     if (this._notCompatible) return;
     event.stopPropagation();
     const { type, detail } = event;
@@ -614,6 +506,17 @@ class SidebarOrganizer {
         break;
       case HA_EVENT.DEFAULT_PANEL:
         this._handleDefaultPanelChange(detail.defaultPanel);
+        break;
+
+      case HA_EVENT.SHOW_DIALOG:
+        if (detail.dialogTag === ELEMENT.DIALOG_EDIT_SIDEBAR) {
+          console.log('Show Dialog Event:', ELEMENT.DIALOG_EDIT_SIDEBAR, detail);
+          this._watchEditSidebar();
+        }
+        break;
+      case HA_EVENT.SIDEBAR_CONFIG_SAVED:
+        console.log('Sidebar Config Saved Event:', detail);
+        this._handleNewConfig(detail.config, detail.useConfigFile);
         break;
 
       // case HA_EVENT.LOCATION_CHANGED:
@@ -630,56 +533,54 @@ class SidebarOrganizer {
     }
   }
 
-  private _handleDefaultPanelChange(defaultPanel: string) {
-    const customGroups = this._config?.custom_groups || {};
-    let defaultInGroup = false;
-
-    // Remove the default panel from any custom group if it exists
-    Object.entries(customGroups).forEach(([key, groupItems]) => {
-      const index = groupItems.indexOf(defaultPanel);
-      if (index !== -1) {
-        defaultInGroup = true;
-        groupItems.splice(index, 1); // Remove the panel from the group
-        console.log(`Removed ${defaultPanel} from group: ${key}`);
-      }
-    });
-
-    if (defaultInGroup) {
-      // Update the config and reload the page
-      console.log('Custom Group Changed, updating config', customGroups);
-      this._config = { ...this._config, custom_groups: customGroups };
-      setStorage(STORAGE.UI_CONFIG, this._config);
-      setTimeout(() => {
-        window.location.reload();
-      }, 200);
-    } else {
-      console.log('Default Panel Changed', defaultPanel);
-      this._setupConfig(this._config);
-    }
+  private _addConfigDialog() {
+    showDialogSidebarOrganizer(this.ha!);
   }
 
-  private async _handleFirstConfig() {
-    const storedPanelOrder = getStorage(STORAGE.PANEL_ORDER);
-    console.log('Stored Panel Order:', storedPanelOrder);
-    if (JSON.parse(storedPanelOrder || '[]').length !== this._itemsLength || !storedPanelOrder) {
-      console.log('Panel Order Length Mismatch, resetting to default');
-      [STORAGE.PANEL_ORDER, STORAGE.COLLAPSE].forEach((key) => {
-        removeStorage(key);
-      });
-      setStorage(STORAGE.PANEL_ORDER, this._baseOrder);
-    } else {
-      this._baseOrder = JSON.parse(storedPanelOrder);
-      console.log('Using Stored Panel Order:', this._baseOrder);
+  private _handleDefaultPanelChange(defaultPanel: string) {
+    const inGroup = this._getItemInConfig(defaultPanel);
+    if (!inGroup) {
+      this._reloadWindow();
+      return;
     }
+    console.log('Default Panel Changed:', defaultPanel, 'In Group:', inGroup);
+    // remove the default panel from any custom group or bottom items
+    const update: Partial<SidebarConfig> = {};
+    const config = { ...(this._config || {}) };
+    if (inGroup === 'bottom_items') {
+      const index = config.bottom_items?.indexOf(defaultPanel);
+      config.bottom_items?.splice(index!, 1);
+      update.bottom_items = config.bottom_items;
+    } else if (inGroup === 'hidden_items') {
+      // remove from hidden items
+      console.log('Removing from hidden items:', defaultPanel);
+      const index = config.hidden_items?.indexOf(defaultPanel);
+      if (index !== -1) {
+        config.hidden_items?.splice(index!, 1);
+        update.hidden_items = config.hidden_items;
+      }
+    } else {
+      // remove from custom groups
+      console.log('Removing from custom groups:', defaultPanel);
+      const customGroups = { ...(config.custom_groups || {}) };
+      Object.entries(customGroups).forEach(([group, items]) => {
+        const index = items.indexOf(defaultPanel);
+        if (index !== -1) {
+          items.splice(index, 1);
+          customGroups[group] = items;
+        }
+      });
+      update.custom_groups = customGroups;
+    }
+    // update the config
+    this._config = {
+      ...this._config,
+      ...update,
+    };
+    setStorage(STORAGE.UI_CONFIG, this._config);
+    setStorage(STORAGE.HIDDEN_PANELS, this._config.hidden_items || []);
 
-    const storedHiddenPanels = getHiddenPanels();
-    this._hiddenPanels = storedHiddenPanels || [];
-
-    this.HaSidebar._panelOrder = [...this._baseOrder];
-    this.HaSidebar._hiddenPanels = [...this._hiddenPanels];
-
-    console.log('Initial Panel Order:', this._baseOrder, 'Initial Hidden Panels:', this._hiddenPanels);
-    this.firstSetUpDone = true;
+    this._reloadWindow();
   }
 
   private async _getConfig() {
@@ -688,7 +589,6 @@ class SidebarOrganizer {
     if (config) {
       this._config = config;
       this._setupInitialConfig();
-      // this._setupConfig(this._config);
     }
   }
 
@@ -698,23 +598,6 @@ class SidebarOrganizer {
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
     this._handleHidden(hidden_items || []);
     this._addNewItems(new_items || []);
-  }
-
-  private async _setupConfigBtn() {
-    let profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
-    if (!profileEl) {
-      profileEl = this.sideBarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement;
-    }
-    if (!profileEl) return;
-    if (this._userHasSidebarSettings) {
-      // console.log('User has sidebar settings, adding remove legacy data action');
-      addAction(profileEl, this._addDiaglogRemoveLegacyUserData.bind(this));
-      return;
-    } else {
-      // console.log('User does not have sidebar settings, adding config dialog action');
-      addAction(profileEl, this._addConfigDialog.bind(this));
-    }
-    // await this.hass.loadFragmentTranslation('lovelace');
   }
 
   private async _addDiaglogRemoveLegacyUserData() {
@@ -733,9 +616,9 @@ class SidebarOrganizer {
         const confirmGetInitPanelOrder = await showConfirmDialog(this._haDrawer, getInitPanelOrderMsg, 'OK', 'Cancel');
         if (confirmGetInitPanelOrder) {
           if (this._hasSidebarConfig) {
-            console.log('User has sidebar config, getting initial panel order');
             window.location.reload();
           } else {
+            console.log('User has sidebar config, getting initial panel order');
             this._getInitPanelOrder();
           }
           return;
@@ -806,31 +689,16 @@ class SidebarOrganizer {
     titleEl.appendChild(collapseEl);
   }
 
-  private async _setupConfig(config: SidebarConfig) {
-    const {
-      color_config = {},
-      bottom_items = [],
-      custom_groups = {},
-      hidden_items = [],
-      default_collapsed = [],
-      new_items = [],
-    } = config;
-
-    this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
-    this._handleHiddenPanels(hidden_items);
-    this._addNewItems(new_items);
-    this._addAdditionalStyles(color_config);
-    this._handleBottomPanels(bottom_items);
-    this._handleItemsGroup(custom_groups);
-
-    this._initSidebarOrdering();
-
-    // Start the sidebar ordering
+  private _handleHidden(hiddenItems: string[]): void {
+    if (!hiddenItems || hiddenItems.length === 0) return;
+    this._hiddenPanels = hiddenItems;
+    this.HaSidebar._hiddenPanels = [...this._hiddenPanels];
   }
 
   private _addNewItems(newItems: NewItemConfig[]): void {
     if (!newItems || newItems.length === 0) return;
     const scrollbarContainer = this._scrollbar;
+
     const spacer = scrollbarContainer.querySelector(SELECTOR.SPACER) as HTMLElement;
     Array.from(newItems).map((item) => {
       const newItem = this._createNewItem(item);
@@ -863,190 +731,60 @@ class SidebarOrganizer {
     );
   }
 
-  private _initSidebarOrdering = async () => {
-    const currentPanel = this.HaSidebar._panelOrder;
-    console.log('Current Panel Order:', currentPanel);
-    this._baseOrder = this._handleGroupedPanelOrder(currentPanel);
-    // console.log('init new Base Order:', this._baseOrder);
-    setStorage(STORAGE.PANEL_ORDER, this._baseOrder);
-    console.log('Base Order:', this._baseOrder);
-    this.HaSidebar._panelOrder = this._baseOrder;
-    this._handleNewPanelOrder();
+  private _createDivider = (): HTMLElement => {
+    const divider = document.createElement('div') as HTMLElement;
+    divider.classList.add('divider');
+    return divider;
   };
 
-  private _handleHidden(hiddenItems: string[]) {
-    if (!hiddenItems || hiddenItems.length === 0) return;
-    this._hiddenPanels = [...hiddenItems];
-    this.HaSidebar._hiddenPanels = [...this._hiddenPanels];
-    console.log('Hidden Panels Setup Done');
-  }
-  private _handleHiddenPanels(hiddenItems: string[]) {
-    if (!hiddenItems || hiddenItems.length === 0) return;
-    this._hiddenPanels = [...hiddenItems];
-    this.HaSidebar._hiddenPanels = [...this._hiddenPanels];
-    this._baseOrder = this._baseOrder.filter((panel) => !hiddenItems.includes(panel));
-    this.HaSidebar._panelOrder = [...this._baseOrder];
-    console.log('Hidden Panels Setup Done');
-  }
+  private _createDividerWithGroup = (group: string): HTMLElement => {
+    const divider = this._createDivider();
+    divider.setAttribute('group', group);
+    divider.setAttribute('added', '');
+    const contentDiv = document.createElement('div');
+    contentDiv.classList.add('added-content');
+    contentDiv.setAttribute('group', group);
+    contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.replace(/_/g, ' ')}</span>`;
+    divider.appendChild(contentDiv);
+    divider.addEventListener('click', this._toggleGroup.bind(this));
+    return divider;
+  };
 
-  private _handleBottomPanels(bottomItems: string[]) {
-    if (!bottomItems || bottomItems.length === 0) return;
+  private _addBottomItems(): void {
+    if (!this._bottomItems.length) return;
+
     const scrollbarItems = Array.from(this._scrollbarItems);
     const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
 
-    [...bottomItems].reverse().forEach((item, index) => {
-      const panel = scrollbarItems.find((panel) => panel.getAttribute('data-panel') === item);
-      if (panel) {
-        panel.setAttribute('moved', '');
-        this._scrollbar.insertBefore(panel, spacer.nextSibling);
-        if (index === 0) {
-          const divider = this.sideBarRoot!.querySelector(
-            `${ELEMENT.DIVIDER}:not([added]):not([ungrouped]):not([bottom])`
-          ) as HTMLElement;
-          // console.log('divider:', divider);
-          const bottomDivider = divider.cloneNode(true) as HTMLElement;
-          bottomDivider.setAttribute('bottom', '');
-          // console.log('Adding Divider', panel, item);
-          this._scrollbar.insertBefore(bottomDivider, panel.nextSibling);
-        }
-      }
-    });
-
-    this._bottomItems = [...bottomItems];
-
-    // console.log('Config Bottom Items:', bottomItems, 'instace bottom items:', this._bottomItems);
-    console.log('Bottom items setup done');
-  }
-
-  private _addBootomItems(): void {
-    if (this._bottomItems.length === 0) return;
-    const bottomItems = this._bottomItems;
-    const scrollbarItems = Array.from(this._scrollbarItems);
-    const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
-
-    bottomItems.forEach((item) => {
+    this._bottomItems.forEach((item, index) => {
       const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
-      if (panel) {
-        panel.setAttribute('moved', '');
+      if (!panel) return;
+
+      panel.setAttribute(ATTRIBUTE.MOVED, '');
+
+      // Insert spacer before first bottom item
+      if (index === 0) {
+        this._scrollbar.insertBefore(spacer, panel);
       }
-    });
 
-    const bottomFirstItem = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === bottomItems[0]);
-    const bottomLastItem = scrollbarItems.find(
-      (el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === bottomItems[bottomItems.length - 1]
-    );
+      // Always insert panel (even if already in DOM it repositions)
+      this._scrollbar.insertBefore(panel, panel.nextSibling);
 
-    if (bottomFirstItem) {
-      this._scrollbar.insertBefore(spacer, bottomFirstItem);
-      if (bottomLastItem) {
-        const divider = this.sideBarRoot!.querySelector(
-          `${ELEMENT.DIVIDER}:not([added]):not([ungrouped]):not([bottom])`
-        ) as HTMLElement;
-
-        const bottomDivider = divider.cloneNode(true) as HTMLElement;
-        bottomDivider.setAttribute('bottom', '');
-        this._scrollbar.insertBefore(divider, bottomLastItem.nextSibling);
+      // Insert divider after the last bottom item
+      if (index === this._bottomItems.length - 1) {
+        const divider = this._createDivider();
+        divider.setAttribute(ATTRIBUTE.BOTTOM, '');
+        this._scrollbar.insertBefore(divider, panel.nextSibling);
       }
-    }
-    console.log('Bottom items setup done');
-  }
 
-  private _addConfigDialog() {
-    const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
-    this._haDrawer.open!! = false;
-    // Remove any existing dialog
-    const existingDialog = this.main.querySelector(SELECTOR.SIDEBAR_CONFIG_DIALOG) as HTMLElement;
-    existingDialog?.remove();
-
-    // Create new dialog elements
-    const sidebarDialog = document.createElement(ELEMENT.SIDEBAR_CONFIG_DIALOG) as SidebarConfigDialog;
-    sidebarDialog.hass = this.hass;
-    sidebarDialog._sideBarRoot = this.sideBarRoot;
-    this._sidebarDialog = sidebarDialog;
-    this._sidebarDialog.addEventListener(CUSTOM_EVENT.CONFIG_DIFF, () => this._checkDashboardChange());
-    // this._sidebarDialog.addEventListener(CUSTOM_EVENT.UI_EDITOR, () => setCodeUILabel());
-
-    const haDialog = document.createElement('ha-dialog') as any;
-    const toggleLarge = () => {
-      this._dialogLarge = !this._dialogLarge;
-      haDialog.toggleAttribute('large', this._dialogLarge);
-    };
-    const dialogTitle = html`<span slot="heading" style="flex: 1;" .title=${NAMESPACE} @click=${toggleLarge}
-      >${NAMESPACE_TITLE} <span style="font-size: small; text-wrap-mode: nowrap;"> (${VERSION})</span></span
-    >`;
-
-    const rightHeaderBtns = html`<div>
-      <ha-icon-button .label=${'Toggle large'} .path=${mdiArrowExpand} @click=${toggleLarge}></ha-icon-button>
-      <ha-icon-button
-        .label=${'Documentation'}
-        .path=${mdiInformation}
-        @click=${() => window.open(REPO_URL)}
-      ></ha-icon-button>
-    </div>`;
-
-    Object.assign(haDialog, {
-      id: SELECTOR.SIDEBAR_CONFIG_DIALOG,
-      open: true,
-      heading: createCloseHeading(this.hass, dialogTitle, rightHeaderBtns),
-      hideActions: false,
-      flexContent: true,
-      scrimClickAction: '',
-      escapeKeyAction: '',
+      // console.log('Adding Bottom Item:', item, 'Panel:', panel, 'Index:', index);
     });
-
-    // Attach close event handler
-    haDialog.addEventListener('closed', () => haDialog.remove());
-
-    // Create action buttons
-    const createActionButton = (text: string, handler: () => void, slot?: string) => {
-      const button = document.createElement(ELEMENT.HA_BUTTON) as any;
-      if (slot) button.slot = slot;
-      button.innerText = text;
-      button.addEventListener('click', handler);
-      return button;
-    };
-
-    const saveBtn = createActionButton(BTN_LABEL.SAVE, () => {
-      const sidebarConfig = this._sidebarDialog!._sidebarConfig;
-      const sidebarUseConfigFile = this._sidebarDialog!._useConfigFile;
-      this._handleNewConfig(sidebarConfig, sidebarUseConfigFile);
-      haDialog.remove();
-    });
-    const cancelBtn = createActionButton(BTN_LABEL.CANCEL, () => haDialog.remove());
-
-    const primaryActionBtn = document.createElement('div');
-    primaryActionBtn.slot = SLOT.PRIMARY_ACTION;
-    primaryActionBtn.appendChild(cancelBtn);
-    primaryActionBtn.appendChild(saveBtn);
-
-    const codeEditorBtn = createActionButton(
-      BTN_LABEL.SHOW_CODE_EDITOR,
-      () => {
-        this._sidebarDialog?._toggleCodeEditor();
-        setCodeUILabel();
-      },
-      SLOT.SECONDARY_ACTION
-    );
-
-    // Append dialog and actions
-    haDialog.append(sidebarDialog, codeEditorBtn, primaryActionBtn);
-    this._styleManager.addStyle(DIALOG_STYLE.toString(), haDialog);
-    const setCodeUILabel = () => {
-      const code =
-        this._sidebarDialog?._tabState === TAB_STATE.CODE ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR;
-      const codeBtn = haDialog.querySelector(`${ELEMENT.HA_BUTTON}[slot=${SLOT.SECONDARY_ACTION}]`) as HTMLElement;
-      codeBtn.innerHTML = code;
-    };
-
-    this.main.appendChild(haDialog);
   }
 
   private _handleNewConfig(config: SidebarConfig, useConfigFile: boolean) {
     if (useConfigFile) {
       console.log('Using Config File');
-      setTimeout(() => {
-        window.location.reload();
-      }, 200);
+      this._reloadWindow();
       return;
     }
 
@@ -1062,7 +800,7 @@ class SidebarOrganizer {
       setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
       this._config = config;
 
-      this._refreshSidebar();
+      this._reloadWindow();
       return;
     }
   }
@@ -1096,40 +834,6 @@ class SidebarOrganizer {
     });
     this._diffCheck = true;
   }
-
-  private _reloadSidebar = async (newPanelOrder: string[], hiddenPanels: string[]) => {
-    console.log('Reloading Sidebar');
-    this._hiddenPanels = hiddenPanels;
-
-    const validateConfigPromise = new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(validateConfig(this._config, hiddenPanels));
-      }, 100);
-    });
-
-    const newPanelOrderPromise = new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(this._handleGroupedPanelOrder(newPanelOrder));
-      }, 100);
-    });
-
-    const [validatedConfig, newPanelOrderResolved] = await Promise.all([validateConfigPromise, newPanelOrderPromise]);
-    console.log('Validated Config:', validatedConfig, 'New Panel Order:', newPanelOrderResolved);
-    this._config = validatedConfig as SidebarConfig;
-    this._baseOrder = newPanelOrderResolved as string[];
-    this.HaSidebar._panelOrder = this._baseOrder;
-
-    // this._baseOrder = this._handleGroupedPanelOrder(newPanelOrder);
-    // this.HaSidebar._panelOrder = [...this._baseOrder];
-    this._refreshSidebar();
-  };
-
-  private _refreshSidebar = async () => {
-    console.log('Refreshing Sidebar');
-
-    this._setupConfig(this._config);
-    this._handleSidebarHeader();
-  };
 
   private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
     mode = mode ? mode : this.darkMode ? 'dark' : 'light';
@@ -1180,20 +884,30 @@ class SidebarOrganizer {
 
     const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
 
-    // Loop through each group and set the group attribute on matching items
-    Object.entries(customGroups).forEach(([group, panel]) => {
-      scrollbarItems
-        .filter((item) => panel.includes(item.getAttribute('data-panel')!))
-        .forEach((item) => {
-          item.setAttribute('group', group);
-        });
-      // console.log('Group:', group, 'Panels:', panel);
+    // Loop through each group, create a divider with group name and place it before the first item of the group
+    Object.entries(customGroups).forEach(([group, panels]) => {
+      // Create a divider for the group
+      const divider = this._createDividerWithGroup(group);
+      // Find the first item of the group
+      const firstItem = scrollbarItems.find((item) => panels.includes(item.getAttribute('data-panel')!));
+      if (firstItem) {
+        // Insert the divider before the first item of the group
+        this._scrollbar.insertBefore(divider, firstItem);
+        // Set the group attribute on all items of the group
+        scrollbarItems
+          .filter((item) => panels.includes(item.getAttribute('data-panel')!))
+          .forEach((item) => {
+            item.setAttribute('group', group);
+          });
+      }
+      // console.log('Group:', group, 'Panels:', panels, 'isfirstItem:', firstItem);
     });
+
     // debugger;
     console.log('Custom Groups Setup Done');
   }
 
-  private _handleGroupedPanelOrder(currentPanel: string[]) {
+  private _computePanels(currentPanel: string[]) {
     const { defaultPanel } = this.hass;
     const bottomMovedItems = this._config.bottom_items || [];
     const customGroups = this._config.custom_groups || {};
@@ -1222,94 +936,18 @@ class SidebarOrganizer {
     return [...groupedItems, ...defaultItems, ...bottomMovedItems];
   }
 
-  private _handleNewPanelOrder() {
-    const newPanelOrder = this.HaSidebar._panelOrder;
-    console.log('New Panel Order:', newPanelOrder);
-    const scrollbar = this._scrollbar;
-    const scrollbarItems = Array.from(this._scrollbarItems);
-    const spacer = scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
-
-    // rearrange the items in the sidebar by their new order
-    newPanelOrder.forEach((panel: string) => {
-      const item = scrollbarItems.find((item) => item.getAttribute('data-panel') === panel);
-      if (item) {
-        // console.log('Rearranging Item:', item, 'Panel:', panel);
-        scrollbar.insertBefore(item, spacer);
-      }
-    });
-    // move bottom items to the end after the spacer
-
-    const bottomItems = this._bottomItems || [];
-    bottomItems.reverse().forEach((item) => {
-      const bottomItem = scrollbarItems.find((panel) => panel.getAttribute('data-panel') === item);
-      if (bottomItem) {
-        // console.log('Moving Bottom Item:', bottomItem, 'Panel:', item);
-        scrollbar.insertBefore(bottomItem, spacer.nextSibling);
-      }
-    });
-
-    // const devTools = this._scrollbar.querySelector(SELECTOR.DEV_TOOLS) as HTMLElement;
-    // const bottomDivider = this._scrollbar.querySelector(`${ELEMENT.DIVIDER}[bottom]`) as HTMLElement;
-    // if (!devTools || !bottomDivider) return;
-    // console.log('Adding Bottom Divider', devTools, bottomDivider);
-    // this._scrollbar.insertBefore(devTools, bottomDivider.nextElementSibling);
-
-    this._reorderGroupedSidebar();
-  }
-
   private _reorderGroupedSidebar() {
-    const customGroups = this._config.custom_groups || {};
-    if (!customGroups) return;
-
-    const sidebarInstance = this.sideBarRoot!;
-    const scrollbar = this._scrollbar;
-
     const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
-
-    const dividerTemplate = sidebarInstance.querySelector(
-      `${SELECTOR.DIVIDER}:not([added]):not([bottom])`
-    ) as HTMLElement;
-
-    const createDivider = (group: string) => {
-      const newDivider = dividerTemplate.cloneNode(true) as HTMLElement;
-      newDivider.setAttribute('group', group);
-      newDivider.setAttribute('added', '');
-
-      const contentDiv = document.createElement('div');
-      contentDiv.classList.add('added-content');
-      contentDiv.setAttribute('group', group);
-      contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.replace(/_/g, ' ')}</span>`;
-
-      newDivider.appendChild(contentDiv);
-      newDivider.addEventListener('click', this._toggleGroup.bind(this));
-      // addAction(newDivider, undefined, this._toggleGroup.bind(this, newDivider));
-      return newDivider;
-    };
-
-    // Insert group dividers before matching group items
-    Object.keys(customGroups).forEach((group) => {
-      const insertBefore = scrollbarItems.find(
-        (item) => item.getAttribute('group') === group && !item.hasAttribute('moved')
-      );
-      if (insertBefore) {
-        const divider = createDivider(group);
-        scrollbar.insertBefore(divider, insertBefore);
-      }
-    });
-
-    // Insert a divider before the first item not in any group
-    const firstItemNotInGroup = scrollbarItems.find(
-      (item) =>
-        !item.hasAttribute('group') &&
-        !item.hasAttribute('moved') &&
-        item.previousElementSibling?.hasAttribute('group') &&
-        scrollbarItems[0] !== item
+    const lastGroupedItem = scrollbarItems.find(
+      (item) => item.hasAttribute('group') && !item.nextElementSibling?.hasAttribute('group')
     );
-    if (firstItemNotInGroup) {
-      const notInGroupDivider = dividerTemplate.cloneNode(true) as HTMLElement;
-      notInGroupDivider.setAttribute('ungrouped', '');
-      scrollbar.insertBefore(notInGroupDivider, firstItemNotInGroup);
+    if (lastGroupedItem) {
+      const divider = this._createDivider();
+      divider.setAttribute('ungrouped', '');
+      this._scrollbar.insertBefore(divider, lastGroupedItem.nextSibling);
     }
+
+    // console.log('adding ungrouped divider after last grouped item:', lastGroupedItem);
 
     // Check differences after a delay
     setTimeout(() => this._checkDiffs(), 100);
@@ -1317,44 +955,21 @@ class SidebarOrganizer {
 
   private _checkDiffs = () => {
     console.log('Checking for differences in sidebar configuration...');
-    const { custom_groups = {}, bottom_items = [] } = this._config;
-    const scrollbar = this._scrollbar;
-    const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
-    const notEmptyGroups = Object.keys(custom_groups).filter((key) => custom_groups[key].length > 0);
-    const dividerOrder = Array.from(scrollbar.querySelectorAll('div.divider:has([group])')).map((divider) =>
-      divider.getAttribute('group')
-    );
+    const baseOrder = this._baseOrder;
+    const scrollbarItems = Array.from(this._scrollbarItems).slice(0, baseOrder.length) as HTMLElement[];
 
-    // console.log('Not Empty Groups:', notEmptyGroups);
-    // console.log('Divider Order:', dividerOrder);
+    const itemsNamed = scrollbarItems.map((item) => item.getAttribute(ATTRIBUTE.DATA_PANEL));
+    // console.log('Items Named:', itemsNamed, 'Base Order:', baseOrder);
+    const orderDiff = JSON.stringify(baseOrder) !== JSON.stringify(itemsNamed);
 
-    const groupItems = Object.values(custom_groups).flat();
-
-    const panelOrderNamed = Array.from(scrollbarItems)
-      .filter((item) => item.hasAttribute('group'))
-      .map((item) => item.getAttribute('data-panel'));
-
-    // console.log('Panel Order Named:', panelOrderNamed, 'Group Items:', groupItems);
-    // console.log('Group Items:', groupItems);
-
-    const bottomMovedItems = Array.from(scrollbarItems)
-      .filter((item) => item.hasAttribute('moved'))
-      .map((item) => item.getAttribute('data-panel'));
-
-    // console.log('Bottom Moved Items:', bottomMovedItems);
-    // console.log('Bottom Items:', bottom_items);
-
-    const hasDiff =
-      JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems) ||
-      JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder) ||
-      JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed);
+    const hasDiff = orderDiff;
 
     if (hasDiff) {
       this._diffCheck = false;
       const logs = {
-        bottomItemsDiff: JSON.stringify(bottom_items) !== JSON.stringify(bottomMovedItems),
-        dividerOrderDiff: JSON.stringify(notEmptyGroups) !== JSON.stringify(dividerOrder),
-        panelOrderDiff: JSON.stringify(groupItems) !== JSON.stringify(panelOrderNamed),
+        orderDiff: orderDiff,
+        baseOrder: baseOrder,
+        itemsNamed: itemsNamed,
       };
       console.log('Diff Check:', logs);
       LOGGER.warn('Changes detected:', logs);
@@ -1532,6 +1147,13 @@ class SidebarOrganizer {
       return 'hidden_items';
     }
     return undefined;
+  }
+
+  private _reloadWindow() {
+    console.log('Reloading window...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   }
 }
 

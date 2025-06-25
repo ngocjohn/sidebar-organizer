@@ -5,7 +5,7 @@ export enum SELECTOR {
   MENU = '.menu',
   MENU_TITLE = '.title',
   DIVIDER = '.divider',
-  SIDEBAR_CONFIG_DIALOG = '#sidebar-config-dialog',
+  SIDEBAR_CONFIG_DIALOG = '#sidebar-organizer-config-dialog',
   SELECTED = '.selected',
   HEADER_TOGGLE_ICON = 'ha-icon.collapse-toggle',
   ADDED_CONTENT = '.added-content',
@@ -26,11 +26,13 @@ export enum ELEMENT {
   BUTTON = 'button',
   MD_RIPPLE = 'md-ripple',
   USER_BADGE = 'ha-user-badge',
-  SIDEBAR_CONFIG_DIALOG = 'sidebar-config-dialog',
+  SIDEBAR_CONFIG_DIALOG = 'sidebar-organizer-config-dialog',
+  SIDEBAR_CONFIG_DIALOG_WRAPPER = 'sidebar-organizer-dialog',
   HA_BUTTON = 'ha-button',
   ADDED_DIVIDER = 'div.divider[added]',
   DIVIDER = 'div.divider',
   CONFIG_DASHBOARDS = 'ha-config-lovelace-dashboards',
+  DIALOG_EDIT_SIDEBAR = 'dialog-edit-sidebar',
 }
 
 export enum CLASS {
@@ -54,6 +56,8 @@ export enum ATTRIBUTE {
   DATA_NOTIFICATION = 'data-notification',
   DATA_PANEL = 'data-panel',
   NEW_ITEM = 'new-item',
+  BOTTOM = 'bottom',
+  MOVED = 'moved',
 }
 
 export enum SLOT {

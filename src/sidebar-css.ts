@@ -207,7 +207,7 @@ export const DIALOG_STYLE = css`
     --justify-action-buttons: space-between;
     --dialog-content-padding: 1rem;
   }
-  sidebar-config-dialog {
+  sidebar-organizer-config-dialog {
     width: calc(90vw - 48px);
     max-width: 1000px;
     margin-left: auto;
@@ -220,7 +220,7 @@ export const DIALOG_STYLE = css`
     --mdc-dialog-min-width: 90vw;
     --mdc-dialog-max-width: 90vw;
   }
-  ha-dialog[large] sidebar-config-dialog {
+  ha-dialog[large] sidebar-organizer-config-dialog {
     max-width: none;
     width: 100%;
   }
@@ -232,13 +232,13 @@ export const DIALOG_STYLE = css`
       --dialog-surface-top: 0px;
       --mdc-dialog-max-width: 100vw;
     }
-    sidebar-config-dialog {
+    sidebar-organizer-config-dialog {
       width: 100%;
       max-width: 100%;
     }
   }
   @media all and (min-width: 451px) and (min-height: 501px) {
-    ha-dialog[large] sidebar-config-dialog {
+    ha-dialog[large] sidebar-organizer-config-dialog {
       max-width: none;
       width: 100%;
     }
@@ -253,7 +253,7 @@ export const DIALOG_STYLE = css`
       --vertical-align-dialog: flex-end;
       --ha-dialog-border-radius: 0;
     }
-    sidebar-config-dialog {
+    sidebar-organizer-config-dialog {
       width: 100%;
       max-width: none;
     }

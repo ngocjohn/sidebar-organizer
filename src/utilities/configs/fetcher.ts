@@ -31,7 +31,6 @@ export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfi
     if (typeof isValid === 'object') {
       isValid = isValid.configValid;
     }
-    console.log('Config is valid:', isValid, 'config:', config);
     if (!isValid && !sidebarUseConfigFile()) {
       console.log('Config is not valid. Trying to correct it.');
       // Try to correct the config

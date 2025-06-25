@@ -1,4 +1,5 @@
-import { ActionConfig, HomeAssistant } from 'custom-card-helpers';
+import { ActionConfig } from '@utilities/action';
+import { HomeAssistant } from 'custom-card-helpers';
 
 interface defaultPanel extends HomeAssistant {
   defaultPanel: string;

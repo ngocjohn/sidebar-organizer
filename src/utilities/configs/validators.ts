@@ -110,6 +110,7 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
     invalidItems: Array.from(invalidItems),
     allItems,
     haPanelKeys,
+    filteredItems,
   });
 
   const cleanGroupItems = (group: string[]) => group.filter((item) => !invalidItems.has(item));

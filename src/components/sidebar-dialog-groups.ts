@@ -303,7 +303,8 @@ export class SidebarDialogGroups extends LitElement {
 
   private _renderHiddenItems() {
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
-    const initPanelItems = this._dialog._initCombiPanels;
+    const newItems = this._sidebarConfig?.new_items?.map((item) => item.title) || [];
+    const initPanelItems = this._dialog._initCombiPanels.filter((item) => !newItems.includes(item));
 
     const selector = this._createSelectorOptions(initPanelItems, 'dropdown');
 
@@ -328,9 +329,8 @@ export class SidebarDialogGroups extends LitElement {
 
   private _renderNotificationConfig() {
     const hassPanels = this.hass?.panels;
-    const items = this._dialog._initCombiPanels.filter((item) => {
-      return !this._dialog._newItemMap.has(item);
-    });
+    const newItems = this._sidebarConfig?.new_items?.map((item) => item.title) || [];
+    const items = this._dialog._initCombiPanels.filter((item) => !newItems.includes(item));
 
     const options = items.map((panel) => {
       const panelName = this.hass.localize(`panel.${hassPanels[panel]?.title}`) || hassPanels[panel]?.title || panel;
@@ -339,18 +339,22 @@ export class SidebarDialogGroups extends LitElement {
     const selector = {
       select: {
         multiple: false,
-        custom_value: true,
+        custom_value: false,
         mode: 'dropdown',
         options: options,
         sort: true,
+        required: false,
       },
     };
 
     const selectedNotification = this._sidebarConfig.notification || {};
-    const selected = options.filter((item) => {
-      const selectedItem = Object.keys(selectedNotification).includes(item.value);
-      return selectedItem;
-    });
+
+    const selected = options.filter((item) => Object.keys(selectedNotification).includes(item.value));
+
+    // const selected = options.filter((item) => {
+    //   const selectedItem = Object.keys(selectedNotification).includes(item.value);
+    //   return selectedItem;
+    // });
 
     const selectedEl = html`
       <div class="group-list">

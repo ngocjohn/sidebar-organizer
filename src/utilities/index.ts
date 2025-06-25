@@ -11,6 +11,7 @@ export * from './is-icon';
 export * from './localize';
 export * from './tap-action';
 export * from './frontend';
+export * from './action';
 import memoizeOne from 'memoize-one';
 
 export const localizeWeekdays = memoizeOne((language: string, short: boolean): string[] => {

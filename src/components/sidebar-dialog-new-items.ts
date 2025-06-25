@@ -1,7 +1,9 @@
-import { mdiChevronLeft, mdiGestureTap } from '@mdi/js';
+import { mdiChevronLeft, mdiGestureTap, mdiMessageBadgeOutline } from '@mdi/js';
 import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
+import { isIcon } from '@utilities/is-icon';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
+import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup } from 'lit';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { customElement, property, state } from 'lit/decorators';
@@ -9,106 +11,45 @@ import memoizeOne from 'memoize-one';
 
 import { dialogStyles } from './dialog-css';
 import { SidebarConfigDialog } from './sidebar-dialog';
+
 const DEFAULT_ACTIONS = ['more-info', 'toggle', 'navigate', 'perform-action', 'assist'];
 
-const _configSchema = memoizeOne(
-  (groupsOptions) =>
-    [
-      {
-        name: '',
-        type: 'grid',
-        schema: [
-          {
-            name: 'icon',
-            label: 'Item Icon',
-            selector: { icon: {} },
-          },
-          {
-            name: 'group',
-            label: 'Item Group',
-            required: false,
-            selector: {
-              select: {
-                mode: 'dropdown',
-                options: [
-                  { value: 'bottom', label: 'Bottom Panels' },
-                  ...groupsOptions.map((group: string) => ({
-                    value: group,
-                    label: group.replace(/_/g, ' ').toUpperCase(),
-                  })),
-                ],
-              },
+export const computeOptionalActionSchema = () => {
+  return [
+    {
+      name: 'tap_action',
+      selector: {
+        ui_action: {
+          actions: DEFAULT_ACTIONS,
+        },
+      },
+    },
+    {
+      name: '',
+      type: 'optional_actions',
+      flatten: true,
+      schema: [
+        {
+          name: 'hold_action',
+          selector: {
+            ui_action: {
+              actions: DEFAULT_ACTIONS,
             },
           },
-        ],
-      },
+        },
 
-      {
-        name: '',
-        type: 'expandable',
-        title: 'Notification template',
-        schema: [
-          {
-            name: 'notification',
-            selector: {
-              template: {},
+        {
+          name: 'double_tap_action',
+          selector: {
+            ui_action: {
+              actions: DEFAULT_ACTIONS,
             },
           },
-        ],
-      },
-      {
-        name: '',
-        type: 'expandable',
-        iconPath: mdiGestureTap,
-        title: 'Interactions action',
-        flatten: true,
-        schema: [
-          {
-            name: 'entity',
-            selector: { entity: {} },
-          },
-          {
-            name: '',
-            type: 'optional_actions',
-            flatten: true,
-            schema: [
-              {
-                name: 'tap_action',
-                label: 'Tap Action',
-                selector: {
-                  ui_action: {
-                    actions: DEFAULT_ACTIONS,
-                    default_action: 'none',
-                  },
-                },
-              },
-              {
-                name: 'hold_action',
-                label: 'Hold Action',
-                selector: {
-                  ui_action: {
-                    actions: DEFAULT_ACTIONS,
-                    default_action: 'none',
-                  },
-                },
-              },
-
-              {
-                name: 'double_tap_action',
-                label: 'Double Tap Action',
-                selector: {
-                  ui_action: {
-                    actions: DEFAULT_ACTIONS,
-                    default_action: 'none',
-                  },
-                },
-              },
-            ],
-          },
-        ],
-      },
-    ] as const
-);
+        },
+      ],
+    },
+  ] as const;
+};
 
 @customElement('sidebar-dialog-new-items')
 export class SidebarDialogNewItems extends LitElement {
@@ -120,11 +61,108 @@ export class SidebarDialogNewItems extends LitElement {
   @state() _selectedItem: NewItemConfig | null = null;
   @state() _yamlMode: boolean = false;
 
+  private get groupKeys(): string[] {
+    return Object.keys(this._sidebarConfig.custom_groups || {});
+  }
+
+  private _actionsSchema = [
+    {
+      name: '',
+      type: 'expandable',
+      iconPath: mdiGestureTap,
+      title: 'Interaction',
+      schema: [
+        {
+          name: 'entity',
+          selector: { entity: {} },
+          helper: 'Entity to control when the button is pressed',
+        },
+        ...computeOptionalActionSchema(),
+      ],
+    },
+  ] as const;
+
+  // private _actionsSchema = memoizeOne(() => [
+  //   {
+  //     name: '',
+  //     type: 'expandable',
+  //     iconPath: mdiGestureTap,
+  //     title: 'Interaction',
+  //     flatten: true,
+  //     schema: [
+  //       {
+  //         name: 'entity',
+  //         selector: { entity: {} },
+  //         helper: 'Entity to control when the button is pressed',
+  //       },
+  //       {
+  //         name: '',
+  //         type: 'optional_actions',
+  //         flatten: true,
+  //         schema: computeOptionalActionSchema(),
+  //       },
+  //     ],
+  //   },
+  // ]);
+
+  private _configSchema = memoizeOne(
+    (groupsOptions: string[]) =>
+      [
+        {
+          name: '',
+          type: 'grid',
+          schema: [
+            {
+              name: 'icon',
+              label: 'Item Icon',
+              selector: { icon: {} },
+            },
+            {
+              name: 'group',
+              label: 'Item Group',
+              required: false,
+              selector: {
+                select: {
+                  mode: 'dropdown',
+                  options: [
+                    { value: 'bottom', label: 'BOTTOM' },
+                    ...groupsOptions.map((group: string) => ({
+                      value: group,
+                      label: group.replace(/_/g, ' ').toUpperCase(),
+                    })),
+                  ],
+                },
+              },
+            },
+          ],
+        },
+
+        {
+          name: '',
+          type: 'expandable',
+          title: 'Notification badge template',
+          iconPath: mdiMessageBadgeOutline,
+          expanded: true,
+          schema: [
+            {
+              name: 'notification',
+              selector: {
+                template: {},
+              },
+            },
+          ],
+        },
+      ] as const
+  );
+
   protected render(): TemplateResult {
+    if (!this.hass || !this._sidebarConfig) {
+      return html`<div>Loading...</div>`;
+    }
     const itemsList = this._renderNewItemsList();
     const selectedItem = this._renderSelectedItem();
 
-    return html` <div class="config-content">${itemsList} ${selectedItem}</div> `;
+    return html` <div class="config-content">${this._selectedItemIndex === null ? itemsList : selectedItem}</div> `;
   }
 
   private _renderNewItemsList(): TemplateResult | typeof nothing {
@@ -197,10 +235,22 @@ export class SidebarDialogNewItems extends LitElement {
         }}
       ></ha-button>
     </div>`;
-    const data = {
-      ...this._sidebarConfig.new_items?.[this._selectedItemIndex!],
+    const baseData = { ...this._sidebarConfig.new_items![this._selectedItemIndex!] };
+    const dataWithoutActions = {
+      icon: baseData.icon,
+      group: baseData.group,
+      notification: baseData.notification,
     };
-    const groupKeys = Object.keys(this._sidebarConfig.custom_groups || {});
+    const actionData = {
+      entity: baseData.entity,
+      tap_action: baseData.tap_action,
+      hold_action: baseData.hold_action,
+      double_tap_action: baseData.double_tap_action,
+    };
+
+    const baseSchema = this._configSchema(this.groupKeys);
+    const actionSchema = this._actionsSchema;
+
     return html`
       ${headerBack}
       <div class="config-content">
@@ -224,9 +274,20 @@ export class SidebarDialogNewItems extends LitElement {
 
               <ha-form
                 .hass=${this.hass}
-                .data=${data}
-                .schema=${_configSchema(groupKeys)}
+                .data=${dataWithoutActions}
+                .schema=${baseSchema}
                 .computeLabel=${this._computeLabel}
+                .computeHelper=${this._computeHelper}
+                @value-changed=${this._valueChanged}
+              >
+              </ha-form>
+              ${this._renderNotifyResult()}
+              <ha-form
+                .hass=${this.hass}
+                .data=${actionData}
+                .schema=${actionSchema}
+                .computeLabel=${this._computeLabel}
+                .computeHelper=${this._computeHelper}
                 @value-changed=${this._valueChanged}
               >
               </ha-form>
@@ -234,7 +295,7 @@ export class SidebarDialogNewItems extends LitElement {
           : html`
               <ha-yaml-editor
                 .hass=${this.hass}
-                .defaultValue=${data}
+                .defaultValue=${baseData}
                 .copyToClipboard=${true}
                 .required=${true}
                 @value-changed=${(ev: CustomEvent) => {
@@ -250,146 +311,113 @@ export class SidebarDialogNewItems extends LitElement {
     `;
   }
 
-  private getGroupName(item: string): string {
-    const groups = this._sidebarConfig.custom_groups || {};
-    const bottomPanels = this._sidebarConfig.bottom_items || [];
-    const groupName = Object.keys(groups).find((group) => groups[group].includes(item));
-    if (groupName) {
-      return groupName;
-    } else if (bottomPanels.includes(item)) {
-      return 'Bottom Panels';
-    } else {
-      return 'Ungrouped';
+  private _renderNotifyResult(): TemplateResult | typeof nothing {
+    if (!this._selectedItem || !this._selectedItem.notification) {
+      return nothing;
     }
+    const notifyConfigValue = this._selectedItem.notification || '';
+
+    this._subscribeTemplate(notifyConfigValue, (result) => {
+      const templatePreview = this.shadowRoot?.getElementById('template-preview-content') as HTMLElement;
+      if (templatePreview) {
+        let _result: string = result;
+        if (isIcon(result)) {
+          _result = `<ha-icon icon="${result}"></ha-icon>`;
+        }
+        templatePreview.innerHTML = _result;
+      }
+    });
+    return html`
+      <div id="template-preview">
+        <span>Template result:</span>
+        <pre id="template-preview-content" class="rendered"></pre>
+      </div>
+    `;
+  }
+
+  private _subscribeTemplate(configValue: string, callback: (result: string) => void): void {
+    if (!this.hass || !hasTemplate(configValue)) {
+      console.log('Not a template', hasTemplate(configValue), configValue);
+      return;
+    }
+
+    subscribeRenderTemplate(
+      this.hass.connection,
+      (result) => {
+        callback(result.result);
+      },
+      {
+        template: configValue ?? '',
+        variables: {
+          config: configValue,
+          user: this.hass.user!.name,
+        },
+        strict: true,
+      }
+    );
+  }
+
+  private getGroupName(item: string): string {
+    const { custom_groups = {}, bottom_items = [] } = this._sidebarConfig;
+    const groupName = Object.keys(custom_groups).find((group) => custom_groups[group].includes(item));
+
+    return groupName || (bottom_items.includes(item) ? 'Bottom Panels' : 'Ungrouped');
   }
 
   private _computeLabel = (schema: any) => {
-    let label: string;
-    if (schema.name === 'entity' || schema.name === 'notification') {
-      label = '';
-    } else if (!schema.label) {
-      label = schema.name;
-    } else {
-      label = schema.label;
+    if (schema.label) {
+      return schema.label;
     }
-    return label;
+  };
+  private _computeHelper = (schema: any) => {
+    if (schema.helper) {
+      return schema.helper;
+    }
   };
 
   private _valueChanged(ev: CustomEvent): void {
     ev.stopPropagation();
+
+    const newItemConfig = ev.detail.value;
+    if (!newItemConfig) return;
+
     const index = this._selectedItemIndex;
     if (index === null) return;
-    const newItemConfig = ev.detail.value;
-    const { title, group } = newItemConfig;
-    this._handleGroupChange(title, group);
-    const newItems = [...(this._sidebarConfig.new_items || [])];
-    const newItem = { ...newItems[index], ...newItemConfig };
+    const title = this._sidebarConfig.new_items![index].title!;
+    const group = newItemConfig.group;
 
-    newItems[index] = newItem;
+    const newItems = [...(this._sidebarConfig.new_items || [])];
+    const oldItem = { ...newItems[index] };
+
+    newItems[index] = { ...oldItem, ...newItemConfig };
     this._sidebarConfig = {
       ...this._sidebarConfig,
       new_items: newItems,
     };
+    // If item is in group, we need to update that item in the group
+    this._handleGroupChange(title, group);
+
+    this._selectedItem = { ...newItemConfig } as NewItemConfig;
     this._dispatchConfig(this._sidebarConfig);
   }
 
-  // private _handleGroupChange(title: string, group: string | undefined): void {
-  //   const inGroup = this.getGroupName(title);
-  //   if (!group || group === '') {
-  //     // If group is empty, remove item from its current group
-  //     if (inGroup !== 'Ungrouped') {
-  //       if (inGroup === 'Bottom Panels') {
-  //         const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
-  //         const itemIndex = bottomItems.indexOf(title);
-  //         if (itemIndex !== -1) {
-  //           bottomItems.splice(itemIndex, 1);
-  //           this._sidebarConfig = {
-  //             ...this._sidebarConfig,
-  //             bottom_items: bottomItems,
-  //           };
-  //         }
-  //       } else {
-  //         const customGroups = { ...this._sidebarConfig.custom_groups };
-  //         const groupItems = customGroups[inGroup] || [];
-  //         const itemIndex = groupItems.indexOf(title);
-  //         if (itemIndex !== -1) {
-  //           groupItems.splice(itemIndex, 1);
-  //           customGroups[inGroup] = groupItems;
-  //           this._sidebarConfig = {
-  //             ...this._sidebarConfig,
-  //             custom_groups: customGroups,
-  //           };
-  //         }
-  //       }
-  //     }
-  //   } else {
-  //     // If group is set, move item to the new group
-  //     if (inGroup !== group) {
-  //       if (inGroup === 'Bottom Panels') {
-  //         const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
-  //         const itemIndex = bottomItems.indexOf(title);
-  //         if (itemIndex !== -1) {
-  //           bottomItems.splice(itemIndex, 1);
-  //           this._sidebarConfig = {
-  //             ...this._sidebarConfig,
-  //             bottom_items: bottomItems,
-  //           };
-  //         }
-  //       } else {
-  //         const customGroups = { ...this._sidebarConfig.custom_groups };
-  //         const groupItems = customGroups[inGroup] || [];
-  //         const itemIndex = groupItems.indexOf(title);
-  //         if (itemIndex !== -1) {
-  //           groupItems.splice(itemIndex, 1);
-  //           customGroups[inGroup] = groupItems;
-  //           this._sidebarConfig = {
-  //             ...this._sidebarConfig,
-  //             custom_groups: customGroups,
-  //           };
-  //         }
-  //       }
-
-  //       // Add item to the new group
-  //       if (!this._sidebarConfig.custom_groups) {
-  //         this._sidebarConfig.custom_groups = {};
-  //       }
-  //       this._sidebarConfig.custom_groups[group].push(title);
-  //     }
-  //   }
-  // }
   private _handleGroupChange(title: string, group: string | undefined): void {
     const inGroup = this.getGroupName(title);
+    // If item is already in the group, we do nothing
 
-    const removeFromGroup = () => {
-      if (inGroup === 'Bottom Panels') {
-        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
-        const index = bottomItems.indexOf(title);
-        if (index !== -1) {
-          bottomItems.splice(index, 1);
-          this._sidebarConfig = {
-            ...this._sidebarConfig,
-            bottom_items: bottomItems,
-          };
-        }
-      } else if (inGroup !== 'Ungrouped') {
-        const customGroups = { ...this._sidebarConfig.custom_groups };
-        const groupItems = customGroups[inGroup] || [];
-        const index = groupItems.indexOf(title);
-        if (index !== -1) {
-          groupItems.splice(index, 1);
-          customGroups[inGroup] = groupItems;
-          this._sidebarConfig = {
-            ...this._sidebarConfig,
-            custom_groups: customGroups,
-          };
-        }
-      }
-    };
-
+    if (
+      inGroup === group ||
+      (inGroup === 'Ungrouped' && !group) ||
+      (inGroup === 'Bottom Panels' && group === 'bottom')
+    ) {
+      console.log(`Item "${title}" is already in group "${inGroup}" or ungrouped.`);
+      return;
+    }
+    console.log(`Item "${title}" is in group "${inGroup}", move to "${group}"`);
     if (!group || group === '') {
-      removeFromGroup();
+      this._handleRemoveItem(title);
     } else if (inGroup !== group) {
-      removeFromGroup();
+      this._handleRemoveItem(title);
       // If group is 'bottom', we handle it separately
       if (group === 'bottom') {
         const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
@@ -412,13 +440,15 @@ export class SidebarDialogNewItems extends LitElement {
         ...this._sidebarConfig,
         custom_groups: customGroups,
       };
+      return;
     }
   }
 
   private _handleDeleteItem = async (index: number) => {
+    const title = this._sidebarConfig.new_items![index].title;
     const confirmDelete = await showConfirmDialog(
       this,
-      `Are you sure you want to delete the item "${this._sidebarConfig.new_items![index].title}"?`,
+      `Are you sure you want to delete the item "${title}"?`,
       'Delete'
     );
     if (!confirmDelete) return;
@@ -429,8 +459,42 @@ export class SidebarDialogNewItems extends LitElement {
       ...this._sidebarConfig,
       new_items: newItems,
     };
+
+    this._handleRemoveItem(title!);
+
     this._dispatchConfig(this._sidebarConfig);
     this.requestUpdate();
+  };
+
+  private _handleRemoveItem = (title: string) => {
+    const inGroups = this.getGroupName(title!);
+    if (inGroups !== 'Ungrouped') {
+      console.log(`Removing item "${title}" from group "${inGroups}"`);
+      // If item is in group, we need to remove it from the group
+      if (inGroups === 'Bottom Panels') {
+        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+        const itemIndex = bottomItems.indexOf(title!);
+        if (itemIndex !== -1) {
+          bottomItems.splice(itemIndex, 1);
+          this._sidebarConfig = {
+            ...this._sidebarConfig,
+            bottom_items: bottomItems,
+          };
+        }
+      } else {
+        const customGroups = { ...this._sidebarConfig.custom_groups };
+        const groupItems = customGroups[inGroups] || [];
+        const itemIndex = groupItems.indexOf(title!);
+        if (itemIndex !== -1) {
+          groupItems.splice(itemIndex, 1);
+          customGroups[inGroups] = groupItems;
+          this._sidebarConfig = {
+            ...this._sidebarConfig,
+            custom_groups: customGroups,
+          };
+        }
+      }
+    }
   };
 
   private _toggleRenameItem = async (index: number) => {

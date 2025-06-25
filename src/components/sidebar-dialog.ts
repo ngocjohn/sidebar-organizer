@@ -3,13 +3,6 @@ import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
 import { fetchFileConfig, isItemsValid } from '@utilities/configs';
 import { fetchDashboards } from '@utilities/dashboard';
 import { showAlertDialog } from '@utilities/show-dialog-box';
-import {
-  getStorage,
-  setStorage,
-  sidebarUseConfigFile,
-  getStorageConfig,
-  getHiddenPanels,
-} from '@utilities/storage-utils';
 
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
@@ -18,6 +11,7 @@ import './sidebar-dialog-preview';
 import './sidebar-organizer-tab';
 import './sidebar-dialog-new-items';
 
+import { getStorage, setStorage, getStorageConfig, getHiddenPanels } from '@utilities/storage-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
@@ -30,9 +24,10 @@ import { SidebarDialogPreview } from './sidebar-dialog-preview';
 
 const tabs = ['appearance', 'panels', 'newItems'] as const;
 
-@customElement('sidebar-config-dialog')
+@customElement('sidebar-organizer-config-dialog')
 export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
+  @property({ attribute: false }) _useConfigFile = false;
   @property({ attribute: false }) _sideBarRoot!: ShadowRoot;
 
   @state() public _sidebarConfig = {} as SidebarConfig;
@@ -41,8 +36,6 @@ export class SidebarConfigDialog extends LitElement {
 
   @state() private _configLoaded = false;
   @state() private _currTab: (typeof tabs)[number] = tabs[0];
-
-  @state() public _useConfigFile = false;
 
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
@@ -60,7 +53,7 @@ export class SidebarConfigDialog extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    this._useConfigFile = sidebarUseConfigFile();
+
     this._setupInitConfig();
     window.sidebarDialog = this;
   }
@@ -107,7 +100,7 @@ export class SidebarConfigDialog extends LitElement {
     }
   }
 
-  private _setupInitConfig = async () => {
+  public _setupInitConfig = async () => {
     this._tabState = this._useConfigFile === true ? TAB_STATE.CODE : TAB_STATE.BASE;
     this._validateStoragePanels();
     this._validateConfigFile();
@@ -115,8 +108,9 @@ export class SidebarConfigDialog extends LitElement {
 
   protected render(): TemplateResult {
     if (!this._configLoaded) {
-      return html`<ha-circular-progress .indeterminate=${true} .size=${'medium'}></ha-circular-progress>`;
+      return html`<ha-fade-in .delay=${500}><ha-spinner size="large"></ha-spinner></ha-fade-in>`;
     }
+
     const mainContent = this._renderMainConfig();
     const sidebarPreview = this._renderSidebarPreview();
 
@@ -343,6 +337,7 @@ export class SidebarConfigDialog extends LitElement {
     const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
     const hiddenItems = getHiddenPanels();
     const allPanels = [...currentPanelOrder, ...hiddenItems];
+    console.log('Current panel order:', currentPanelOrder);
     const _dasboards = await fetchDashboards(this.hass).then((dashboards) => {
       const notInSidebar: string[] = [];
       const inSidebar: string[] = [];
@@ -355,9 +350,11 @@ export class SidebarConfigDialog extends LitElement {
       });
       return { inSidebar, notInSidebar };
     });
+    console.log('Fetched dashboards:', _dasboards);
     // Check if the current panel order has extra or missing items
     const extraPanels = _dasboards.notInSidebar.filter((panel: string) => allPanels.includes(panel));
     const missingPanels = _dasboards.inSidebar.filter((panel: string) => !allPanels.includes(panel));
+    console.log('Extra panels:', extraPanels, 'Missing panels:', missingPanels);
     if (extraPanels.length > 0 || missingPanels.length > 0) {
       // If there are changes, update the sidebar items
       console.log('Sidebar panels have changed');
@@ -592,7 +589,7 @@ export class SidebarConfigDialog extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'sidebar-config-dialog': SidebarConfigDialog;
+    'sidebar-organizer-config-dialog': SidebarConfigDialog;
   }
 
   interface Window {
