@@ -7,28 +7,38 @@ import { html, TemplateResult } from 'lit';
 
 const HOLD_DURATION = 300;
 
-export const createCloseHeading = (
-  hass: HomeAssistant | undefined,
-  title: string | TemplateResult,
-  addedContent?: TemplateResult
-) => {
-  const headerStyle = `
-		display: flex;
-		align-items: center;
-		direction: var(--direction);
-		`;
+export const createCloseHeading = (hass: HomeAssistant | undefined, title: string | TemplateResult) => {
   return html`
-    <div style=${headerStyle}>
+    <div class="header_title">
       <ha-icon-button
         .label=${hass?.localize('ui.dialogs.generic.close') ?? 'Close'}
         .path=${mdiClose}
-        dialogAction="close"
+        dialogAction="cancel"
       >
       </ha-icon-button>
-      ${title} ${addedContent}
+      ${title}
     </div>
   `;
 };
+
+// export const createCloseHeading = (hass: HomeAssistant | undefined, title: string | TemplateResult) => {
+//   const headerStyle = `
+// 		display: flex;
+// 		align-items: center;
+// 		direction: var(--direction);
+// 		`;
+//   return html`
+//     <div style=${headerStyle}>
+//       <ha-icon-button
+//         .label=${hass?.localize('ui.dialogs.generic.close') ?? 'Close'}
+//         .path=${mdiClose}
+//         dialogAction="closed"
+//       >
+//       </ha-icon-button>
+//       ${title}
+//     </div>
+//   `;
+// };
 
 export const createExpansionPanel = ({
   content,

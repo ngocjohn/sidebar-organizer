@@ -31,38 +31,74 @@ export const validateConfig = (config: SidebarConfig, hidden?: string[]): Sideba
   return newConfig;
 };
 
+export const removeHiddenItems = (config: SidebarConfig, hidden?: string[]): SidebarConfig => {
+  let hiddenPanels: string[] = [];
+  if (!hidden) {
+    hiddenPanels = getHiddenPanels();
+  } else {
+    hiddenPanels = hidden;
+  }
+  console.log('hidden to remove', hiddenPanels);
+  const hiddenToRemove = new Set(hiddenPanels);
+
+  // Remove invalid items from custom groups, bottom items, and hidden items
+  const cleanItems = (items: string[]) => items.filter((item) => !hiddenToRemove.has(item));
+
+  const updatedGroups = Object.fromEntries(
+    Object.entries(config.custom_groups || {}).map(([key, items]) => [key, cleanItems(items)])
+  );
+
+  const updatedBottomItems = (config.bottom_items || []).filter((item) => !hiddenToRemove.has(item));
+  console.log('updatedBottomItems', updatedBottomItems, 'updatedGroups', updatedGroups);
+
+  const validatedConfig: SidebarConfig = {
+    ...config,
+    custom_groups: updatedGroups,
+    bottom_items: updatedBottomItems,
+    hidden_items: hiddenPanels,
+  };
+  console.log('removeHiddenItems', validatedConfig);
+  return validatedConfig;
+};
+
+export type INVALID_CONFIG = {
+  valid: boolean;
+  config: SidebarConfig;
+  duplikatedItems: string[];
+  invalidItems: string[];
+  noTitleItems: string[];
+};
+
 export const isItemsValid = (
   config: SidebarConfig,
   hass: HaExtened['hass'],
   log: boolean = false
-):
-  | boolean
-  | {
-      configValid: boolean;
-      config: SidebarConfig;
-      duplikatedItems: string[];
-      invalidItems: string[];
-      noTitleItems: string[];
-    } => {
-  const allItems = [
+): boolean | INVALID_CONFIG => {
+  let allItems = [
     ...Object.values(config.custom_groups || {}).flat(),
     ...(config.bottom_items || []),
     ...(config.hidden_items || []),
   ];
 
   if (allItems.length === 0) {
-    return log ? { configValid: false, config, duplikatedItems: [], invalidItems: [], noTitleItems: [] } : false;
+    return log ? { valid: false, config, duplikatedItems: [], invalidItems: [], noTitleItems: [] } : false;
   }
-  const newConfigItems = config.new_items || [];
-  const newItems = newConfigItems.map((item) => item.title!);
-  const customGroups = Object.values(config.custom_groups || {}).flat();
+  const newConfigItems = Array.from(config.new_items || []).map((item) => item.title!);
+  allItems = allItems.filter((item) => !newConfigItems.includes(item));
 
-  const duplikatedItems = customGroups.filter((item, index) => customGroups.indexOf(item) !== index) || [];
+  const customGroups = Object.values(config.custom_groups || {}).flat();
+  const bottomItems = config.bottom_items || [];
+
+  const duplikatedItems =
+    customGroups.filter((item, index) => customGroups.indexOf(item) !== index) &&
+    customGroups.filter((item) => bottomItems.includes(item));
+
   const haPanelKeys = Object.keys(hass.panels);
-  const invalidItems = allItems.filter((item) => !haPanelKeys.includes(item) && !newItems.includes(item));
+
+  const invalidItems = allItems.filter((item) => !haPanelKeys.includes(item));
   const noTitleItems = allItems.filter((item) => hass.panels[item] && !hass.panels[item].title);
 
-  const configValid = duplikatedItems.length === 0 && invalidItems.length === 0 && noTitleItems.length === 0;
+  const valid = duplikatedItems.length === 0 && invalidItems.length === 0 && noTitleItems.length === 0;
 
   if (duplikatedItems.length > 0) {
     LOGGER.warn(`${CONFIG_NAME}: Config is not valid. Duplicated items: ${duplikatedItems.join(', ')}`);
@@ -70,7 +106,7 @@ export const isItemsValid = (
   }
 
   if (invalidItems.length > 0) {
-    LOGGER.warn(`${CONFIG_NAME}: Config is not valid. Items not in panels: ${invalidItems.join(', ')}`);
+    LOGGER.warn(`${CONFIG_NAME}: Config is not valid. Items not exist: ${invalidItems.join(', ')}`);
     console.table(invalidItems);
   }
 
@@ -80,46 +116,65 @@ export const isItemsValid = (
   }
 
   if (log) {
-    return { configValid, config, duplikatedItems, invalidItems, noTitleItems };
+    return { valid, config, duplikatedItems, invalidItems, noTitleItems };
   }
 
-  return configValid;
+  return valid;
 };
 
 export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass']): SidebarConfig => {
-  console.log('before tryCorrectConfig', config);
+  console.log('invalid config:', config);
   const haPanelKeys = Object.keys(hass.panels);
-  const allItems = [
+  let allItems = [
     ...Object.values(config.custom_groups || {}).flat(),
     ...(config.bottom_items || []),
     ...(config.hidden_items || []),
   ];
-  const newConfigItems = config.new_items || [];
-  const newItems = newConfigItems.map((item) => item.title!);
-
+  const newConfigItems = Array.from(config.new_items || []).map((item) => item.title!);
   // Filter out new items from allItems
-  const filteredItems = allItems.filter((item) => !newItems.includes(item));
+  allItems = allItems.filter((item) => !newConfigItems.includes(item));
 
-  const diffItems = filteredItems.filter((item) => !haPanelKeys.includes(item));
-  const noTitleItems = filteredItems.filter((item) => hass.panels[item] && !hass.panels[item].title);
+  // Find duplicated items
+  const customGroups = Object.values(config.custom_groups || {}).flat();
+  const bottomItems = config.bottom_items || [];
+
+  const duplikatedItems =
+    customGroups.filter((item, index) => customGroups.indexOf(item) !== index) &&
+    customGroups.filter((item) => bottomItems.includes(item));
+
+  const diffItems = allItems.filter((item) => !haPanelKeys.includes(item));
+  const noTitleItems = allItems.filter((item) => hass.panels[item] && !hass.panels[item].title);
 
   const invalidItems = new Set([...diffItems, ...noTitleItems]);
+
   console.log('tryCorrectConfig', {
     diffItems,
     noTitleItems,
     invalidItems: Array.from(invalidItems),
     allItems,
     haPanelKeys,
-    filteredItems,
+    duplikatedItems,
   });
 
-  const cleanGroupItems = (group: string[]) => group.filter((item) => !invalidItems.has(item));
-  const updatedGroups = Object.fromEntries(
-    Object.entries(config.custom_groups || {}).map(([key, items]) => [key, cleanGroupItems(items)])
+  // Remove invalid items from custom groups, bottom items, and hidden items
+  const cleanItems = (items: string[]) => items.filter((item) => !invalidItems.has(item));
+
+  let updatedGroups = Object.fromEntries(
+    Object.entries(config.custom_groups || {}).map(([key, items]) => [key, cleanItems(items)])
   );
 
   const updatedBottomItems = (config.bottom_items || []).filter((item) => !invalidItems.has(item));
   const updatedHiddenItems = (config.hidden_items || []).filter((item) => !invalidItems.has(item));
+
+  if (duplikatedItems.length > 0) {
+    console.log('Removing duplicated item from custom groups:', duplikatedItems);
+    updatedGroups = Object.fromEntries(
+      Object.entries(updatedGroups).map(([key, items]) => [
+        key,
+        items.filter((item) => !duplikatedItems.includes(item)),
+      ])
+    );
+  }
 
   const correctedConfig: SidebarConfig = {
     ...config,
@@ -127,11 +182,15 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
     bottom_items: updatedBottomItems,
     hidden_items: updatedHiddenItems,
   };
+  // chech updated config if it is valid
+  const isValid = isItemsValid(correctedConfig, hass) as boolean;
+  if (!isValid) {
+    console.warn('Config is still not valid after correction:', correctedConfig);
+    // try to correct again
+    return tryCorrectConfig(correctedConfig, hass);
+  }
+  console.log('Config corrected successfully:', correctedConfig);
 
-  setStorage(STORAGE.UI_CONFIG, correctedConfig);
-  setStorage(STORAGE.HIDDEN_PANELS, updatedHiddenItems);
-
-  console.log('after tryCorrectConfig', correctedConfig);
   return correctedConfig;
 };
 

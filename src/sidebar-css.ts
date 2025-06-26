@@ -205,7 +205,7 @@ export const DIALOG_STYLE = css`
     --mdc-dialog-min-height: 700px;
     --dialog-backdrop-filter: blur(2px);
     --justify-action-buttons: space-between;
-    --dialog-content-padding: 1rem;
+    --dialog-content-padding: 0 1rem;
   }
   sidebar-organizer-config-dialog {
     width: calc(90vw - 48px);

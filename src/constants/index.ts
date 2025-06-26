@@ -77,6 +77,10 @@ export const DEFAULT_CONFIG: SidebarConfig = {
 
 export const ALERT_MSG = {
   ITEMS_DIFFERENT: 'The items in config file do not match the items in the sidebar. Check console for more details.',
+  CONFIG_VALID: 'The configuration is valid.',
+  CONFIG_INVALID: 'The configuration is invalid. Below are the errors found in the configuration.',
+  INFO_EDIT_UPLOAD_CONFIG:
+    'You can edit invalid items in the editor and validate the configuration again. You can also upload a new config file.',
   CONFIG_EMPTY: 'You dont have any configuration yet.',
   USE_CONFIG_FILE:
     'If enabled, the sidebar configuration will be loaded from a Config file and UI configuration will be disabled.',
@@ -85,4 +89,7 @@ export const ALERT_MSG = {
   NOT_COMPATIBLE: 'Sidebar Organizer is not compatible with this version of Home Assistant',
   VERSION_INFO: `More info: ${REPO_URL}/issues/16`,
   HAS_SIDEBAR_CONFIG_WARNING: `You have a saved sidebar configuration in your browser's local storage. Modifying the sidebar using the built-in Home Assistant dialog will disable Sidebar Organizer configuration and reset the sidebar to its default state. Do you want to edit the sidebar using Sidebar Organizer instead?`,
+  INVALID_UPLOADED_CONFIG:
+    'The uploaded config is invalid with some errors. Fix them in the editor or upload a new config file.',
+  CONFIG_CHANGED: 'The configuration has been changed. Do you want to save it?',
 };

@@ -1,7 +1,7 @@
 import { ALERT_MSG } from '@constants';
 import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
 import { SidebarConfig, HaExtened } from '@types';
-import { validateConfig } from '@utilities/configs/validators';
+import { removeHiddenItems } from '@utilities/configs/validators';
 import { isIcon } from '@utilities/is-icon';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
@@ -34,50 +34,12 @@ export class SidebarDialogGroups extends LitElement {
   @state() private _sortable: Sortable | null = null;
   @state() private _panelSortable: Sortable | null = null;
 
-  // protected firstUpdated(): void {
-  //     this._setGridSelector();
-  // }
-
   protected updated(_changedProperties: PropertyValues) {
-    // if (
-    //   (_changedProperties.has('_selectedTab') && this._selectedTab !== PANEL.CUSTOM_GROUP) ||
-    //   (_changedProperties.has('_selectedGroup') && this._selectedGroup !== undefined)
-    // ) {
-    //   setTimeout(() => {
-    //     this._setGridSelector();
-    //   }, 50); // Small delay to ensure the ha-selector shadow DOM is rendered
-    // }
-
     if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
       this._dialog._dialogPreview._toggleBottomPanel(this._selectedTab === PANEL.BOTTOM_PANEL);
       if (this._selectedTab !== PANEL.CUSTOM_GROUP) {
         this._selectedGroup = null;
       }
-      if (this._selectedTab === PANEL.BOTTOM_PANEL) {
-        this._initPanelSortable();
-      }
-    }
-    if (
-      _changedProperties.has('_selectedTab') &&
-      this._selectedTab !== PANEL.BOTTOM_PANEL &&
-      this._selectedTab !== PANEL.HIDDEN_ITEMS
-    ) {
-      this._initSortable();
-    }
-
-    if (_changedProperties.has('_selectedGroup') && this._selectedGroup !== null) {
-      this._sortable?.destroy();
-      this._sortable = null;
-      this._initPanelSortable();
-    } else if (
-      _changedProperties.has('_selectedGroup') &&
-      this._selectedGroup === null &&
-      this._selectedTab !== PANEL.BOTTOM_PANEL &&
-      this._selectedTab !== PANEL.HIDDEN_ITEMS
-    ) {
-      this._initSortable();
-      this._panelSortable?.destroy();
-      this._panelSortable = null;
     }
 
     if (_changedProperties.has('_selectedGroup')) {
@@ -100,163 +62,6 @@ export class SidebarDialogGroups extends LitElement {
         toShow = 'bottom_items';
       }
       this._dialog._dialogPreview._toggleGroup(toShow);
-    }
-  }
-
-  private _initSortable = (): void => {
-    const groupList = this.shadowRoot?.querySelector('#group-list') as HTMLElement;
-
-    if (groupList) {
-      // console.log('initSortable', groupList);
-      this._sortable = new Sortable(groupList, {
-        handle: '.handle',
-        ghostClass: 'sortable-ghost',
-        animation: 150,
-        onEnd: (evt) => {
-          this._handleSortEnd(evt);
-        },
-      });
-      console.log('sortable initialized for group list');
-    }
-  };
-
-  private _initPanelSortable = (): void => {
-    const selectedItems = this.shadowRoot?.querySelector('#selected-items') as HTMLElement;
-
-    if (selectedItems) {
-      this._panelSortable = new Sortable(selectedItems, {
-        handle: '.handle',
-        ghostClass: 'sortable-ghost',
-        animation: 150,
-        onEnd: (evt) => {
-          this._handlePanelSortEnd(evt);
-        },
-      });
-      console.log('panel sortable initialized for selected items');
-    }
-  };
-
-  private _handlePanelSortEnd(evt: Sortable.SortableEvent): void {
-    if (!this._sidebarConfig) return;
-    evt.preventDefault();
-    const oldIndex = evt.oldIndex as number;
-    const newIndex = evt.newIndex as number;
-
-    const updateConfig = (updates: Partial<SidebarConfig>) => {
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        ...updates,
-      };
-      this._dispatchConfig(this._sidebarConfig);
-      setTimeout(() => {
-        this._checkSortedItems();
-      }, 50);
-    };
-
-    switch (this._selectedTab) {
-      case PANEL.BOTTOM_PANEL:
-        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
-        const [removedItem] = bottomItems.splice(oldIndex, 1);
-        bottomItems.splice(newIndex, 0, removedItem);
-        updateConfig({ bottom_items: bottomItems });
-        // console.log('bottom new order:', bottomItems);
-        break;
-      case PANEL.CUSTOM_GROUP:
-        const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
-        const groupName = this._selectedGroup;
-        if (groupName) {
-          const groupItems = [...(customGroups[groupName] || [])];
-          console.log(groupName, groupItems);
-          const [removedItem] = groupItems.splice(oldIndex, 1);
-          groupItems.splice(newIndex, 0, removedItem);
-          customGroups[groupName] = groupItems;
-          updateConfig({ custom_groups: customGroups });
-          // console.log(`New:`, groupName, groupItems);
-        }
-        break;
-    }
-  }
-
-  private _checkSortedItems() {
-    const selectedItems = this.shadowRoot?.querySelector('#selected-items') as HTMLElement;
-    if (!selectedItems) return;
-    const selectedItemsList = this._selectedGroup
-      ? this._sidebarConfig.custom_groups![this._selectedGroup]
-      : this._sidebarConfig.bottom_items || [];
-
-    const selectedItemsArray = Array.from(selectedItems.querySelectorAll('li')).map((item) =>
-      item.getAttribute('data-panel')
-    );
-
-    const isSame = selectedItemsArray.every((item, index) => item === selectedItemsList[index]);
-    if (!isSame) {
-      this._reloadPanelItems = true;
-      this._panelSortable?.destroy();
-      this._panelSortable = null;
-      setTimeout(() => {
-        this._reloadPanelItems = false;
-        setTimeout(() => {
-          this._initPanelSortable();
-        }, 200);
-      }, 200);
-    }
-  }
-
-  private _handleSortEnd(evt: Sortable.SortableEvent): void {
-    if (!this._sidebarConfig || !this._sidebarConfig.custom_groups) return;
-    evt.preventDefault();
-    const oldIndex = evt.oldIndex as number;
-    const newIndex = evt.newIndex as number;
-
-    // Explicitly type the groupItems as an array of tuples [string, string[]]
-    const groupItems: [string, string[]][] = Object.keys(this._sidebarConfig.custom_groups).map((key) => [
-      key,
-      this._sidebarConfig.custom_groups![key],
-    ]);
-    // Reorder the items based on the drag and drop indexes
-    const [removedItem] = groupItems.splice(oldIndex, 1);
-    groupItems.splice(newIndex, 0, removedItem);
-
-    // Rebuild the object, explicitly typing the accumulator
-    const newGroupItems = groupItems.reduce((acc: { [key: string]: string[] }, [key, value]) => {
-      acc[key] = value; // Directly assign the value (which is an array)
-      return acc;
-    }, {});
-
-    console.log('newGroupItems', Object.keys(newGroupItems));
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      custom_groups: newGroupItems,
-    };
-
-    this._dispatchConfig(this._sidebarConfig);
-
-    setTimeout(() => {
-      this._checkReload();
-    }, 50);
-  }
-
-  private _checkReload() {
-    const customGroups = Object.keys(this._sidebarConfig.custom_groups || {});
-    const groupList = this.shadowRoot?.getElementById('group-list') as HTMLElement;
-    if (!groupList) return;
-    const listItems = Array.from(groupList.querySelectorAll('div.group-item-row')).map((item) =>
-      item.getAttribute('data-group')
-    );
-    // console.log('listItems', listItems, 'customGroups', customGroups);
-
-    const isSame = customGroups.every((group, index) => group === listItems[index]);
-    if (!isSame) {
-      this._reloadItems = true;
-      this._sortable?.destroy();
-      this._sortable = null;
-
-      setTimeout(() => {
-        this._reloadItems = false;
-        setTimeout(() => {
-          this._initSortable();
-        }, 200);
-      }, 200);
     }
   }
 
@@ -494,7 +299,10 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderCustomGroupList(): TemplateResult {
-    const customGroupList = Object.keys(this._sidebarConfig.custom_groups || []);
+    const customGroupList = Object.keys(this._sidebarConfig.custom_groups || []).map((key) => ({
+      key,
+      label: key.replace(/_/g, ' ').toUpperCase(),
+    }));
     const addBtn = html`
       <ha-button
         outlined
@@ -531,58 +339,77 @@ export class SidebarDialogGroups extends LitElement {
       ${!customGroupList.length || this._reloadItems
         ? loading
         : html`
-            <div class="group-list" id="group-list">
-              ${repeat(
-                customGroupList || [],
-                (key) => key,
-                (key, index) => {
-                  const groupName = key.replace(/_/g, ' ').toUpperCase();
-                  let actionMap = _createActionMap(key);
-                  const itemCount = this._sidebarConfig.custom_groups![key].length;
-                  return html` <div class="group-item-row" data-group=${key}>
-                    <div class="handle">
-                      <ha-icon-button .path=${mdiDrag}></ha-icon-button>
-                    </div>
-                    <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key)}>
-                      <ha-icon icon=${`mdi:numeric-${index + 1}-box`}></ha-icon>
-                      <div class="group-name-items">
-                        ${groupName}
-                        <span>${itemCount} ${itemCount > 1 ? 'items' : 'item'}</span>
+            <ha-sortable handle-selector=".handle" @item-moved=${this._groupMoved}>
+              <div class="group-list" id="group-list">
+                ${repeat(
+                  customGroupList || [],
+                  (group) => group.key,
+                  (group, index) => {
+                    const key = group.key;
+                    const groupName = group.label;
+                    let actionMap = _createActionMap(key);
+                    const itemCount = this._sidebarConfig.custom_groups![key].length;
+                    return html` <div class="group-item-row" data-group=${key} data-index=${index}>
+                      <div class="handle">
+                        <ha-icon-button .path=${mdiDrag}></ha-icon-button>
                       </div>
-                    </div>
-                    <div class="group-actions">
-                      <ha-icon
-                        ?hidden=${!isCollapsed(key)}
-                        icon="mdi:eye-off-outline"
-                        style="color: var(--disabled-color)"
-                      ></ha-icon>
-                      <ha-button-menu
-                        .corner=${'TOP_LEFT'}
-                        .fixed=${true}
-                        .menuCorner=${'END'}
-                        .activatable=${true}
-                        .naturalMenuWidth=${true}
-                        @closed=${(ev: Event) => ev.stopPropagation()}
-                        ><ha-icon-button slot="trigger" .path=${mdiDotsVertical}></ha-icon-button>
-                        ${actionMap.map((action) => {
-                          return html`<mwc-list-item
-                            .graphic=${'icon'}
-                            @click=${() => this._handleGroupAction(action.action, key)}
-                            ><ha-icon slot="graphic" icon=${action.icon}></ha-icon> ${action.title}</mwc-list-item
-                          >`;
-                        })}
-                      </ha-button-menu>
-                    </div>
-                  </div>`;
-                }
-              )}
-            </div>
-
-            ${this._renderSpacer()}
+                      <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key)}>
+                        <ha-icon icon=${`mdi:numeric-${index + 1}-box`}></ha-icon>
+                        <div class="group-name-items">
+                          ${groupName}
+                          <span>${itemCount} ${itemCount > 1 ? 'items' : 'item'}</span>
+                        </div>
+                      </div>
+                      <div class="group-actions">
+                        <ha-icon
+                          ?hidden=${!isCollapsed(key)}
+                          icon="mdi:eye-off-outline"
+                          style="color: var(--disabled-color)"
+                        ></ha-icon>
+                        <ha-button-menu
+                          .corner=${'TOP_LEFT'}
+                          .fixed=${true}
+                          .menuCorner=${'END'}
+                          .activatable=${true}
+                          .naturalMenuWidth=${true}
+                          @closed=${(ev: Event) => ev.stopPropagation()}
+                          ><ha-icon-button slot="trigger" .path=${mdiDotsVertical}></ha-icon-button>
+                          ${actionMap.map((action) => {
+                            return html`<mwc-list-item
+                              .graphic=${'icon'}
+                              @click=${() => this._handleGroupAction(action.action, key)}
+                              ><ha-icon slot="graphic" icon=${action.icon}></ha-icon> ${action.title}</mwc-list-item
+                            >`;
+                          })}
+                        </ha-button-menu>
+                      </div>
+                    </div>`;
+                  }
+                )}
+              </div>
+              ${this._renderSpacer()}
+            </ha-sortable>
           `}
       <div class="header-row flex-end">${addBtn}</div>
     `;
   }
+
+  private _groupMoved = (ev: CustomEvent): void => {
+    ev.stopPropagation();
+    console.log('Group to be moved:', Object.keys(this._sidebarConfig.custom_groups || {}));
+    const { oldIndex, newIndex } = ev.detail;
+    const groupList = Object.entries(this._sidebarConfig.custom_groups || {}).concat();
+
+    groupList.splice(newIndex, 0, groupList.splice(oldIndex, 1)[0]);
+
+    const newGroupList = Object.fromEntries(groupList);
+    console.log('New group list:', Object.keys(newGroupList));
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      custom_groups: newGroupList,
+    };
+    this._dispatchConfig(this._sidebarConfig);
+  };
 
   private _handleNotifyConfigChange(ev: CustomEvent) {
     const configValue = (ev as any).target.configValue;
@@ -789,22 +616,59 @@ export class SidebarDialogGroups extends LitElement {
 
       ${this._reloadPanelItems
         ? html`<ha-spinner .size=${'small'}></ha-spinner> `
-        : html`<ul class="selected-items" id="selected-items">
-            ${repeat(
-              selectedItemsArrayWithTitles,
-              (item) => item,
-              (item, index) => {
-                return html`<li data-panel=${item.key} data-index=${index}>
-                  <div class="handle">
-                    <ha-icon icon="mdi:drag"></ha-icon>
-                  </div>
-                  ${item.title}
-                </li>`;
-              }
-            )}
-          </ul>`}
+        : html` <ha-sortable handle-selector=".handle" @item-moved=${this._itemMoved}>
+            <ul class="selected-items" id="selected-items">
+              ${repeat(
+                selectedItemsArrayWithTitles,
+                (item) => item.key,
+                (item, index) => {
+                  return html`<li data-panel=${item.key} data-index=${index} data-key=${item.key}>
+                    <div class="handle">
+                      <ha-icon icon="mdi:drag"></ha-icon>
+                    </div>
+                    ${item.title}
+                  </li>`;
+                }
+              )}
+            </ul></ha-sortable
+          >`}
     `;
   }
+
+  private _itemMoved = (ev: CustomEvent): void => {
+    ev.stopPropagation();
+    if (!this._sidebarConfig) return;
+    const { oldIndex, newIndex } = ev.detail;
+    const updateConfig = (updates: Partial<SidebarConfig>) => {
+      this._sidebarConfig = {
+        ...this._sidebarConfig,
+        ...updates,
+      };
+      this._dispatchConfig(this._sidebarConfig);
+    };
+
+    switch (this._selectedTab) {
+      case PANEL.BOTTOM_PANEL:
+        const bottomItems = [...(this._sidebarConfig.bottom_items || [])].concat();
+        console.log('Bottom items before move:', bottomItems);
+        bottomItems.splice(newIndex, 0, bottomItems.splice(oldIndex, 1)[0]);
+        console.log('Bottom items after move:', bottomItems);
+        updateConfig({ bottom_items: bottomItems });
+        break;
+      case PANEL.CUSTOM_GROUP:
+        const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
+        const groupName = this._selectedGroup;
+        if (groupName) {
+          const groupItems = [...(customGroups[groupName] || [])].concat();
+          console.log(groupName, groupItems);
+          groupItems.splice(newIndex, 0, groupItems.splice(oldIndex, 1)[0]);
+          customGroups[groupName] = groupItems;
+          console.log(`New:`, groupName, groupItems);
+          updateConfig({ custom_groups: customGroups });
+        }
+        break;
+    }
+  };
 
   private _renderSpacer() {
     return html`<div style="flex: 1"></div>`;
@@ -949,32 +813,13 @@ export class SidebarDialogGroups extends LitElement {
     ev.stopPropagation();
     const value = ev.detail.value;
     console.log('new value', value);
-    const { custom_groups, bottom_items } = validateConfig(this._sidebarConfig, value);
     this._updatePanels(value);
+    const newConfig = removeHiddenItems(this._sidebarConfig, value);
 
-    const updates: Partial<SidebarConfig> = {};
-
-    let customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
-    let bottomItems = [...(this._sidebarConfig.bottom_items || [])];
-    let hiddenItems = [...(this._sidebarConfig.hidden_items || [])];
-    if (custom_groups) {
-      customGroups = custom_groups;
-      updates.custom_groups = customGroups;
-    }
-    if (bottom_items) {
-      bottomItems = bottom_items;
-      updates.bottom_items = bottomItems;
-    }
-
-    hiddenItems = [...value];
-    updates.hidden_items = hiddenItems;
-
-    if (Object.keys(updates).length > 0) {
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        ...updates,
-      };
-    }
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      ...newConfig,
+    };
 
     this._dispatchConfig(this._sidebarConfig);
   }

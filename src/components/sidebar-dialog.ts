@@ -1,8 +1,8 @@
 import { ALERT_MSG, CUSTOM_EVENT, STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
-import { fetchFileConfig, isItemsValid } from '@utilities/configs';
+import { fetchFileConfig, isItemsValid, tryCorrectConfig } from '@utilities/configs';
+import { INVALID_CONFIG } from '@utilities/configs';
 import { fetchDashboards } from '@utilities/dashboard';
-import { showAlertDialog } from '@utilities/show-dialog-box';
 
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
@@ -11,7 +11,15 @@ import './sidebar-dialog-preview';
 import './sidebar-organizer-tab';
 import './sidebar-dialog-new-items';
 
-import { getStorage, setStorage, getStorageConfig, getHiddenPanels } from '@utilities/storage-utils';
+import { TRANSLATED_LABEL } from '@utilities/localize';
+import { showAlertDialog } from '@utilities/show-dialog-box';
+import {
+  getStorage,
+  setStorage,
+  getStorageConfig,
+  getHiddenPanels,
+  sidebarUseConfigFile,
+} from '@utilities/storage-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
@@ -27,10 +35,9 @@ const tabs = ['appearance', 'panels', 'newItems'] as const;
 @customElement('sidebar-organizer-config-dialog')
 export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
-  @property({ attribute: false }) _useConfigFile = false;
-  @property({ attribute: false }) _sideBarRoot!: ShadowRoot;
-
+  @state() _connected: boolean = false;
   @state() public _sidebarConfig = {} as SidebarConfig;
+  @state() public _useConfigFile = false;
 
   @state() public _tabState: TAB_STATE = TAB_STATE.BASE;
 
@@ -43,7 +50,7 @@ export class SidebarConfigDialog extends LitElement {
   @state() private _newItems: string[] = [];
 
   @state() private _uploading = false;
-  @state() private _invalidConfig: Record<string, string[] | SidebarConfig> = {};
+  @state() private _invalidConfig?: INVALID_CONFIG;
 
   @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
@@ -53,41 +60,50 @@ export class SidebarConfigDialog extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-
-    this._setupInitConfig();
+    this._useConfigFile = sidebarUseConfigFile();
+    this._connected = true;
     window.sidebarDialog = this;
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._connected = false;
   }
 
+  protected willUpdate(_changedProperties: PropertyValues): void {
+    if (_changedProperties.has('_connected') && this._connected) {
+      console.log('SidebarConfigDialog connected, setting up initial config');
+      this._setupInitConfig();
+    }
+  }
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       return true;
     }
-
     return true;
   }
 
   protected updated(_changedProperties: PropertyValues): void {
+    if (!this._configLoaded) return;
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
       const newConfig = this._sidebarConfig;
       if (oldConfig !== undefined && newConfig) {
         const newItemsChanged = JSON.stringify(oldConfig.new_items) !== JSON.stringify(newConfig.new_items);
-        // console.log('New items changed:', newItemsChanged);
+        console.log('New items changed:', newItemsChanged);
         if (newItemsChanged && newConfig.new_items) {
-          // console.log('New items changed:', newConfig.new_items);
+          console.log('Updating new item map');
           this._newItemMap = new Map(newConfig.new_items.map((item: NewItemConfig) => [item.title!, item]));
           // console.log('New item map:', this._newItemMap);
           // compare the new items with initCombiPanels if is new added or removed
         }
       }
       const curentNewItems = [...this._newItems];
+      console.log('Current new items:', curentNewItems);
 
       const _newConfigChanged =
-        JSON.stringify(curentNewItems) !== JSON.stringify(newConfig.new_items?.map((item) => item.title));
+        JSON.stringify(curentNewItems) !== JSON.stringify(newConfig.new_items?.map((item) => item.title!) || []);
+      console.log('New config changed:', _newConfigChanged);
 
       if (_newConfigChanged) {
         this._newItems = newConfig.new_items?.map((item) => item.title!) || [];
@@ -108,7 +124,11 @@ export class SidebarConfigDialog extends LitElement {
 
   protected render(): TemplateResult {
     if (!this._configLoaded) {
-      return html`<ha-fade-in .delay=${500}><ha-spinner size="large"></ha-spinner></ha-fade-in>`;
+      return html`
+        <div class="loading-content">
+          <ha-fade-in .delay=${500}><ha-spinner size="large"></ha-spinner></ha-fade-in>
+        </div>
+      `;
     }
 
     const mainContent = this._renderMainConfig();
@@ -153,13 +173,11 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   private _renderSidebarPreview(): TemplateResult {
-    // if (!this._sidebarConfig || !this._configLoaded) {
-    //   return html`<ha-circular-progress .indeterminate=${true} .size=${'medium'}></ha-circular-progress>`;
-    // }
-
+    const isValidConfig = !this._invalidConfig || Object.keys(this._invalidConfig).length === 0;
     return html`
       <div id="sidebar-preview">
         <sidebar-dialog-preview
+          .invalidConfig=${!isValidConfig}
           .hass=${this.hass}
           ._dialog=${this}
           ._sidebarConfig=${this._sidebarConfig}
@@ -204,46 +222,76 @@ export class SidebarConfigDialog extends LitElement {
   private _renderCodeEditor(): TemplateResult {
     return html`
       <div class="config-content">
-        ${this._uploading
-          ? html`<ha-spinner .size=${'large'}></ha-spinner>`
-          : html`
-              <sidebar-dialog-code-editor
-                .hass=${this.hass}
-                ._sidebarConfig=${this._sidebarConfig}
-                @sidebar-changed=${this._handleSidebarChanged}
-              ></sidebar-dialog-code-editor>
-            `}
+        ${this._invalidConfig && Object.keys(this._invalidConfig).length > 0
+          ? html``
+          : this._uploading
+            ? html`<ha-spinner .size=${'large'}></ha-spinner>`
+            : html`
+                <sidebar-dialog-code-editor
+                  .hass=${this.hass}
+                  ._sidebarConfig=${this._sidebarConfig}
+                  @sidebar-changed=${this._handleSidebarChanged}
+                ></sidebar-dialog-code-editor>
+              `}
         ${this._renderUseConfigFile()}
       </div>
     `;
   }
 
   private _renderInvalidConfig(): TemplateResult | typeof nothing {
-    if (!this._invalidConfig || Object.keys(this._invalidConfig).length === 0 || !this._useConfigFile) {
+    if (!this._invalidConfig || Object.keys(this._invalidConfig).length === 0) {
       return nothing;
     }
-
+    const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
+    const _invalidConfig = this._invalidConfig;
+    const isConfigValid = _invalidConfig.valid === true;
     const sections = [
-      { title: 'Duplicated items:', key: 'duplikatedItems' },
-      { title: 'Invalid items:', key: 'invalidItems' },
-      { title: 'Items not in sidebar', key: 'noTitleItems' },
+      { title: 'Duplicated:', key: 'duplikatedItems' },
+      { title: 'Not exist:', key: 'invalidItems' },
+      { title: 'Hidden from sidebar', key: 'noTitleItems' },
     ];
-
+    const extraActionsStyle = `display: flex;  width: auto; justify-content: space-between;`;
     return html`
       <div class="invalid-config" .hidden=${this._useConfigFile} style="--code-mirror-max-height: 250px;">
-        <ha-alert alert-type="error">${ALERT_MSG.ITEMS_DIFFERENT}</ha-alert>
+        <ha-alert alert-type="info">${ALERT_MSG.INFO_EDIT_UPLOAD_CONFIG}</ha-alert>
         <ha-yaml-editor
+          .label=${'EDITOR FOR INVALID CONFIG'}
           .hass=${this.hass}
-          .defaultValue=${this._invalidConfig.config}
-          .readOnly=${true}
-        ></ha-yaml-editor>
-        <div class="invalid-config-content">
+          .defaultValue=${_invalidConfig.config}
+          .hasExtraActions=${true}
+          @value-changed=${(ev: CustomEvent) => {
+            ev.stopPropagation();
+            const { isValid, value } = ev.detail;
+            if (isValid) {
+              this._invalidConfig = { ..._invalidConfig, config: value };
+              this.requestUpdate();
+            }
+          }}
+        >
+          <div slot="extra-actions" style="${extraActionsStyle}">
+            <ha-button
+              .label=${BTN_LABEL.AUTO_CORRECT}
+              .disabled=${isConfigValid}
+              @click=${() => this._handleInvalidConfig('auto-correct')}
+            ></ha-button>
+            <ha-button
+              destructive
+              .label=${isConfigValid ? BTN_LABEL.SAVE_MIGRATE : BTN_LABEL.CHECK_VALIDITY}
+              @click=${() => this._handleInvalidConfig(isConfigValid ? 'save' : 'check')}
+            ></ha-button>
+          </div>
+        </ha-yaml-editor>
+
+        <ha-alert alert-type=${!_invalidConfig.valid ? 'warning' : 'success'}
+          >${!isConfigValid ? ALERT_MSG.CONFIG_INVALID : ALERT_MSG.CONFIG_VALID}</ha-alert
+        >
+        <div class="invalid-config-content" ?hidden=${isConfigValid}>
           ${sections.map(({ title, key }) => {
             const items = (this._invalidConfig as any)[key];
             return items?.length
               ? html`
                   <div>
-                    <p>${title}</p>
+                    <h2>${title}</h2>
                     <ul>
                       ${items.map((item: string) => html`<li>${item}</li>`)}
                     </ul>
@@ -256,6 +304,7 @@ export class SidebarConfigDialog extends LitElement {
     `;
   }
   private _renderUseConfigFile() {
+    const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
     const useJsonFile = this._useConfigFile;
 
     return html`
@@ -264,10 +313,10 @@ export class SidebarConfigDialog extends LitElement {
         ${this._renderInvalidConfig()}
 
         <div class="header-row">
-          <ha-button @click=${() => this._uploadConfigFile()}>Upload Config File</ha-button>
+          <ha-button .label=${BTN_LABEL.UPLOAD} @click=${() => this._uploadConfigFile()}></ha-button>
           <ha-formfield label="Use YAML File" style="min-height: 48px;">
             <ha-switch
-              .label=${'Use YAML File'}
+              .label=${BTN_LABEL.USE_CONFIG_FILE}
               .checked=${useJsonFile}
               @change=${(ev: Event) => {
                 const checked = (ev.target as HTMLInputElement).checked;
@@ -297,12 +346,17 @@ export class SidebarConfigDialog extends LitElement {
         try {
           const content = ev.target?.result as string;
           const newConfig = YAML.parse(content);
-
-          if (!isItemsValid(newConfig, this.hass)) {
-            await showAlertDialog(this, ALERT_MSG.ITEMS_DIFFERENT);
-            this._uploading = false;
+          const checkedConfig = isItemsValid(newConfig, this.hass, true);
+          if (typeof checkedConfig !== 'object' || checkedConfig === null) {
             return;
+          }
+          if (!checkedConfig.valid) {
+            this._invalidConfig = checkedConfig;
+            await showAlertDialog(this, ALERT_MSG.INVALID_UPLOADED_CONFIG);
+            this._uploading = false;
+            this.requestUpdate();
           } else {
+            this._invalidConfig = undefined;
             const resetConfigPromise = () =>
               new Promise<void>((resolve) => {
                 localStorage.removeItem(STORAGE.UI_CONFIG);
@@ -310,7 +364,6 @@ export class SidebarConfigDialog extends LitElement {
                 localStorage.removeItem(STORAGE.HIDDEN_PANELS);
                 resolve();
               });
-
             await resetConfigPromise();
             this._sidebarConfig = newConfig;
             this._uploading = false;
@@ -354,7 +407,7 @@ export class SidebarConfigDialog extends LitElement {
     // Check if the current panel order has extra or missing items
     const extraPanels = _dasboards.notInSidebar.filter((panel: string) => allPanels.includes(panel));
     const missingPanels = _dasboards.inSidebar.filter((panel: string) => !allPanels.includes(panel));
-    console.log('Extra panels:', extraPanels, 'Missing panels:', missingPanels);
+
     if (extraPanels.length > 0 || missingPanels.length > 0) {
       // If there are changes, update the sidebar items
       console.log('Sidebar panels have changed');
@@ -386,15 +439,52 @@ export class SidebarConfigDialog extends LitElement {
     const result = isItemsValid(config, this.hass, true);
     console.log('Config file validation result', result);
     if (typeof result === 'object' && result !== null) {
-      const { configValid, config, duplikatedItems, invalidItems, noTitleItems } = result;
-      if (!configValid) {
-        this._invalidConfig = {
-          config,
-          duplikatedItems,
-          invalidItems,
-          noTitleItems,
-        };
-      }
+      this._invalidConfig = result;
+    }
+  };
+
+  private _autoCorrectConfig = (config: SidebarConfig): SidebarConfig => {
+    return tryCorrectConfig(config, this.hass);
+  };
+
+  private _handleInvalidConfig = async (action: 'check' | 'auto-correct' | 'save') => {
+    if (!this._invalidConfig || Object.keys(this._invalidConfig).length === 0) {
+      console.warn('No invalid config to handle');
+      return;
+    }
+
+    switch (action) {
+      case 'check':
+        const config = this._invalidConfig.config as SidebarConfig;
+        const result = isItemsValid(config, this.hass, true);
+        console.log('Config validation result:', result);
+        if (typeof result === 'object' && result !== null) {
+          this._invalidConfig = result;
+          this.requestUpdate();
+        }
+        break;
+      case 'auto-correct':
+        console.log('Auto-correcting invalid config');
+        const correctedConfig = tryCorrectConfig(this._invalidConfig.config, this.hass);
+        console.log('Corrected config:', correctedConfig);
+        this._invalidConfig = { ...this._invalidConfig, config: correctedConfig };
+        this._handleInvalidConfig('check');
+        break;
+      case 'save':
+        console.log('Saving config to storage');
+        // check again if config is valid
+        const isConfigurationValid = isItemsValid(this._invalidConfig.config, this.hass) as boolean;
+        if (!isConfigurationValid) {
+          await showAlertDialog(this, ALERT_MSG.CONFIG_INVALID);
+          return;
+        } else {
+          console.log('Config is valid, saving to storage');
+          this._sidebarConfig = this._invalidConfig.config;
+          this._invalidConfig = undefined;
+          this.requestUpdate();
+        }
+
+        break;
     }
   };
 
@@ -435,6 +525,7 @@ export class SidebarConfigDialog extends LitElement {
     // Initialize panel combinations
     this._initCombiPanels = [..._sidebarItems, ...initHiddenItems];
     console.log('Init combi panels:', this._initCombiPanels);
+
     this._initPanelOrder = [..._sidebarItems];
 
     this._configLoaded = true;
@@ -462,7 +553,13 @@ export class SidebarConfigDialog extends LitElement {
           --side-dialog-gutter: 0.5rem;
           --side-dialog-padding: 1rem;
         }
-
+        .loading-content {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          width: 100%;
+        }
         #sidebar-dialog-wrapper {
           display: flex;
           flex-direction: row;
@@ -547,8 +644,9 @@ export class SidebarConfigDialog extends LitElement {
 
         .overlay {
           display: flex;
-          align-items: center;
+          align-items: stretch;
           justify-content: flex-end;
+          flex-direction: column;
           /* padding-inline: 0.5rem; */
         }
 
@@ -569,11 +667,14 @@ export class SidebarConfigDialog extends LitElement {
         }
 
         .invalid-config {
-          display: block;
+          display: flex;
           width: inherit;
-          padding: 1rem;
-          background: var(--clear-background-color);
+          /* background: var(--clear-background-color); */
           place-items: center;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 1em;
+          padding: 0.5em;
         }
         .invalid-config-content {
           display: flex;
@@ -581,6 +682,7 @@ export class SidebarConfigDialog extends LitElement {
           gap: var(--side-dialog-gutter);
           width: 100%;
           justify-content: space-around;
+          background: var(--disabled-color);
         }
       `,
     ];

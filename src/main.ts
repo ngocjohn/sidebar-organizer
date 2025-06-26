@@ -534,7 +534,7 @@ class SidebarOrganizer {
   }
 
   private _addConfigDialog() {
-    showDialogSidebarOrganizer(this.ha!);
+    showDialogSidebarOrganizer(this.ha!, { config: this._config });
   }
 
   private _handleDefaultPanelChange(defaultPanel: string) {
