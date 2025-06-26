@@ -16,6 +16,8 @@ export class SidebarDialogPreview extends LitElement {
   @property({ attribute: false }) _dialog!: SidebarConfigDialog;
   @property({ attribute: false }) _sidebarConfig: SidebarConfig = {};
 
+  @property({ type: Boolean, reflect: true, attribute: 'invalid-config' }) public invalidConfig = false;
+
   @state() public _paperListbox: Record<string, PanelInfo[]> = {};
   @state() public _colorConfigMode: string = '';
   @state() private _baseColorFromTheme: DividerColorSettings = {};
@@ -272,7 +274,7 @@ export class SidebarDialogPreview extends LitElement {
 
     const _renderPanelItem = (item: PanelInfo) => {
       const { icon, title, component_name } = item;
-      return html`<a href="#" data-panel=${component_name}>
+      return html`<a href="#" data-panel=${component_name} style="pointer-events: none;">
         <div class="icon-item"><ha-icon .icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
       </a>`;
     };
@@ -419,6 +421,11 @@ export class SidebarDialogPreview extends LitElement {
   static get styles(): CSSResultGroup {
     return [
       css`
+        :host([invalid-config]) {
+          filter: blur(5px) grayscale(1);
+          pointer-events: none;
+        }
+
         :host *[hidden] {
           display: none !important;
         }
@@ -521,6 +528,7 @@ export class SidebarDialogPreview extends LitElement {
           width: 100%;
           background-color: var(--sidebar-background-color);
         }
+
         @media all and (max-width: 800px), all and (max-height: 500px) {
           .divider-preview {
             margin: 0 auto;

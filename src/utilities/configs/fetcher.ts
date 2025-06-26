@@ -1,8 +1,8 @@
-import { CONFIG_NAME, CONFIG_PATH, DEFAULT_CONFIG } from '@constants';
+import { CONFIG_NAME, CONFIG_PATH, DEFAULT_CONFIG, STORAGE } from '@constants';
 import { HaExtened, SidebarConfig } from '@types';
 import YAML from 'yaml';
 
-import { sidebarUseConfigFile, getStorageConfig } from '../storage-utils';
+import { sidebarUseConfigFile, getStorageConfig, setStorage } from '../storage-utils';
 import { _changeStorageConfig, isItemsValid, tryCorrectConfig, validateConfig } from './validators';
 
 const randomId = (): string => Math.random().toString(16).slice(2);
@@ -29,12 +29,14 @@ export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfi
     // console.log('Added with init config defaults', config);
     let isValid = isItemsValid(config, hass, true);
     if (typeof isValid === 'object') {
-      isValid = isValid.configValid;
+      isValid = isValid.valid;
     }
     if (!isValid && !sidebarUseConfigFile()) {
       console.log('Config is not valid. Trying to correct it.');
       // Try to correct the config
       config = tryCorrectConfig(config, hass);
+      setStorage(STORAGE.UI_CONFIG, config);
+      setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items || []);
       return config;
     } else if (!isValid && sidebarUseConfigFile()) {
       config = DEFAULT_CONFIG;

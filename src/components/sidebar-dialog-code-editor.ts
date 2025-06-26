@@ -1,5 +1,3 @@
-const HELPERS = (window as any).loadCardHelpers ? (window as any).loadCardHelpers() : undefined;
-
 import { html, css, LitElement, TemplateResult, CSSResultGroup, nothing, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators';
 import YAML from 'yaml';
@@ -9,6 +7,7 @@ import { removeStorage } from '@utilities/storage-utils';
 import { SidebarConfig, HaExtened } from '@types';
 import { SidebarConfigDialog } from './sidebar-dialog';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
+import { TRANSLATED_LABEL } from '@utilities/localize';
 
 @customElement('sidebar-dialog-code-editor')
 export class SidebarDialogCodeEditor extends LitElement {
@@ -45,6 +44,7 @@ export class SidebarDialogCodeEditor extends LitElement {
   }
 
   protected render(): TemplateResult {
+    const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
     const initConfig = this._sidebarConfig;
     const isConfigEmpty = Object.keys(initConfig).length === 0;
     const emptyConfig = html`<ha-alert alertType="info">${ALERT_MSG.CONFIG_EMPTY}</ha-alert>`;
@@ -60,12 +60,15 @@ export class SidebarDialogCodeEditor extends LitElement {
       >
         <div class="header-row" slot="extra-actions" ?hidden=${isConfigEmpty}>
           <div>
-            <ha-button @click=${() => this._handleBtnAction('download')}>Download Config</ha-button>
-            <ha-button @click=${() => this._handleBtnAction('copy')}>Copy to Clipboard</ha-button>
+            <ha-button .label=${BTN_LABEL.DOWNLOAD} @click=${() => this._handleBtnAction('download')}></ha-button>
+            <ha-button .label=${BTN_LABEL.COPY_TO_CLIPBOARD} @click=${() => this._handleBtnAction('copy')}></ha-button>
           </div>
-          <ha-button style="--mdc-theme-primary: var(--error-color);" @click=${() => this._handleBtnAction('delete')}
-            >Delete Config</ha-button
-          >
+          <ha-button
+            .label=${BTN_LABEL.DELETE}
+            .title=${'BTN_LABEL.DELETE'}
+            style="--mdc-theme-primary: var(--error-color);"
+            @click=${() => this._handleBtnAction('delete')}
+          ></ha-button>
         </div>
       </ha-yaml-editor>`;
 
@@ -82,32 +85,6 @@ export class SidebarDialogCodeEditor extends LitElement {
       console.error('Failed to parse YAML');
     }
   }
-
-  private _showPrompt = async () => {
-    const title = 'Import Configuration';
-    const text = 'Paste your configuration below:';
-
-    let helpers;
-    if ((window as any).loadCardHelpers) {
-      helpers = await (window as any).loadCardHelpers();
-    } else if (HELPERS) {
-      helpers = HELPERS;
-    }
-
-    const result = await helpers.showPromptDialog(this, {
-      title,
-      text,
-      inputLabel: 'Configuration',
-      confirmText: 'Import',
-      inputType: 'string',
-      defaultValue: '',
-    });
-
-    if (!result) return;
-    const yamlStr = result;
-
-    console.log('Importing Config', yamlStr);
-  };
 
   private _handleBtnAction = async (action: string) => {
     switch (action) {

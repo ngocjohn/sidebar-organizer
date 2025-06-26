@@ -1,11 +1,12 @@
-import { NAMESPACE, NAMESPACE_TITLE, REPO_URL, SLOT, TAB_STATE, VERSION } from '@constants';
-import { mdiArrowExpand, mdiInformation } from '@mdi/js';
-import { createCloseHeading } from '@utilities/dom-utils';
+import { ALERT_MSG, NAMESPACE, NAMESPACE_TITLE, REPO_URL, SLOT, TAB_STATE, VERSION } from '@constants';
+import { mdiArrowExpand, mdiClose, mdiInformation } from '@mdi/js';
 
 import './sidebar-dialog';
 
 import { TRANSLATED_LABEL } from '@utilities/localize';
-import { sidebarUseConfigFile } from '@utilities/storage-utils';
+import { showConfirmDialog } from '@utilities/show-dialog-box';
+import { SidebarConfigDialogParams } from '@utilities/show-dialog-sidebar-organizer';
+import { showToast } from '@utilities/toast-notify';
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators';
 import { DIALOG_STYLE } from 'sidebar-css';
@@ -17,30 +18,71 @@ import { SidebarConfigDialog } from './sidebar-dialog';
 @customElement('sidebar-organizer-dialog')
 export class SidebarOrganizerDialog extends LitElement {
   @property({ attribute: false }) public hass!: HA;
-
-  @state() _useConfigFile = false;
+  @state() private _params?: SidebarConfigDialogParams;
   @state() private _open = false;
   @state() private _large = false;
 
+  @state() _codeUiLabel: string = TRANSLATED_LABEL.BTN_LABEL.SHOW_CODE_EDITOR;
+
   @query('ha-dialog') private _dialog?: HTMLDialogElement;
-  @query('sidebar-organizer-config-dialog') private _configDialog?: SidebarConfigDialog;
+  @query('sidebar-organizer-config-dialog') private _configDialog!: SidebarConfigDialog;
 
-  public async showDialog(): Promise<void> {
+  connectedCallback(): void {
+    super.connectedCallback();
+    window._sidebarOrganizerDialog = this;
+  }
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window._sidebarOrganizerDialog = undefined;
+  }
+
+  public async showDialog(param: SidebarConfigDialogParams): Promise<void> {
     this._open = true;
+    this._params = param;
+  }
 
-    this._useConfigFile = sidebarUseConfigFile();
-    this._configDialog?._setupInitConfig();
+  public closeDialog(): boolean {
+    if (this._isConfigChanged) {
+      this._handleClose();
+      return false;
+    }
+    this._open = false;
+    this._params = undefined;
+    this._params = undefined;
+    this._open = false;
+    fireEvent(this, 'dialog-closed', { dialog: this.localName });
+    return true;
   }
 
   private _dialogClosed(): void {
+    this._params = undefined;
     this._open = false;
-
     fireEvent(this, 'dialog-closed', { dialog: this.localName });
   }
 
-  public closeDialog(): void {
-    this._dialog?.close();
+  private get _isConfigChanged(): boolean {
+    if (!this._params || !this._configDialog) {
+      return false;
+    }
+    return JSON.stringify(this._params.config) !== JSON.stringify(this._configDialog._sidebarConfig);
   }
+
+  private async _handleClose() {
+    const confirmSaveChange = await showConfirmDialog(this, ALERT_MSG.CONFIG_CHANGED, 'SAVE', 'DISCARD');
+    if (confirmSaveChange) {
+      this._handleSaveConfig();
+    } else {
+      this._dialogClosed();
+    }
+    return;
+  }
+
+  private _showSuccessToast(): void {
+    showToast(this, {
+      message: 'Test config saved successfully.',
+    });
+  }
+
   private _handleSaveConfig(): void {
     const config = this._configDialog!._sidebarConfig;
     const useConfigFile = this._configDialog!._useConfigFile;
@@ -53,12 +95,7 @@ export class SidebarOrganizerDialog extends LitElement {
   }
 
   private _renderContent(): TemplateResult {
-    return html`
-      <sidebar-organizer-config-dialog
-        .hass=${this.hass}
-        ._useConfigFile=${this._useConfigFile}
-      ></sidebar-organizer-config-dialog>
-    `;
+    return html` <sidebar-organizer-config-dialog .hass=${this.hass}></sidebar-organizer-config-dialog> `;
   }
 
   protected render() {
@@ -69,13 +106,8 @@ export class SidebarOrganizerDialog extends LitElement {
     const toggleLarge = () => {
       this._large = !this._large;
     };
-    const codeEditorLabel =
-      this._configDialog?._tabState === TAB_STATE.BASE ? BTN_LABEL.SHOW_CODE_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR;
 
-    const dialogTitle = html`<span slot="heading" style="flex: 1;" .title=${NAMESPACE} @click=${toggleLarge}
-      >${NAMESPACE_TITLE} <span style="font-size: small; text-wrap-mode: nowrap;"> (${VERSION})</span></span
-    >`;
-    const rightHeaderBtns = html`<div>
+    const rightHeaderBtns = html`<div slot="actionItems">
       <ha-icon-button .label=${'Toggle large'} .path=${mdiArrowExpand} @click=${toggleLarge}> </ha-icon-button>
       <ha-icon-button
         .label=${'Documentation'}
@@ -83,30 +115,47 @@ export class SidebarOrganizerDialog extends LitElement {
         @click=${() => window.open(REPO_URL)}
       ></ha-icon-button>
     </div>`;
+
+    const dialogTitle = html`<span slot="title" .title=${NAMESPACE} @click=${toggleLarge}> ${NAMESPACE_TITLE} </span>
+      <span slot="subtitle">(${VERSION})</span> `;
     return html`
       <ha-dialog
-        open=${this._open}
+        open
         @closed=${this._dialogClosed}
-        .heading=${createCloseHeading(this.hass, dialogTitle, rightHeaderBtns)}
         .hideActions=${false}
         .flexContent=${true}
         ?large=${this._large}
         scrimClickAction
         escapeKeyAction
+        .heading=${NAMESPACE_TITLE}
       >
+        <ha-dialog-header slot="heading">
+          <ha-icon-button
+            slot="navigationIcon"
+            @click=${this.closeDialog}
+            .label=${this.hass.localize('ui.common.close')}
+            .path=${mdiClose}
+          ></ha-icon-button>
+          ${dialogTitle} ${rightHeaderBtns}
+        </ha-dialog-header>
+
         ${this._renderContent()}
-        <ha-button
-          .label=${codeEditorLabel}
-          slot=${SLOT.SECONDARY_ACTION}
-          @click=${() => this._configDialog?._toggleCodeEditor()}
-        >
-        </ha-button>
+
+        <ha-button .label=${this._codeUiLabel} slot=${SLOT.SECONDARY_ACTION} @click=${this._toggleCodeUi}> </ha-button>
         <div slot=${SLOT.PRIMARY_ACTION}>
           <ha-button .label=${BTN_LABEL.CANCEL} @click=${this.closeDialog}> </ha-button>
           <ha-button .label=${BTN_LABEL.SAVE} @click=${this._handleSaveConfig}> </ha-button>
         </div>
       </ha-dialog>
     `;
+  }
+
+  private _toggleCodeUi(): void {
+    this._configDialog._toggleCodeEditor();
+    this._codeUiLabel =
+      this._configDialog._tabState === TAB_STATE.CODE
+        ? TRANSLATED_LABEL.BTN_LABEL.SHOW_VISUAL_EDITOR
+        : TRANSLATED_LABEL.BTN_LABEL.SHOW_CODE_EDITOR;
   }
 
   static styles = [DIALOG_STYLE];
@@ -118,5 +167,8 @@ declare global {
   }
   interface HASSDomEvents {
     'save-sidebar-organizer-config': { config: SidebarConfig; useConfigFile: boolean };
+  }
+  interface Window {
+    _sidebarOrganizerDialog?: SidebarOrganizerDialog;
   }
 }

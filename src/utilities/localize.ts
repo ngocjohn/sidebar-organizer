@@ -26,5 +26,12 @@ export const TRANSLATED_LABEL = {
     DOWNLOAD: 'Download',
     SHOW_CODE_EDITOR: 'Show code editor',
     SHOW_VISUAL_EDITOR: 'Show visual editor',
+    UPLOAD: 'Upload Config File',
+    USE_CONFIG_FILE: 'Use Config File',
+    COPY_TO_CLIPBOARD: 'Copy to Clipboard',
+    CHECK_VALIDITY: 'Check validity',
+    AUTO_CORRECT: 'Auto-correct',
+    EDIT: 'Edit',
+    SAVE_MIGRATE: 'Save & Migrate to storage',
   },
 };

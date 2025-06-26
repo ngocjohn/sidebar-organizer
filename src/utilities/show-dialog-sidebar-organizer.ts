@@ -1,4 +1,5 @@
 import { ELEMENT } from '@constants';
+import { SidebarConfig } from '@types';
 
 import { fireEvent, HASSDomEvent, ValidHassDomEvent } from './fire_event';
 
@@ -15,13 +16,16 @@ declare global {
   }
 }
 
+export interface SidebarConfigDialogParams {
+  config: SidebarConfig;
+}
 export const loadSidebarOrganizerDialog = () => import('../components/sidebar-organizer-dialog');
 
-export const showDialogSidebarOrganizer = (el: HTMLElement): void => {
+export const showDialogSidebarOrganizer = (el: HTMLElement, dialogParam: SidebarConfigDialogParams): void => {
   fireEvent(el, 'show-dialog', {
     dialogTag: ELEMENT.SIDEBAR_CONFIG_DIALOG_WRAPPER,
     dialogImport: loadSidebarOrganizerDialog,
-    dialogParams: {},
+    dialogParams: dialogParam,
   });
 };
 
