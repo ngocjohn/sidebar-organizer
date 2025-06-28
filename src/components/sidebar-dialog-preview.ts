@@ -269,7 +269,7 @@ export class SidebarDialogPreview extends LitElement {
 
     const _renderPanelItem = (item: PanelInfo) => {
       const { icon, title, component_name } = item;
-      return html`<a href="#" data-panel=${component_name} style="pointer-events: none;">
+      return html`<a data-panel=${component_name}>
         <div class="icon-item"><ha-icon .icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
       </a>`;
     };
@@ -522,6 +522,8 @@ export class SidebarDialogPreview extends LitElement {
           height: 580px;
           width: 100%;
           background-color: var(--sidebar-background-color);
+          overflow: hidden;
+          margin: 0.5rem auto;
         }
 
         @media all and (max-width: 800px), all and (max-height: 500px) {
@@ -544,7 +546,7 @@ export class SidebarDialogPreview extends LitElement {
           margin-top: 1px;
           box-sizing: border-box;
           box-sizing: border-box;
-          margin: 1px 4px 0px;
+          /* margin: 1px 4px 0px; */
           /* width: 248px; */
         }
 
@@ -633,13 +635,13 @@ export class SidebarDialogPreview extends LitElement {
           position: relative;
           display: block;
           outline: 0;
-          &:hover {
-            color: var(--primary-color);
-            background-color: rgb(from var(--primary-color) r g b / 0.1);
-          }
+          border-radius: 4px;
           /* width: 248px; */
+          cursor: pointer;
         }
-
+        a:hover > .icon-item {
+          background-color: var(--secondary-background-color);
+        }
         .icon-item {
           box-sizing: border-box;
           margin: 4px;

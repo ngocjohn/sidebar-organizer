@@ -61,6 +61,42 @@ export class SidebarDialogNewItems extends LitElement {
   @state() _selectedItem: NewItemConfig | null = null;
   @state() _yamlMode: boolean = false;
 
+  @state() _notificationExpanded: boolean = false;
+
+  protected update(changedProperties: PropertyValues): void {
+    super.update(changedProperties);
+    if (changedProperties.has('_selectedItemIndex') && this._selectedItemIndex !== null) {
+      setTimeout(() => {
+        this._observeExpansion();
+      }, 100); // Delay to ensure the DOM is updated
+    }
+  }
+
+  private _observeExpansion() {
+    const notificationForm = this.shadowRoot?.getElementById('notification-form');
+    const expandable = notificationForm?.shadowRoot?.querySelector('ha-form-expandable');
+    const panel = expandable?.shadowRoot?.querySelector('ha-expansion-panel');
+    if (!panel) return;
+
+    this._notificationExpanded = panel.hasAttribute('expanded');
+    // Ensure the panel has the 'expanded' attribute
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'expanded') {
+          const isExpanded = panel.hasAttribute('expanded');
+          console.log('Panel expanded changed:', isExpanded);
+          // You can call some method here
+          this._notificationExpanded = isExpanded;
+        }
+      }
+    });
+
+    observer.observe(panel, {
+      attributes: true,
+      attributeFilter: ['expanded'],
+    });
+  }
+
   private get groupKeys(): string[] {
     return Object.keys(this._sidebarConfig.custom_groups || {});
   }
@@ -88,7 +124,7 @@ export class SidebarDialogNewItems extends LitElement {
       type: 'expandable',
       title: 'Notification badge template',
       iconPath: mdiMessageBadgeOutline,
-      expanded: true,
+      expanded: false,
       schema: [
         {
           name: 'notification',
@@ -273,9 +309,10 @@ export class SidebarDialogNewItems extends LitElement {
                 .computeLabel=${this._computeLabel}
                 .computeHelper=${this._computeHelper}
                 @value-changed=${this._valueChanged}
+                id="notification-form"
               >
               </ha-form>
-              ${this._renderNotifyResult()}
+              ${this._notificationExpanded ? this._renderNotifyResult() : html``}
             `
           : html`
               <ha-yaml-editor
@@ -306,10 +343,11 @@ export class SidebarDialogNewItems extends LitElement {
     `;
   }
 
-  private _renderNotifyResult(): TemplateResult | typeof nothing {
+  private _renderNotifyResult(): TemplateResult {
     if (!this._selectedItem || !this._selectedItem.notification) {
-      return nothing;
+      return html``;
     }
+
     const notifyConfigValue = this._selectedItem.notification || '';
 
     this._subscribeTemplate(notifyConfigValue, (result) => {

@@ -121,7 +121,6 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   public _setupInitConfig = async () => {
-    // this._tabState = this._useConfigFile === true ? TAB_STATE.CODE : TAB_STATE.BASE;
     this._validateStoragePanels();
     this._validateConfigFile();
   };
@@ -501,6 +500,7 @@ export class SidebarConfigDialog extends LitElement {
 
     const customGroup = { ...this._sidebarConfig?.custom_groups };
     const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
+    const bottomItems = [...(this._sidebarConfig?.bottom_items || [])];
     let hiddenItems = [...(this._sidebarConfig?.hidden_items || [])];
 
     const hiddenItemsDiff = JSON.stringify(hiddenItems) !== JSON.stringify(initHiddenItems);
@@ -513,6 +513,11 @@ export class SidebarConfigDialog extends LitElement {
     // Remove collapsed groups that no longer exist in customGroup
     const updatedCollapsedGroups = defaultCollapsed.filter((group) => customGroup[group]);
 
+    // Remove default panel from bottom items
+    if (bottomItems.includes(defaultPanel)) {
+      bottomItems.splice(bottomItems.indexOf(defaultPanel), 1);
+    }
+
     // If there are any changes (default panel removed from group, hidden items or collapsed groups changed)
     if (hiddenItemsDiff || updatedCollapsedGroups.length !== defaultCollapsed.length) {
       console.log('updateSidebarItems', hiddenItemsDiff, updatedCollapsedGroups.length !== defaultCollapsed.length);
@@ -521,12 +526,14 @@ export class SidebarConfigDialog extends LitElement {
         custom_groups: customGroup,
         default_collapsed: updatedCollapsedGroups,
         hidden_items: initHiddenItems,
+        bottom_items: bottomItems,
       };
       setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);
     }
 
     // Filter out defaultPanel and 'lovelace' from the current panel order
     const _sidebarItems = currentPanelOrder.filter((item: string) => item !== defaultPanel && item !== 'lovelace');
+
     const configNewItems = this._sidebarConfig?.new_items || [];
     this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
     // Initialize panel combinations
@@ -582,6 +589,7 @@ export class SidebarConfigDialog extends LitElement {
           #sidebar-preview {
             max-width: none !important;
             width: 100%;
+            min-height: 600px;
           }
         }
         .dialog-content > * {
@@ -619,9 +627,11 @@ export class SidebarConfigDialog extends LitElement {
           top: 0px;
           padding: 0px;
           justify-items: center;
-          max-width: 260px;
+          max-width: 300px;
           max-height: fit-content;
           overflow: hidden;
+          align-content: center;
+          background-color: rgba(0, 0, 0, 0.2);
         }
 
         .config-content {

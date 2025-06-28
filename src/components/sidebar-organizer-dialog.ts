@@ -1,4 +1,4 @@
-import { ALERT_MSG, NAMESPACE, NAMESPACE_TITLE, REPO_URL, SLOT, TAB_STATE, VERSION } from '@constants';
+import { ALERT_MSG, HA_EVENT, NAMESPACE, NAMESPACE_TITLE, REPO_URL, SLOT, TAB_STATE, VERSION } from '@constants';
 import { mdiArrowExpand, mdiClose, mdiInformation } from '@mdi/js';
 
 import './sidebar-dialog';
@@ -38,6 +38,7 @@ export class SidebarOrganizerDialog extends LitElement {
 
   public async showDialog(param: SidebarConfigDialogParams): Promise<void> {
     this._open = true;
+    this._large = true; // Default to large dialog
     this._params = param;
   }
 
@@ -90,7 +91,7 @@ export class SidebarOrganizerDialog extends LitElement {
       config,
       useConfigFile: useConfigFile,
     };
-    fireEvent(this, 'save-sidebar-organizer-config', detail);
+    fireEvent(this, HA_EVENT.SIDEBAR_CONFIG_SAVED, detail);
     this._dialogClosed();
   }
 

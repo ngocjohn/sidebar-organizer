@@ -92,4 +92,6 @@ export const ALERT_MSG = {
   INVALID_UPLOADED_CONFIG:
     'The uploaded config is invalid with some errors. Fix them in the editor or upload a new config file.',
   CONFIG_CHANGED: 'The configuration has been changed. Do you want to save it?',
+  CLEAN_USER_DATA: `For using sidebar organizer you need to clear your synced settings in this user's Home Assistant profile.`,
+  CLEAN_SUCCESS_RELOAD: `Your synced settings have been cleared successfully.  Click 'OK' reload the page to apply the changes.`,
 };

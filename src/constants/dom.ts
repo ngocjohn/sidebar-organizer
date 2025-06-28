@@ -33,6 +33,7 @@ export enum ELEMENT {
   DIVIDER = 'div.divider',
   CONFIG_DASHBOARDS = 'ha-config-lovelace-dashboards',
   DIALOG_EDIT_SIDEBAR = 'dialog-edit-sidebar',
+  ITEMS_DISPLAY_EDITOR = 'ha-items-display-editor',
 }
 
 export enum CLASS {
