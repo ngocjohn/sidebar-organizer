@@ -5,10 +5,9 @@ import { removeHiddenItems } from '@utilities/configs/validators';
 import { isIcon } from '@utilities/is-icon';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
-import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup } from 'lit';
+import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { customElement, property, state } from 'lit/decorators';
-import Sortable from 'sortablejs';
 
 import { dialogStyles } from './dialog-css';
 import { SidebarConfigDialog } from './sidebar-dialog';
@@ -31,8 +30,6 @@ export class SidebarDialogGroups extends LitElement {
   @state() private _selectedNotification: string | null = null;
   @state() private _reloadItems = false;
   @state() private _reloadPanelItems: boolean = false;
-  @state() private _sortable: Sortable | null = null;
-  @state() private _panelSortable: Sortable | null = null;
 
   protected updated(_changedProperties: PropertyValues) {
     if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
@@ -141,12 +138,18 @@ export class SidebarDialogGroups extends LitElement {
       const panelName = this.hass.localize(`panel.${hassPanels[panel]?.title}`) || hassPanels[panel]?.title || panel;
       return { value: panel, label: panelName, icon: hassPanels[panel]?.icon };
     });
+
+    // Filter out items that are already in the notification config
+    const notifyConfig = this._sidebarConfig.notification || {};
+    const existingNotifications = Object.keys(notifyConfig);
+    const itemToSelect = options.filter((item) => !existingNotifications.includes(item.value));
+
     const selector = {
       select: {
         multiple: false,
         custom_value: false,
         mode: 'dropdown',
-        options: options,
+        options: itemToSelect,
         sort: true,
         required: false,
       },
@@ -155,11 +158,6 @@ export class SidebarDialogGroups extends LitElement {
     const selectedNotification = this._sidebarConfig.notification || {};
 
     const selected = options.filter((item) => Object.keys(selectedNotification).includes(item.value));
-
-    // const selected = options.filter((item) => {
-    //   const selectedItem = Object.keys(selectedNotification).includes(item.value);
-    //   return selectedItem;
-    // });
 
     const selectedEl = html`
       <div class="group-list">
@@ -365,6 +363,7 @@ export class SidebarDialogGroups extends LitElement {
                           ?hidden=${!isCollapsed(key)}
                           icon="mdi:eye-off-outline"
                           style="color: var(--disabled-color)"
+                          @click=${() => this._handleGroupAction('collapsed-group', key)}
                         ></ha-icon>
                         <ha-button-menu
                           .corner=${'TOP_LEFT'}
@@ -596,6 +595,10 @@ export class SidebarDialogGroups extends LitElement {
 
   private _renderSelectedItems(selectedType: string, selectedItems: string[]): TemplateResult {
     const hassPanels = this.hass?.panels;
+    const icon = (item: string) => {
+      return this._dialog._newItemMap.get(item)?.icon || hassPanels[item]?.icon || '';
+    };
+
     const selectedItemsArrayWithTitles = selectedItems.map((item) => {
       return {
         key: item,
@@ -604,12 +607,23 @@ export class SidebarDialogGroups extends LitElement {
           hassPanels[item]?.title ||
           hassPanels[item]?.url_path ||
           item,
+        icon: icon(item),
       };
     });
 
+    const renderItem = (item: { key: string; title: string; icon: string }, index: number) => {
+      return html`
+        <a data-panel=${item.key} data-index=${index}>
+          <div class="icon-item handle">
+            <ha-icon .icon=${item.icon}></ha-icon><span class="item-text">${item.title}</span>
+          </div>
+        </a>
+      `;
+    };
+    const typeTitle = selectedType === 'bottom_items' ? 'BOTTOM' : selectedType.replace(/_/g, ' ').toUpperCase();
     return html`
       <div class="header-row flex-icon">
-        <span>ITEMS ORDER</span>
+        <span>GROUP: ${typeTitle} - ORDER </span>
         <ha-icon-button .path=${mdiSortAlphabeticalVariant} @click=${() => this._sortItems(selectedType)}>
         </ha-icon-button>
       </div>
@@ -617,22 +631,43 @@ export class SidebarDialogGroups extends LitElement {
       ${this._reloadPanelItems
         ? html`<ha-spinner .size=${'small'}></ha-spinner> `
         : html` <ha-sortable handle-selector=".handle" @item-moved=${this._itemMoved}>
-            <ul class="selected-items" id="selected-items">
+            <div class="selected-items-preview" id="selected-items">
               ${repeat(
                 selectedItemsArrayWithTitles,
                 (item) => item.key,
                 (item, index) => {
-                  return html`<li data-panel=${item.key} data-index=${index} data-key=${item.key}>
-                    <div class="handle">
-                      <ha-icon icon="mdi:drag"></ha-icon>
-                    </div>
-                    ${item.title}
-                  </li>`;
+                  return renderItem(item, index);
                 }
               )}
-            </ul></ha-sortable
+            </div></ha-sortable
           >`}
     `;
+    // return html`
+    //   <div class="header-row flex-icon">
+    //     <span>ITEMS ORDER</span>
+    //     <ha-icon-button .path=${mdiSortAlphabeticalVariant} @click=${() => this._sortItems(selectedType)}>
+    //     </ha-icon-button>
+    //   </div>
+
+    //   ${this._reloadPanelItems
+    //     ? html`<ha-spinner .size=${'small'}></ha-spinner> `
+    //     : html` <ha-sortable handle-selector=".handle" @item-moved=${this._itemMoved}>
+    //         <ul class="selected-items" id="selected-items">
+    //           ${repeat(
+    //             selectedItemsArrayWithTitles,
+    //             (item) => item.key,
+    //             (item, index) => {
+    //               return html`<li data-panel=${item.key} data-index=${index} data-key=${item.key}>
+    //                 <div class="handle">
+    //                   <ha-icon icon="mdi:drag"></ha-icon>
+    //                 </div>
+    //                 ${item.title}
+    //               </li>`;
+    //             }
+    //           )}
+    //         </ul></ha-sortable
+    //       >`}
+    // `;
   }
 
   private _itemMoved = (ev: CustomEvent): void => {
@@ -745,13 +780,15 @@ export class SidebarDialogGroups extends LitElement {
       return { value: panel, label: panelName };
     });
 
-    options.sort((a, b) => a.label.localeCompare(b.label));
+    // options.sort((a, b) => a.label.localeCompare(b.label));
 
     const selector = {
       select: {
         multiple: true,
         mode: mode,
         options: options,
+        sort: true,
+        reorder: true,
       },
     };
     return selector;
@@ -838,7 +875,55 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   static get styles(): CSSResultGroup {
-    return [dialogStyles];
+    return [
+      css`
+        .selected-items-preview {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          width: 100%;
+          overflow-y: auto;
+          scrollbar-color: var(--scrollbar-thumb-color) transparent;
+          scrollbar-width: thin;
+        }
+        a {
+          text-decoration: none;
+          color: var(--sidebar-text-color);
+          font-weight: 500;
+          font-size: 14px;
+          position: relative;
+          display: block;
+          outline: 0;
+          border-radius: 4px;
+          /* width: 248px; */
+          cursor: pointer;
+        }
+        a:hover > .icon-item {
+          background-color: var(--secondary-background-color);
+        }
+        .icon-item {
+          box-sizing: border-box;
+          margin: 4px;
+          padding-left: 12px;
+          padding-inline-start: 12px;
+          padding-inline-end: initial;
+          border-radius: 4px;
+          display: flex;
+          min-height: 40px;
+          align-items: center;
+          padding: 0 16px;
+        }
+        .icon-item > ha-icon {
+          width: 56px;
+          color: var(--sidebar-icon-color);
+        }
+        .icon-item span.item-text {
+          display: block;
+          max-width: calc(100% - 56px);
+        }
+      `,
+      dialogStyles,
+    ];
   }
 }
 

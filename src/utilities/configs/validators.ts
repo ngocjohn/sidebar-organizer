@@ -182,14 +182,6 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
     bottom_items: updatedBottomItems,
     hidden_items: updatedHiddenItems,
   };
-  // chech updated config if it is valid
-  const isValid = isItemsValid(correctedConfig, hass) as boolean;
-  if (!isValid) {
-    console.warn('Config is still not valid after correction:', correctedConfig);
-    // try to correct again
-    return tryCorrectConfig(correctedConfig, hass);
-  }
-  console.log('Config corrected successfully:', correctedConfig);
 
   return correctedConfig;
 };

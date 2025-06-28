@@ -1,4 +1,4 @@
-import { CLASS, ELEMENT, SELECTOR } from '@constants';
+import { CLASS, ELEMENT, PATH, SELECTOR } from '@constants';
 import { HaExtened, SidebarPanelItem } from '@types';
 import { getPromisableResult } from 'get-promisable-result';
 import { html, TemplateResult } from 'lit';
@@ -103,21 +103,18 @@ export const resetBottomItems = (paperListBox: HTMLElement): void => {
   const bottomItems = paperListBox.querySelectorAll(`${ELEMENT.ITEM}[moved]`) as NodeListOf<HTMLElement>;
   if (bottomItems.length === 0) return;
   const spacerEl = paperListBox.querySelector(SELECTOR.SPACER) as HTMLElement;
+  const dividerBottom = paperListBox.querySelector(`${ELEMENT.DIVIDER}[bottom]`) as HTMLElement;
+  dividerBottom?.remove();
   bottomItems.forEach((item) => {
-    const nextItem = item.nextElementSibling;
-    if (nextItem && nextItem.classList.contains('divider')) {
-      paperListBox.removeChild(nextItem);
-    }
-    paperListBox.removeChild(item);
     item.removeAttribute('moved');
     paperListBox.insertBefore(item, spacerEl);
   });
 };
 
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
-  // if (path === PATH.LOVELACE_DASHBOARD) {
-  //   resetBottomItems(paperListbox);
-  // }
+  if (path === PATH.LOVELACE_DASHBOARD) {
+    resetBottomItems(paperListbox);
+  }
 
   const items = Array.from<SidebarPanelItem>(paperListbox?.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM));
 
@@ -161,9 +158,10 @@ export const getInitPanelOrder = async (haEl: HaExtened): Promise<string[]> => {
     shouldReject: false,
   };
 
-  const dialog = haEl.shadowRoot
-    ?.querySelector('dialog-edit-sidebar')
-    ?.shadowRoot?.querySelector('ha-items-display-editor') as any;
+  const dialog = await getSiderbarEditDialog(haEl).then((dialog) => {
+    return dialog?.shadowRoot?.querySelector(ELEMENT.ITEMS_DISPLAY_EDITOR) as any;
+  });
+
   console.log('getInitPanelOrder dialog', dialog);
   const panelItems = await getPromisableResult<string[]>(
     () => {
