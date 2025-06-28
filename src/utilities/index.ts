@@ -12,6 +12,8 @@ export * from './localize';
 export * from './tap-action';
 export * from './frontend';
 export * from './action';
+export * from './sidebar-config-changed';
+export * from './create-ha-form';
 import memoizeOne from 'memoize-one';
 
 export const localizeWeekdays = memoizeOne((language: string, short: boolean): string[] => {

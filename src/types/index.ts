@@ -100,7 +100,7 @@ export interface DividerColorSettings {
   divider_text_color?: string;
   scrollbar_thumb_color?: string;
   sidebar_icon_color?: string;
-  custom_styles?: Array<CustomStyles>;
+  custom_styles?: CustomStyles;
 }
 
 export interface CustomStyles {
@@ -109,7 +109,7 @@ export interface CustomStyles {
 
 export type CustomTheme = {
   theme?: string;
-  mode?: 'auto' | 'dark' | 'light';
+  mode?: 'dark' | 'light';
 };
 
 export interface NotificationConfig {

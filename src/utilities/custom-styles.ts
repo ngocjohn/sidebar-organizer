@@ -13,47 +13,39 @@ const cleanCss = (cssString: string): string | void => {
   return cleanedString;
 };
 
-export const convertCustomStyles = (customStyles: CustomStyles[] | null | undefined): string | null => {
-  if (!Array.isArray(customStyles) || customStyles.length === 0) {
+export const convertCustomStyles = (customStyles: CustomStyles): string | null => {
+  if (!customStyles || Object.keys(customStyles).length === 0) {
     return null;
   }
   let cssString = ':host {';
 
-  customStyles
-    .filter((style) => style && typeof style === 'object') // Filter out null, undefined, or non-objects
-    .forEach((style) => {
-      Object.entries(style).forEach(([key, value]) => {
-        if (value != null) {
-          // Ensure value is not null or undefined
-          cssString += `${key}: ${cleanCss(value)} !important;`;
-        }
-      });
-    });
+  // Iterate over the customStyles object and build the CSS string
+  Object.entries(customStyles).forEach(([key, value]) => {
+    if (value != null) {
+      // Ensure value is not null or undefined
+      cssString += `${key}: ${cleanCss(value)} !important;`;
+    }
+  });
 
   cssString += '}';
   console.log(cssString);
   return cssString;
 };
 
-export const convertPreviewCustomStyles = (
-  customStyles: CustomStyles[] | null | undefined
-): { [key: string]: string } | null => {
-  if (!Array.isArray(customStyles) || customStyles.length === 0) {
+export const convertPreviewCustomStyles = (customStyles: CustomStyles): { [key: string]: string } | null => {
+  if (!customStyles || Object.keys(customStyles).length === 0) {
     return null;
   }
 
   const styleObj: { [key: string]: string } = {};
 
-  customStyles
-    .filter((style) => style && typeof style === 'object') // Filter out null, undefined, or  non-objects
-    .forEach((style) => {
-      Object.entries(style).forEach(([key, value]) => {
-        if (value != null) {
-          // Ensure value is not null or undefined
-          styleObj[key] = `${cleanCss(value)}`;
-        }
-      });
-    });
+  // Iterate over the customStyles object and build the style object
+  Object.entries(customStyles).forEach(([key, value]) => {
+    if (value != null) {
+      // Ensure value is not null or undefined
+      styleObj[key] = `${cleanCss(value)} !important`;
+    }
+  });
 
   return styleObj;
 };

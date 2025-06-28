@@ -28,8 +28,19 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import { SidebarConfig } from '@types';
+
+export interface ConfigChangedEvent {
+  config: SidebarConfig;
+}
+
 declare global {
-  interface HASSDomEvents {}
+  interface HASSDomEvents {
+    'sidebar-config-changed': ConfigChangedEvent;
+  }
+  interface HTMLElementEventMap {
+    'sidebar-config-changed': ConfigChangedEvent;
+  }
 }
 
 export type ValidHassDomEvent = keyof HASSDomEvents;

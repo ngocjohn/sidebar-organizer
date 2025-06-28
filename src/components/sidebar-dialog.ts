@@ -20,6 +20,7 @@ import {
   getHiddenPanels,
   sidebarUseConfigFile,
 } from '@utilities/storage-utils';
+import { ValidHassDomEvent } from 'custom-card-helpers/dist/fire-event';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators';
 import YAML from 'yaml';
@@ -60,8 +61,10 @@ export class SidebarConfigDialog extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    this._useConfigFile = sidebarUseConfigFile();
     this._connected = true;
+    this._useConfigFile = sidebarUseConfigFile();
+    this._tabState = this._useConfigFile === true ? TAB_STATE.CODE : TAB_STATE.BASE;
+    this.addEventListener('sidebar-config-changed', this._sidebarConfigChanged.bind(this));
     window.sidebarDialog = this;
   }
 
@@ -90,22 +93,23 @@ export class SidebarConfigDialog extends LitElement {
       const newConfig = this._sidebarConfig;
       if (oldConfig !== undefined && newConfig) {
         const newItemsChanged = JSON.stringify(oldConfig.new_items) !== JSON.stringify(newConfig.new_items);
-        console.log('New items changed:', newItemsChanged);
+
         if (newItemsChanged && newConfig.new_items) {
-          console.log('Updating new item map');
+          console.log('New items changed, updating new item map');
           this._newItemMap = new Map(newConfig.new_items.map((item: NewItemConfig) => [item.title!, item]));
           // console.log('New item map:', this._newItemMap);
           // compare the new items with initCombiPanels if is new added or removed
         }
       }
       const curentNewItems = [...this._newItems];
-      console.log('Current new items:', curentNewItems);
+      // console.log('Current new items:', curentNewItems);
 
       const _newConfigChanged =
         JSON.stringify(curentNewItems) !== JSON.stringify(newConfig.new_items?.map((item) => item.title!) || []);
-      console.log('New config changed:', _newConfigChanged);
+      // console.log('New config changed:', _newConfigChanged);
 
       if (_newConfigChanged) {
+        console.log('New config changed, updating new items and init combi panels', newConfig.new_items);
         this._newItems = newConfig.new_items?.map((item) => item.title!) || [];
         console.log('New items updated:', this._newItems);
         this._initCombiPanels = this._initCombiPanels.filter((item) => !curentNewItems.includes(item));
@@ -117,7 +121,7 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   public _setupInitConfig = async () => {
-    this._tabState = this._useConfigFile === true ? TAB_STATE.CODE : TAB_STATE.BASE;
+    // this._tabState = this._useConfigFile === true ? TAB_STATE.CODE : TAB_STATE.BASE;
     this._validateStoragePanels();
     this._validateConfigFile();
   };
@@ -443,9 +447,12 @@ export class SidebarConfigDialog extends LitElement {
     }
   };
 
-  private _autoCorrectConfig = (config: SidebarConfig): SidebarConfig => {
-    return tryCorrectConfig(config, this.hass);
-  };
+  private _sidebarConfigChanged(event: HASSDomEvents[ValidHassDomEvent]) {
+    event.stopPropagation();
+    const newConfig = event.detail.config as SidebarConfig;
+    // Update the sidebar config
+    this._sidebarConfig = newConfig;
+  }
 
   private _handleInvalidConfig = async (action: 'check' | 'auto-correct' | 'save') => {
     if (!this._invalidConfig || Object.keys(this._invalidConfig).length === 0) {
