@@ -1,3 +1,24 @@
+<a id="v2.1.0"></a>
+# [v2.1.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v2.1.0) - 2025-06-28
+
+<!-- Release notes generated using configuration in .github/release.yml at v2.1.0 -->
+
+## What's Changed
+### Fixes 🐛
+- **Compatibility with Home Assistant 2025.6**
+The plugin now supports the new Home Assistant 2025.6 release, which no longer stores panel order in browser local storage. Sidebar Organizer has been updated to handle this change seamlessly while maintaining backward compatibility with earlier versions.
+- **New Items with Actions Support**
+Introduced support for dynamically adding new sidebar items with associated actions. This allows custom items to be injected into the sidebar with enhanced interactivity and control.
+
+### Other Changes
+- **Auto-Correction for Invalid Configurations**
+A new safeguard mechanism has been implemented to automatically correct uploaded configurations if they are detected to be invalid. This ensures better stability and fewer crashes due to malformed or outdated sidebar setups.
+
+**Full Changelog**: https://github.com/ngocjohn/sidebar-organizer/compare/v2.0.0...v2.1.0
+
+[Changes][v2.1.0]
+
+
 <a id="v2.0.0"></a>
 # [v2.0.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v2.0.0) - 2025-05-07
 
@@ -145,6 +166,7 @@ With Sidebar Organizer, managing the sidebar in Home Assistant becomes easy and 
 [Changes][v1.0.0]
 
 
+[v2.1.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v2.0.0...v2.1.0
 [v2.0.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.4.0...v2.0.0
 [v1.4.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.2.0...v1.3.0
