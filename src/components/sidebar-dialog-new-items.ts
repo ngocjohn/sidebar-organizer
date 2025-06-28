@@ -4,7 +4,7 @@ import { isIcon } from '@utilities/is-icon';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
-import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup } from 'lit';
+import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { customElement, property, state } from 'lit/decorators';
 import memoizeOne from 'memoize-one';
@@ -82,28 +82,23 @@ export class SidebarDialogNewItems extends LitElement {
     },
   ] as const;
 
-  // private _actionsSchema = memoizeOne(() => [
-  //   {
-  //     name: '',
-  //     type: 'expandable',
-  //     iconPath: mdiGestureTap,
-  //     title: 'Interaction',
-  //     flatten: true,
-  //     schema: [
-  //       {
-  //         name: 'entity',
-  //         selector: { entity: {} },
-  //         helper: 'Entity to control when the button is pressed',
-  //       },
-  //       {
-  //         name: '',
-  //         type: 'optional_actions',
-  //         flatten: true,
-  //         schema: computeOptionalActionSchema(),
-  //       },
-  //     ],
-  //   },
-  // ]);
+  private _notificationSchema = [
+    {
+      name: '',
+      type: 'expandable',
+      title: 'Notification badge template',
+      iconPath: mdiMessageBadgeOutline,
+      expanded: true,
+      schema: [
+        {
+          name: 'notification',
+          selector: {
+            template: {},
+          },
+        },
+      ],
+    },
+  ] as const;
 
   private _configSchema = memoizeOne(
     (groupsOptions: string[]) =>
@@ -132,22 +127,6 @@ export class SidebarDialogNewItems extends LitElement {
                     })),
                   ],
                 },
-              },
-            },
-          ],
-        },
-
-        {
-          name: '',
-          type: 'expandable',
-          title: 'Notification badge template',
-          iconPath: mdiMessageBadgeOutline,
-          expanded: true,
-          schema: [
-            {
-              name: 'notification',
-              selector: {
-                template: {},
               },
             },
           ],
@@ -226,20 +205,12 @@ export class SidebarDialogNewItems extends LitElement {
     const newItems = this._sidebarConfig.new_items![this._selectedItemIndex!];
     const headerBack = html` <div class="header-row">
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedItemIndex = null)}> </ha-icon-button>
-      <ha-button
-        outlined
-        .label=${this._yamlMode ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR}
-        style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
-        @click=${() => {
-          this._yamlMode = !this._yamlMode;
-        }}
-      ></ha-button>
     </div>`;
+
     const baseData = { ...this._sidebarConfig.new_items![this._selectedItemIndex!] };
     const dataWithoutActions = {
       icon: baseData.icon,
       group: baseData.group,
-      notification: baseData.notification,
     };
     const actionData = {
       entity: baseData.entity,
@@ -248,15 +219,20 @@ export class SidebarDialogNewItems extends LitElement {
       double_tap_action: baseData.double_tap_action,
     };
 
+    const notificationData = {
+      notification: baseData.notification,
+    };
+
     const baseSchema = this._configSchema(this.groupKeys);
     const actionSchema = this._actionsSchema;
+    const notificationSchema = this._notificationSchema;
 
     return html`
       ${headerBack}
       <div class="config-content">
         ${!this._yamlMode
           ? html`
-              <div class="group-item-row" style="padding-inline: 1rem">
+              <div class="group-item-row item-name-row">
                 <div class="group-name">
                   <ha-icon icon=${newItems.icon}></ha-icon>
                   <div class="group-name-items">
@@ -281,7 +257,6 @@ export class SidebarDialogNewItems extends LitElement {
                 @value-changed=${this._valueChanged}
               >
               </ha-form>
-              ${this._renderNotifyResult()}
               <ha-form
                 .hass=${this.hass}
                 .data=${actionData}
@@ -291,6 +266,16 @@ export class SidebarDialogNewItems extends LitElement {
                 @value-changed=${this._valueChanged}
               >
               </ha-form>
+              <ha-form
+                .hass=${this.hass}
+                .data=${notificationData}
+                .schema=${notificationSchema}
+                .computeLabel=${this._computeLabel}
+                .computeHelper=${this._computeHelper}
+                @value-changed=${this._valueChanged}
+              >
+              </ha-form>
+              ${this._renderNotifyResult()}
             `
           : html`
               <ha-yaml-editor
@@ -307,6 +292,16 @@ export class SidebarDialogNewItems extends LitElement {
                 }}
               ></ha-yaml-editor>
             `}
+        <div class="header-row flex-end">
+          <ha-button
+            outlined
+            .label=${this._yamlMode ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR}
+            style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
+            @click=${() => {
+              this._yamlMode = !this._yamlMode;
+            }}
+          ></ha-button>
+        </div>
       </div>
     `;
   }
@@ -598,7 +593,17 @@ export class SidebarDialogNewItems extends LitElement {
   }
 
   static get styles(): CSSResultGroup {
-    return [dialogStyles];
+    return [
+      css`
+        .item-name-row {
+          padding: 0.5em;
+          border: 1px solid var(--divider-color);
+          border-radius: 4px;
+          background-color: var(--secondary-background-color);
+        }
+      `,
+      dialogStyles,
+    ];
   }
 }
 

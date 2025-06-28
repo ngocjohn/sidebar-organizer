@@ -1,15 +1,18 @@
 import { COLOR_CONFIG_KEYS } from '@constants';
 import iro from '@jaames/iro';
 import { mdiRefresh } from '@mdi/js';
-import { DividerColorSettings, HaExtened, SidebarConfig } from '@types';
+import { CustomTheme, DividerColorSettings, HaExtened, SidebarConfig } from '@types';
 import { applyTheme } from '@utilities/apply-theme';
+import { createHaForm } from '@utilities/create-ha-form';
 import { getDefaultThemeColors } from '@utilities/custom-styles';
 import { createExpansionPanel } from '@utilities/dom-utils';
+import { fireEvent } from '@utilities/fire_event';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import { styleMap } from 'lit/directives/style-map.js';
 import tinycolor from 'tinycolor2';
 
+import { CUSTOM_THEME_SCHEMA, headerSchema } from './forms';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
 enum THEME_STATE {
@@ -18,15 +21,13 @@ enum THEME_STATE {
   ERROR = 3,
 }
 
-const HOME_ASSISTANT_THEME = 'default';
-
 @customElement('sidebar-dialog-colors')
 export class SidebarDialogColors extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
   @property({ attribute: false }) _dialog!: SidebarConfigDialog;
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
-  @state() private _colorConfigMode: string = '';
+  @state() private _colorConfigMode: string = 'light'; // Default mode, can be 'light' or 'dark'
   @state() private _picker: iro.ColorPicker | null = null;
   @state() private _currentConfigValue: string | undefined;
   @state() private _baseColorFromTheme: DividerColorSettings = {};
@@ -34,8 +35,10 @@ export class SidebarDialogColors extends LitElement {
   @state() private _state: THEME_STATE = THEME_STATE.LOADING;
 
   private _initColor: string = '';
-  @state() private _initCustomStyles: Array<Record<string, string>> = [];
+  @state() private _initCustomStyles: DividerColorSettings['custom_styles'] = {};
   @state() private _yamlEditor: any;
+
+  @state() private _colorConfigByMode?: DividerColorSettings;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -43,7 +46,9 @@ export class SidebarDialogColors extends LitElement {
 
   protected firstUpdated(_changedProperties: PropertyValues): void {
     super.firstUpdated(_changedProperties);
-    const colorMode = this.hass.themes.darkMode ? 'dark' : 'light';
+    const colorMode =
+      this._sidebarConfig?.color_config?.custom_theme?.mode || (this.hass.themes.darkMode ? 'dark' : 'light');
+
     this._colorConfigMode = colorMode;
   }
 
@@ -51,31 +56,16 @@ export class SidebarDialogColors extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       return true;
     }
+
     if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode) {
       this._setTheme(this._colorConfigMode);
       this._state = THEME_STATE.LOADING;
-      this._initCustomStyles = this._sidebarConfig.color_config?.[this._colorConfigMode]?.custom_styles || [];
+      this._initCustomStyles = this._sidebarConfig.color_config?.[this._colorConfigMode]?.custom_styles || {};
       setTimeout(() => {
         this._state = THEME_STATE.READY;
-      }, 500);
+      }, 200);
       return true;
     }
-
-    // if (_changedProperties.has('_yamlEditor') && this._yamlEditor !== undefined) {
-    //   this._yamlEditor._codeEditor.linewrap = true;
-    //   const cardActions = this._yamlEditor.shadowRoot?.querySelector('.card-actions');
-    //   const actionStyles = {
-    //     display: 'flex',
-    //     justifyContent: 'space-between',
-    //     width: '100%',
-    //     padding: '0',
-    //     border: 'none',
-    //   };
-    //   if (cardActions) {
-    //     Object.assign(cardActions.style, actionStyles);
-    //   }
-    //   return true;
-    // }
 
     return true;
   }
@@ -95,17 +85,15 @@ export class SidebarDialogColors extends LitElement {
     }
 
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig.color_config?.custom_theme) {
-      const oldTheme = _changedProperties.get('_sidebarConfig')?.color_config?.custom_theme?.theme as
-        | string
-        | undefined;
-      const newTheme = this._sidebarConfig.color_config!.custom_theme.theme as string;
-      if (oldTheme && oldTheme !== newTheme) {
-        if (!this._supportsMode(newTheme)) {
+      const oldTheme = _changedProperties.get('_sidebarConfig')?.color_config?.custom_theme as CustomTheme | undefined;
+      const newTheme = this._sidebarConfig.color_config?.custom_theme;
+      if (oldTheme && newTheme && oldTheme.theme !== newTheme.theme && newTheme.theme !== undefined) {
+        if (!this._supportsMode(newTheme.theme)) {
           console.log('Theme does not support modes');
           const lightRgx = /light/i;
           const darkRgx = /dark/i;
-          const isLightMode = lightRgx.test(newTheme);
-          const isDarkMode = darkRgx.test(newTheme);
+          const isLightMode = lightRgx.test(newTheme.theme);
+          const isDarkMode = darkRgx.test(newTheme.theme);
           if (isLightMode) {
             this._colorConfigMode = 'light';
           } else if (isDarkMode) {
@@ -117,7 +105,7 @@ export class SidebarDialogColors extends LitElement {
           // console.log('this._colorConfigMode', this._colorConfigMode);
         } else {
           console.log('Theme supports modes');
-          const themeObj = this.hass.themes.themes[newTheme];
+          const themeObj = this.hass.themes.themes[newTheme.theme];
           const modes = themeObj.modes;
           if (modes && typeof modes === 'object') {
             const modeKeys = Object.keys(modes);
@@ -130,6 +118,9 @@ export class SidebarDialogColors extends LitElement {
             this._colorConfigMode = this.hass.themes.darkMode ? 'dark' : 'light';
           }
         }
+      }
+      if (oldTheme && newTheme && oldTheme.mode !== newTheme.mode) {
+        this._colorConfigMode = newTheme.mode || (this.hass.themes.darkMode ? 'dark' : 'light');
       }
     }
   }
@@ -268,7 +259,7 @@ export class SidebarDialogColors extends LitElement {
   protected render(): TemplateResult {
     return html`
       <div id="theme-container"></div>
-      <div class="color-container">${this._renderHeaderConfigFields()} ${this._renderColorConfigFields()}</div>
+      <div class="color-container">${createHaForm(this, headerSchema)} ${this._renderColorConfigFields()}</div>
     `;
   }
 
@@ -292,39 +283,6 @@ export class SidebarDialogColors extends LitElement {
         </div>
       </div>
     `;
-  }
-
-  private _renderHeaderConfigFields(): TemplateResult {
-    const headerTitle = this._sidebarConfig?.header_title ?? '';
-    const headerToggle = this._sidebarConfig?.hide_header_toggle ?? false;
-
-    const headerConfig = [
-      {
-        value: headerTitle,
-        configValue: 'header_title',
-        label: 'Header Title',
-        placeholder: 'Sidebar Organizer',
-        pickerType: 'text' as 'text',
-      },
-      {
-        value: headerToggle,
-        label: 'Hide Header Toggle',
-        configValue: 'hide_header_toggle',
-        pickerType: 'boolean' as 'boolean',
-      },
-    ];
-
-    const content = html` <div class="config-colors">${headerConfig.map((item) => this._createPicker(item))}</div> `;
-
-    return createExpansionPanel({
-      content,
-      options: {
-        expanded: true,
-        header: 'Header Configuration',
-        icon: 'mdi:format-text',
-        secondary: 'Customize the header of the sidebar',
-      },
-    });
   }
 
   private _renderColorConfigFields(): TemplateResult {
@@ -360,6 +318,7 @@ export class SidebarDialogColors extends LitElement {
       options: {
         expanded: false,
         header: 'Custom colors and styles',
+        darkBg: true,
       },
     });
 
@@ -371,7 +330,7 @@ export class SidebarDialogColors extends LitElement {
     return createExpansionPanel({
       content,
       options: {
-        expanded: false,
+        expanded: true,
         header: 'Color Configuration',
         icon: 'mdi:palette',
         secondary: 'Customize the colors of the sidebar',
@@ -380,123 +339,47 @@ export class SidebarDialogColors extends LitElement {
   }
 
   private _renderThemePickerRow(): TemplateResult {
-    const themeModes = [
-      { value: 'light', label: 'Light Mode' },
-      { value: 'dark', label: 'Dark Mode' },
-    ];
-
     const themeSettings = this._sidebarConfig?.color_config?.custom_theme;
     const curTheme = themeSettings?.theme || this.hass.themes.theme;
     const colorMode = this._colorConfigMode as 'light' | 'dark';
 
-    const themeSelect = html`
-      <div class="config-colors">
-        <ha-selector
-          .hass=${this.hass}
-          .label=${this.hass.localize('ui.panel.profile.themes.dropdown_label')}
-          .value=${curTheme}
-          .selector=${{
-            theme: {
-              include_default: false,
-            },
-          }}
-          .required=${false}
-          @value-changed=${this._handleThemeChange}
-        ></ha-selector>
-        <ha-selector
-          .hass=${this.hass}
-          .label=${'Theme Mode'}
-          .value=${themeSettings?.mode || 'auto'}
-          .disabled=${!this._supportsMode(curTheme)}
-          .selector=${{
-            select: {
-              mode: 'dropdown',
-              options: [
-                { value: 'auto', label: 'Auto' },
-                ...themeModes.map((mode) => ({ value: mode.value, label: mode.label })),
-              ],
-            },
-          }}
-          }
-          @value-changed=${this._handleForceModeChange}
-          .required=${false}
-        ></ha-selector>
-      </div>
-    `;
+    const THEME_DATA = {
+      color_config: {
+        ...this._sidebarConfig.color_config,
+        custom_theme: { ...themeSettings },
+      },
+    };
 
     const modesRadio = html` <div class="header-row">
       <div class="title">Select mode to edit:</div>
       <div class="inputs">
         <ha-formfield .label=${'Light Mode'}>
-          <ha-radio @change=${this._handleDarkMode} name="dark_mode" value="light" .checked=${colorMode === 'light'}>
+          <ha-radio
+            @change=${(ev) => {
+              this._colorConfigMode = (ev.target as HTMLInputElement).value;
+            }}
+            name="dark_mode"
+            value="light"
+            .checked=${colorMode === 'light'}
+          >
           </ha-radio>
         </ha-formfield>
         <ha-formfield .label=${'Dark Mode'}>
-          <ha-radio @change=${this._handleDarkMode} name="dark_mode" value="dark" .checked=${colorMode === 'dark'}>
+          <ha-radio
+            @change=${(ev) => {
+              this._colorConfigMode = (ev.target as HTMLInputElement).value;
+            }}
+            name="dark_mode"
+            value="dark"
+            .checked=${colorMode === 'dark'}
+          >
           </ha-radio>
         </ha-formfield>
       </div>
     </div>`;
 
-    return html`${themeSelect} ${this._supportsMode(curTheme) ? modesRadio : nothing}`;
-  }
-
-  private _handleDarkMode(ev: CustomEvent): void {
-    const selectedMode = (ev.target as HTMLInputElement).value;
-    this._colorConfigMode = selectedMode;
-  }
-
-  private _handleThemeChange(ev: CustomEvent): void {
-    ev.stopPropagation();
-    const theme = ev.detail.value;
-    if (!this._sidebarConfig) return;
-    const colorConfig = { ...(this._sidebarConfig.color_config || {}) };
-
-    if (colorConfig.custom_theme?.theme === theme) {
-      // If the selected theme is already applied, do nothing
-      return;
-    }
-
-    if (theme === HOME_ASSISTANT_THEME) {
-      // Remove custom theme settings if the default theme is selected
-      delete colorConfig.custom_theme;
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        color_config: colorConfig,
-      };
-      this._dispatchConfig(this._sidebarConfig);
-      this._colorConfigMode = this.hass.themes.darkMode ? 'dark' : 'light';
-      return;
-    } else {
-      const themeSettings = { ...(colorConfig.custom_theme || {}) };
-      themeSettings.theme = theme;
-      colorConfig.custom_theme = themeSettings;
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        color_config: colorConfig,
-      };
-      this._dispatchConfig(this._sidebarConfig);
-      // Set the color mode based on the selected theme
-    }
-  }
-
-  private _handleForceModeChange(ev: CustomEvent): void {
-    ev.stopPropagation();
-    const selectedMode = ev.detail.value;
-    const themeSettings = { ...(this._sidebarConfig?.color_config?.custom_theme || {}) };
-    if (selectedMode === 'auto' || selectedMode === '') {
-      delete themeSettings.mode;
-    } else {
-      themeSettings.mode = selectedMode;
-    }
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      color_config: {
-        ...this._sidebarConfig.color_config,
-        custom_theme: themeSettings,
-      },
-    };
-    this._dispatchConfig(this._sidebarConfig);
+    return html`${createHaForm(this, CUSTOM_THEME_SCHEMA(!this._supportsMode(curTheme)), THEME_DATA)}
+    ${this._supportsMode(curTheme) ? modesRadio : nothing}`;
   }
 
   private _handleColorPicker(action: string) {
@@ -584,7 +467,6 @@ export class SidebarDialogColors extends LitElement {
                 <ha-button @click=${() => this._handleColorPicker('rgb')}>RGBA</ha-button>
               </div>`
             : html` <a
-                href="#"
                 class="color-picker-box"
                 style=${styleMap(colorPickerBoxStyle)}
                 @click=${() => this._toggleColorPicker(configValue)}
@@ -599,14 +481,15 @@ export class SidebarDialogColors extends LitElement {
   private _renderCustomStylesField(): TemplateResult {
     if (!this._sidebarConfig || !this._colorConfigMode) return html``;
     if (this._state === THEME_STATE.LOADING) {
-      return html`<ha-circular-progress .indeterminate=${true} .size=${'small'}></ha-circular-progress>`;
+      return html`<ha-fade-in .delay=${500}><ha-spinner size="large"></ha-spinner></ha-fade-in>`;
     }
 
+    const currentStyleConfig = this._initCustomStyles || {};
     return html`
       <div class="color-item" id="custom_styles">
           <ha-yaml-editor
             .hass=${this.hass}
-            .defaultValue=${this._initCustomStyles}
+            .defaultValue=${currentStyleConfig}
             .copyClipboard=${true}
             .configValue=${'custom_styles'}
             .hasExtraActions=${true}
@@ -627,32 +510,30 @@ export class SidebarDialogColors extends LitElement {
     const detail = ev.detail;
     const { isValid, value } = detail;
     const isArray = Array.isArray(value);
-
-    const updates: Partial<SidebarConfig['color_config']> = {};
-
-    const currentColorMode = this._colorConfigMode as 'light' | 'dark';
-    let colorConfig = { ...(this._sidebarConfig.color_config || {}) };
-    let currentModeConfig = { ...(colorConfig[currentColorMode] || {}) };
-
     if (!isValid) {
-      return;
-    } else if (!isArray) {
       console.error('Invalid custom styles:', value);
-      updates[currentColorMode] = { ...currentModeConfig, custom_styles: [] };
-    } else {
-      updates[currentColorMode] = { ...currentModeConfig, custom_styles: value };
+      return;
     }
+    const currentColorMode = this._colorConfigMode as 'light' | 'dark';
 
-    if (Object.keys(updates).length > 0) {
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        color_config: {
-          ...colorConfig,
-          ...updates,
-        },
-      };
-      this._dispatchConfig(this._sidebarConfig);
+    const colorConfig = { ...(this._sidebarConfig.color_config || {}) };
+    let currentModeConfig = { ...(colorConfig[currentColorMode] || {}) };
+    if (isArray) {
+      console.error('Value is not object:', value);
+      currentModeConfig.custom_styles = {};
+    } else {
+      currentModeConfig.custom_styles = value;
     }
+    colorConfig[currentColorMode] = currentModeConfig;
+
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      color_config: {
+        ...colorConfig,
+      },
+    };
+    console.log('Updated custom styles:', this._sidebarConfig?.color_config![currentColorMode]!.custom_styles);
+    fireEvent(this, 'sidebar-config-changed', { config: this._sidebarConfig });
   }
 
   private _toggleColorPicker(configValue: string) {
@@ -739,10 +620,10 @@ export class SidebarDialogColors extends LitElement {
     } else if (configValue === 'currentMode') {
       delete colorConfig[colorMode];
     } else if (configValue === 'custom_styles') {
-      this._initCustomStyles = [];
+      this._initCustomStyles = {};
       this._yamlEditor._codeEditor.value = '';
       // Explicitly set custom_styles to an empty array before spreading
-      currentModeConfig.custom_styles = [];
+      currentModeConfig.custom_styles = {};
       colorConfig[colorMode] = currentModeConfig;
       console.log('Reset custom styles:', colorConfig[colorMode]);
     } else {
@@ -769,10 +650,6 @@ export class SidebarDialogColors extends LitElement {
     const configMode = ev.target.modeConfig;
     const value = ev.detail.value;
     console.log('configValue', configValue, 'configType', configType, 'value', value, 'configMode', configMode);
-    if (['header_title', 'hide_header_toggle'].includes(configValue)) {
-      this._handleHeaderConfigChange(configValue, value);
-      return;
-    }
 
     const updates: Partial<SidebarConfig['color_config']> = {};
 
@@ -811,22 +688,19 @@ export class SidebarDialogColors extends LitElement {
     this._dispatchConfig(this._sidebarConfig);
   }
 
-  private _handleHeaderConfigChange(configValue: string, value: string | boolean) {
-    const updates: Partial<SidebarConfig> = {};
-    if (configValue === 'header_title') {
-      if (!value || value === '' || value === undefined) {
-        delete this._sidebarConfig.header_title;
-      } else {
-        updates.header_title = value as string;
-      }
-    } else if (configValue === 'hide_header_toggle') {
-      updates.hide_header_toggle = value as boolean;
-    }
+  _valueChanged = (ev: CustomEvent): void => {
+    ev.stopPropagation();
+    const value = ev.detail.value;
+    console.log('Value changed:', value);
+    if (!this._sidebarConfig) return;
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      ...value,
+    };
 
-    console.log('headerConfig', updates);
-    this._sidebarConfig = { ...this._sidebarConfig, ...updates };
-    this._dispatchConfig(this._sidebarConfig);
-  }
+    // sidebarConfigChanged(this, this._sidebarConfig);
+    fireEvent(this, 'sidebar-config-changed', { config: this._sidebarConfig });
+  };
 
   static get styles(): CSSResultGroup {
     return [
@@ -836,11 +710,20 @@ export class SidebarDialogColors extends LitElement {
         }
 
         .color-container {
-          display: block;
+          display: flex;
           /* border: 1px solid var(--divider-color); */
           flex: auto;
           height: 100%;
+          flex-direction: column;
+          gap: 1em;
         }
+
+        /* .color-container {
+          display: block;
+          border: 1px solid var(--divider-color);
+          flex: auto;
+          height: 100%;
+        } */
 
         .header-row {
           display: inline-flex;

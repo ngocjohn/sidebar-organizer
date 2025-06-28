@@ -126,8 +126,6 @@ class SidebarOrganizer {
       return true;
     } else if (forceTheme === 'light') {
       return false;
-    } else if (forceTheme === 'auto') {
-      return this.hass.themes.darkMode;
     } else {
       return this.hass.themes.darkMode;
     }
@@ -369,7 +367,7 @@ class SidebarOrganizer {
 
   private _processConfig(): void {
     this._getElements().then((elements) => {
-      const { bottom_items, custom_groups, color_config } = this._config;
+      const { bottom_items, custom_groups } = this._config;
       const [sidebarItemsContainer, scrollbarItems, spacer] = elements;
       // this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
       this._sidebarItems = Array.from(scrollbarItems) as SidebarPanelItem[];
@@ -442,8 +440,6 @@ class SidebarOrganizer {
       // Reorder grouped items
       this._reorderGroupedSidebar();
 
-      // Add additional styles
-      this._addAdditionalStyles(color_config);
       this._handleSidebarHeader();
       this.setupConfigDone = true;
       this.firstSetUpDone = true;
@@ -534,6 +530,7 @@ class SidebarOrganizer {
   }
 
   private _addConfigDialog() {
+    this._haDrawer.open!! = false;
     showDialogSidebarOrganizer(this.ha!, { config: this._config });
   }
 
@@ -594,10 +591,12 @@ class SidebarOrganizer {
 
   private _setupInitialConfig() {
     console.log('Setting up initial config');
-    const { new_items, default_collapsed, custom_groups, hidden_items } = this._config;
+    const { new_items, default_collapsed, custom_groups, hidden_items, color_config } = this._config;
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
     this._handleHidden(hidden_items || []);
     this._addNewItems(new_items || []);
+    // Add additional styles
+    this._addAdditionalStyles(color_config);
   }
 
   private async _addDiaglogRemoveLegacyUserData() {
@@ -850,11 +849,11 @@ class SidebarOrganizer {
     const customStyles = colorConfig.custom_styles || [];
     const CUSTOM_STYLES = convertCustomStyles(customStyles) || '';
 
-    const defaultColors = getDefaultThemeColors();
+    const defaultColors = getDefaultThemeColors(customTheme !== undefined ? this.HaSidebar : undefined);
     // console.log('Default Colors:', defaultColors);
     // console.log('theme', theme, 'colorConfig', colorConfig, 'defaultColors', defaultColors);
     const getColor = (key: string): string => {
-      const color = colorConfig?.[key] ?? defaultColors[key];
+      const color = colorConfig?.[key] ? `${colorConfig[key]} !important` : defaultColors[key];
       // console.log('Color:', key, color);
       return color;
     };

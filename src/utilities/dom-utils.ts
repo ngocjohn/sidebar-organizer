@@ -1,53 +1,19 @@
 import { CLASS, ELEMENT, SELECTOR } from '@constants';
-import { mdiClose } from '@mdi/js';
 import { HaExtened, SidebarPanelItem } from '@types';
-import { HomeAssistant } from 'custom-card-helpers';
 import { getPromisableResult } from 'get-promisable-result';
 import { html, TemplateResult } from 'lit';
 
 const HOLD_DURATION = 300;
-
-export const createCloseHeading = (hass: HomeAssistant | undefined, title: string | TemplateResult) => {
-  return html`
-    <div class="header_title">
-      <ha-icon-button
-        .label=${hass?.localize('ui.dialogs.generic.close') ?? 'Close'}
-        .path=${mdiClose}
-        dialogAction="cancel"
-      >
-      </ha-icon-button>
-      ${title}
-    </div>
-  `;
-};
-
-// export const createCloseHeading = (hass: HomeAssistant | undefined, title: string | TemplateResult) => {
-//   const headerStyle = `
-// 		display: flex;
-// 		align-items: center;
-// 		direction: var(--direction);
-// 		`;
-//   return html`
-//     <div style=${headerStyle}>
-//       <ha-icon-button
-//         .label=${hass?.localize('ui.dialogs.generic.close') ?? 'Close'}
-//         .path=${mdiClose}
-//         dialogAction="closed"
-//       >
-//       </ha-icon-button>
-//       ${title}
-//     </div>
-//   `;
-// };
 
 export const createExpansionPanel = ({
   content,
   options,
 }: {
   content: TemplateResult;
-  options: { expanded?: boolean; header: string; icon?: string; secondary?: string };
+  options: { expanded?: boolean; header: string; icon?: string; secondary?: string; darkBg?: boolean };
 }): TemplateResult => {
   const styles = 'margin-bottom: var(--side-dialog-padding); --expansion-panel-content-padding: 0;';
+  const darkBg = options.darkBg ? 'background-color: var(--primary-background-color);' : '';
 
   return html`
     <ha-expansion-panel
@@ -59,7 +25,7 @@ export const createExpansionPanel = ({
       .leftChevron=${true}
     >
       ${options.icon ? html`<div slot="icons"><ha-icon icon=${options.icon}></ha-icon></div>` : ''}
-      <div style="background-color: var(--primary-background-color); padding: 1em;">${content}</div>
+      <div style="padding: 1em; ${darkBg}">${content}</div>
     </ha-expansion-panel>
   `;
 };

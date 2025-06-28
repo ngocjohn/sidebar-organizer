@@ -34,8 +34,6 @@ export class SidebarDialogPreview extends LitElement {
         darkMode = true;
       } else if (colorMode === 'light') {
         darkMode = false;
-      } else if (colorMode === 'auto') {
-        darkMode = this.hass.themes.darkMode;
       } else {
         darkMode = this.hass.themes.darkMode;
       }
@@ -83,10 +81,9 @@ export class SidebarDialogPreview extends LitElement {
 
         if (themeChanged) {
           if (newConfig.color_config?.custom_theme?.theme === undefined) {
-            const themeCon = this.shadowRoot?.getElementById('theme-container');
-            themeCon?.removeAttribute('style');
+            this.style = '';
             setTimeout(() => {
-              this._setTheme(this._colorConfigMode);
+              this._setTheme('default');
             }, 200);
           } else {
             this._setTheme(this._colorConfigMode);
@@ -231,8 +228,7 @@ export class SidebarDialogPreview extends LitElement {
     if (customTheme) {
       theme = customTheme;
     }
-    const themeContainer = this.shadowRoot?.getElementById('theme-container');
-    applyTheme(themeContainer, this.hass, theme, mode);
+    applyTheme(this, this.hass, theme, mode);
     setTimeout(() => {
       this._getDefaultColors();
     }, 200);
@@ -240,8 +236,7 @@ export class SidebarDialogPreview extends LitElement {
   }
 
   private _getDefaultColors(): void {
-    const previewEl = this.shadowRoot?.getElementById('theme-container');
-    const defaultColors = getDefaultThemeColors(previewEl!);
+    const defaultColors = getDefaultThemeColors(this);
     this._baseColorFromTheme = defaultColors;
   }
 
@@ -397,7 +392,7 @@ export class SidebarDialogPreview extends LitElement {
     // console.log('Converted Custom Styles:', styleAddedCustom);
 
     const getColor = (key: string): string => {
-      const color = colorConfig?.[key] ?? this._baseColorFromTheme[key];
+      const color = colorConfig?.[key] ? `${colorConfig[key]} !important` : this._baseColorFromTheme[key];
       // console.log('getColor', key, color);
       return color;
     };
