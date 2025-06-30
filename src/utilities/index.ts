@@ -14,6 +14,8 @@ export * from './frontend';
 export * from './action';
 export * from './sidebar-config-changed';
 export * from './create-ha-form';
+export * from './compare';
+export * from './compute-panels';
 import memoizeOne from 'memoize-one';
 
 export const localizeWeekdays = memoizeOne((language: string, short: boolean): string[] => {

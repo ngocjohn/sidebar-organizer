@@ -47,8 +47,8 @@ export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfi
     }
   }
   if (!config) {
-    config = DEFAULT_CONFIG;
-    console.log('No config found. Using default config', config);
+    console.log('No config found..');
+    return undefined;
   }
   return config;
 };

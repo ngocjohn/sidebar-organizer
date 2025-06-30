@@ -27,6 +27,7 @@ export enum STORAGE {
   COLLAPSE = 'sidebarCollapsedGroups',
   HIDDEN_PANELS = 'sidebarHiddenPanels',
   HA_VERSION = 'ha-version',
+  BLOCK_SIDEBAR_EDIT = 'blockSidebarEdit',
 }
 
 export enum HA_EVENT {
@@ -36,6 +37,7 @@ export enum HA_EVENT {
   LOCATION_CHANGED = 'location-changed',
   SHOW_DIALOG = 'show-dialog',
   SIDEBAR_CONFIG_SAVED = 'save-sidebar-organizer-config',
+  HASS_EDIT_SIDEBAR = 'hass-edit-sidebar',
 }
 
 export const PANEL_ICONS = {
@@ -82,8 +84,7 @@ export const ALERT_MSG = {
   INFO_EDIT_UPLOAD_CONFIG:
     'You can edit invalid items in the editor and validate the configuration again. You can also upload a new config file.',
   CONFIG_EMPTY: 'You dont have any configuration yet.',
-  USE_CONFIG_FILE:
-    'If enabled, the sidebar configuration will be loaded from a Config file and UI configuration will be disabled.',
+  USE_CONFIG_FILE: `Currently Sidebar Organizer uses the config file. If config is valid, you can save and migrate it to the browser's local storage.`,
   NAME_EXISTS: 'The name already exists. Choose another name.',
   CONFIRM_DELETE: 'Are you sure you want to delete the current configuration?',
   NOT_COMPATIBLE: 'Sidebar Organizer is not compatible with this version of Home Assistant',
@@ -94,4 +95,6 @@ export const ALERT_MSG = {
   CONFIG_CHANGED: 'The configuration has been changed. Do you want to save it?',
   CLEAN_USER_DATA: `For using sidebar organizer you need to clear your synced settings in this user's Home Assistant profile.`,
   CLEAN_SUCCESS_RELOAD: `Your synced settings have been cleared successfully.  Click 'OK' reload the page to apply the changes.`,
+  LEGACY_EDIT_WARNING:
+    'You have Sidebar Organizer installed. It is recommended to use Sidebar Organizer Dialog to edit the sidebar. Do you want to open Sidebar Organizer Dialog instead?',
 };

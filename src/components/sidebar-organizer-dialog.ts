@@ -23,6 +23,7 @@ export class SidebarOrganizerDialog extends LitElement {
   @state() private _large = false;
 
   @state() _codeUiLabel: string = TRANSLATED_LABEL.BTN_LABEL.SHOW_CODE_EDITOR;
+  @state() _configValid = true;
 
   @query('ha-dialog') private _dialog?: HTMLDialogElement;
   @query('sidebar-organizer-config-dialog') private _configDialog!: SidebarConfigDialog;
@@ -44,9 +45,11 @@ export class SidebarOrganizerDialog extends LitElement {
 
   public closeDialog(): boolean {
     if (this._isConfigChanged) {
+      // If config is changed and not valid, show confirm dialog
       this._handleClose();
       return false;
     }
+
     this._open = false;
     this._params = undefined;
     this._params = undefined;
@@ -61,11 +64,31 @@ export class SidebarOrganizerDialog extends LitElement {
     fireEvent(this, 'dialog-closed', { dialog: this.localName });
   }
 
+  private get _canSaveConfig(): boolean {
+    return this._configValid && Object.keys(this._configDialog._sidebarConfig).length !== 0;
+  }
+
   private get _isConfigChanged(): boolean {
-    if (!this._params || !this._configDialog) {
+    if (!this._params || !this._configDialog || this._configDialog._useConfigFile) {
+      // If using config file, we don't check for changes
       return false;
     }
     return JSON.stringify(this._params.config) !== JSON.stringify(this._configDialog._sidebarConfig);
+  }
+
+  private async _handleSaveToStorage() {
+    if (!this._configValid) {
+      console.warn('Cannot save config, it is not valid.');
+      showToast(this, {
+        message: 'Cannot save config, it is not valid.',
+        duration: 5000,
+      });
+      return;
+    } else if (this._configValid) {
+      // If config is valid, save to storage
+      this._configDialog._handleInvalidConfig('save');
+      this._handleSaveConfig();
+    }
   }
 
   private async _handleClose() {
@@ -85,6 +108,19 @@ export class SidebarOrganizerDialog extends LitElement {
   }
 
   private _handleSaveConfig(): void {
+    if (!this._canSaveConfig) {
+      console.warn('Cannot save config, it is not valid or has unsaved changes.');
+      showToast(this, {
+        message: 'Cannot save config, it is not valid or has unsaved changes.',
+        duration: 5000,
+      });
+      return;
+    } else if (this._configDialog._useConfigFile && this._configValid) {
+      // If using config file, we save the config to the file
+      this._configDialog._handleInvalidConfig('save');
+      this._showSuccessToast();
+      this._handleSaveConfig();
+    }
     const config = this._configDialog!._sidebarConfig;
     const useConfigFile = this._configDialog!._useConfigFile;
     const detail = {
@@ -96,7 +132,9 @@ export class SidebarOrganizerDialog extends LitElement {
   }
 
   private _renderContent(): TemplateResult {
-    return html` <sidebar-organizer-config-dialog .hass=${this.hass}></sidebar-organizer-config-dialog> `;
+    return html`
+      <sidebar-organizer-config-dialog .hass=${this.hass} ._mainDialog=${this}></sidebar-organizer-config-dialog>
+    `;
   }
 
   protected render() {
@@ -145,7 +183,8 @@ export class SidebarOrganizerDialog extends LitElement {
         <ha-button .label=${this._codeUiLabel} slot=${SLOT.SECONDARY_ACTION} @click=${this._toggleCodeUi}> </ha-button>
         <div slot=${SLOT.PRIMARY_ACTION}>
           <ha-button .label=${BTN_LABEL.CANCEL} @click=${this.closeDialog}> </ha-button>
-          <ha-button .label=${BTN_LABEL.SAVE} @click=${this._handleSaveConfig}> </ha-button>
+          <ha-button .label=${BTN_LABEL.SAVE} .disabled=${!this._configValid} @click=${this._handleSaveConfig}>
+          </ha-button>
         </div>
       </ha-dialog>
     `;
