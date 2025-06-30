@@ -52,6 +52,11 @@ export class SidebarDialogPreview extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       return true;
     }
+
+    if (_changedProperties.has('invalidConfig') && Object.keys(this._sidebarConfig).length === 0) {
+      this.invalidConfig = true;
+      console.log('Sidebar config is empty, set blur');
+    }
     return true;
   }
 

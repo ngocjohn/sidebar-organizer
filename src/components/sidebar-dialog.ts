@@ -30,12 +30,14 @@ import { SidebarDialogColors } from './sidebar-dialog-colors';
 import { SidebarDialogGroups } from './sidebar-dialog-groups';
 import { SidebarDialogNewItems } from './sidebar-dialog-new-items';
 import { SidebarDialogPreview } from './sidebar-dialog-preview';
+import { SidebarOrganizerDialog } from './sidebar-organizer-dialog';
 
 const tabs = ['appearance', 'panels', 'newItems'] as const;
 
 @customElement('sidebar-organizer-config-dialog')
 export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
+  @property({ attribute: false }) _mainDialog!: SidebarOrganizerDialog;
   @state() _connected: boolean = false;
   @state() public _sidebarConfig = {} as SidebarConfig;
   @state() public _useConfigFile = false;
@@ -78,12 +80,38 @@ export class SidebarConfigDialog extends LitElement {
       console.log('SidebarConfigDialog connected, setting up initial config');
       this._setupInitConfig();
     }
+    if (_changedProperties.has('_useConfigFile')) {
+      if (this._useConfigFile) {
+        console.log('Use config file changed, validating config file');
+        this._validateConfigFile();
+      } else if (!this._useConfigFile && this._invalidConfig !== undefined) {
+        console.log('Use config file changed to false, resetting invalid config');
+        this._invalidConfig = undefined;
+        this._validateStoragePanels();
+        this._mainDialog._configValid = this.isValidConfig;
+        this.requestUpdate();
+      }
+    }
+
+    if (_changedProperties.has('_invalidConfig') && this._invalidConfig) {
+      console.log('Invalid config changed, updating dialog state');
+      const isValid = this.isValidConfig;
+      this._mainDialog._configValid = isValid;
+    }
   }
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       return true;
     }
     return true;
+  }
+
+  public get isValidConfig(): boolean {
+    let isValid = !this._invalidConfig || Object.keys(this._invalidConfig).length === 0;
+    if (this._useConfigFile) {
+      isValid = this._invalidConfig?.valid !== false;
+    }
+    return isValid;
   }
 
   protected updated(_changedProperties: PropertyValues): void {
@@ -176,11 +204,10 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   private _renderSidebarPreview(): TemplateResult {
-    const isValidConfig = !this._invalidConfig || Object.keys(this._invalidConfig).length === 0;
     return html`
       <div id="sidebar-preview">
         <sidebar-dialog-preview
-          .invalidConfig=${!isValidConfig}
+          .invalidConfig=${!this.isValidConfig}
           .hass=${this.hass}
           ._dialog=${this}
           ._sidebarConfig=${this._sidebarConfig}
@@ -311,7 +338,7 @@ export class SidebarConfigDialog extends LitElement {
     const useJsonFile = this._useConfigFile;
 
     return html`
-      <div class="overlay" ?expanded=${useJsonFile}>
+      <div class="overlay">
         <ha-alert alert-type="info" .hidden=${!useJsonFile}> ${ALERT_MSG.USE_CONFIG_FILE} </ha-alert>
         ${this._renderInvalidConfig()}
 
@@ -390,7 +417,12 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   private _validateStoragePanels = async (): Promise<void> => {
+    if (this._useConfigFile) return;
     const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
+    if (!currentPanelOrder || currentPanelOrder.length === 0) {
+      console.log('no initial panel order found, fetching from storage');
+    }
+
     const hiddenItems = getHiddenPanels();
     const allPanels = [...currentPanelOrder, ...hiddenItems];
     console.log('Current panel order:', currentPanelOrder);
@@ -444,6 +476,7 @@ export class SidebarConfigDialog extends LitElement {
     if (typeof result === 'object' && result !== null) {
       this._invalidConfig = result;
     }
+    this._configLoaded = true;
   };
 
   private _sidebarConfigChanged(event: HASSDomEvents[ValidHassDomEvent]) {
@@ -453,7 +486,7 @@ export class SidebarConfigDialog extends LitElement {
     this._sidebarConfig = newConfig;
   }
 
-  private _handleInvalidConfig = async (action: 'check' | 'auto-correct' | 'save') => {
+  public _handleInvalidConfig = async (action: 'check' | 'auto-correct' | 'save') => {
     if (!this._invalidConfig || Object.keys(this._invalidConfig).length === 0) {
       console.warn('No invalid config to handle');
       return;
@@ -487,6 +520,9 @@ export class SidebarConfigDialog extends LitElement {
           console.log('Config is valid, saving to storage');
           this._sidebarConfig = this._invalidConfig.config;
           this._invalidConfig = undefined;
+          this._useConfigFile = false;
+          setStorage(STORAGE.USE_CONFIG_FILE, 'false');
+          setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);
           this.requestUpdate();
         }
 
