@@ -94,7 +94,6 @@ class SidebarOrganizer {
     this._currentPath = window.location.pathname;
     this._watchPathChanges();
     this._sidebarItems = [];
-    this._tmpItems = [];
     this._initDashboards = [];
   }
 
@@ -114,7 +113,6 @@ class SidebarOrganizer {
   private _sidebar!: HAElement;
   private _sidebarItems: SidebarPanelItem[];
   private _styleManager: HomeAssistantStylesManager;
-  private _tmpItems: SidebarPanelItem[] = [];
   private _userHasSidebarSettings: boolean = false;
   private collapsedItems = new Set<string>();
   private firstSetUpDone = false;
@@ -177,7 +175,6 @@ class SidebarOrganizer {
 
     this._setupConfigBtn();
     if (!this.firstSetUpDone) {
-      await this._getTmpItems();
       await this._getInitDashboards();
       this.firstSetUpDone = true;
     }
@@ -430,25 +427,6 @@ class SidebarOrganizer {
     }
     // Load translations for dialog later
     await this.hass.loadFragmentTranslation('lovelace');
-  }
-
-  private async _getTmpItems() {
-    const sidebarItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_SCROLLBAR)
-      .element) as HTMLElement;
-
-    const scrollbarItems = await getPromisableResult<NodeListOf<SidebarPanelItem>>(
-      () => sidebarItemsContainer.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM),
-      (elements: NodeListOf<SidebarPanelItem>): boolean => {
-        return Array.from(elements).every((el: SidebarPanelItem): boolean => {
-          const itemTextElement = el.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT);
-          const text = itemTextElement ? itemTextElement.innerText.trim() : '';
-          return text.length > 0;
-        });
-      },
-      { retries: 30, delay: 20, shouldReject: false }
-    );
-    this._tmpItems = Array.from(scrollbarItems) as SidebarPanelItem[];
-    // console.log('Temporary Items:', this._tmpItems);
   }
 
   private async _getInitDashboards(): Promise<void> {
