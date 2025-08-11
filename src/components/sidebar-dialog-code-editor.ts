@@ -60,15 +60,16 @@ export class SidebarDialogCodeEditor extends LitElement {
       >
         <div class="header-row" slot="extra-actions" ?hidden=${isConfigEmpty}>
           <div>
-            <ha-button .label=${BTN_LABEL.DOWNLOAD} @click=${() => this._handleBtnAction('download')}></ha-button>
-            <ha-button .label=${BTN_LABEL.COPY_TO_CLIPBOARD} @click=${() => this._handleBtnAction('copy')}></ha-button>
+            <ha-button appearance="plain" size="small" @click=${() => this._handleBtnAction('download')}
+              >${BTN_LABEL.DOWNLOAD}</ha-button
+            >
+            <ha-button appearance="plain" size="small" size="small" @click=${() => this._handleBtnAction('copy')}
+              >${BTN_LABEL.COPY_TO_CLIPBOARD}</ha-button
+            >
           </div>
-          <ha-button
-            .label=${BTN_LABEL.DELETE}
-            .title=${'BTN_LABEL.DELETE'}
-            style="--mdc-theme-primary: var(--error-color);"
-            @click=${() => this._handleBtnAction('delete')}
-          ></ha-button>
+          <ha-button appearance="plain" size="small" variant="warning" @click=${() => this._handleBtnAction('delete')}
+            >${BTN_LABEL.DELETE}</ha-button
+          >
         </div>
       </ha-yaml-editor>`;
 

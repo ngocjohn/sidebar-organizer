@@ -234,7 +234,8 @@ export class SidebarDialogGroups extends LitElement {
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedNotification = null)}> </ha-icon-button>
       ${panelName.toUpperCase()}
       <ha-button
-        style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
+        appearance="plain"
+        size="small"
         @click=${() => {
           this._selectedNotification = null;
         }}
@@ -302,12 +303,7 @@ export class SidebarDialogGroups extends LitElement {
       label: key.replace(/_/g, ' ').toUpperCase(),
     }));
     const addBtn = html`
-      <ha-button
-        outlined
-        style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
-        .label=${'Add New Group'}
-        @click=${this._togglePromptNewGroup}
-      ></ha-button>
+      <ha-button appearance="plain" size="small" @click=${this._togglePromptNewGroup}>Add New Group</ha-button>
     `;
     const isCollapsed = (key: string): boolean => {
       return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
@@ -533,7 +529,13 @@ export class SidebarDialogGroups extends LitElement {
     const headerBack = html`<div class="header-row ">
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedGroup = null)}> </ha-icon-button>
       ${this._selectedGroup.toLocaleUpperCase()}
-      <ha-button @click=${() => this._handleGroupAction('preview', this._selectedGroup!)}> PREVIEW </ha-button>
+      <ha-button
+        appearance="plain"
+        size="small"
+        @click=${() => this._handleGroupAction('preview', this._selectedGroup!)}
+      >
+        PREVIEW
+      </ha-button>
     </div>`;
 
     const selectorElement = this._renderPanelSelector('customGroup', this._selectedGroup);

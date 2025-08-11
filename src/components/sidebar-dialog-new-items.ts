@@ -182,15 +182,7 @@ export class SidebarDialogNewItems extends LitElement {
 
   private _renderNewItemsList(): TemplateResult | typeof nothing {
     if (this._selectedItemIndex !== null) return nothing;
-    const addBtn = html`
-      <ha-button
-        outlined
-        style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
-        .label=${'Add new item'}
-        @click=${this._togglePromptNewItem}
-      >
-      </ha-button>
-    `;
+    const addBtn = html` <ha-button size="small" @click=${this._togglePromptNewItem}>Add new item </ha-button> `;
     const newItems = this._sidebarConfig?.new_items || [];
     const newItemsList = html`
       ${!newItems.length
@@ -278,9 +270,11 @@ export class SidebarDialogNewItems extends LitElement {
                 </div>
                 <div class="group-actions">
                   <ha-button
-                    .label=${'Rename item'}
+                    appearance="plain"
+                    size="small"
                     @click=${this._toggleRenameItem.bind(this, this._selectedItemIndex!)}
-                  ></ha-button>
+                    >Rename</ha-button
+                  >
                 </div>
               </div>
 
@@ -331,13 +325,13 @@ export class SidebarDialogNewItems extends LitElement {
             `}
         <div class="header-row flex-end">
           <ha-button
-            outlined
-            .label=${this._yamlMode ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR}
-            style="--mdc-theme-primary: var(--accent-color); place-self: flex-end;"
+            appearance="plain"
+            size="small"
             @click=${() => {
               this._yamlMode = !this._yamlMode;
             }}
-          ></ha-button>
+            >${this._yamlMode ? BTN_LABEL.SHOW_VISUAL_EDITOR : BTN_LABEL.SHOW_CODE_EDITOR}</ha-button
+          >
         </div>
       </div>
     `;
