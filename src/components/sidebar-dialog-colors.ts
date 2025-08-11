@@ -257,10 +257,18 @@ export class SidebarDialogColors extends LitElement {
   }
 
   protected render(): TemplateResult {
+    const config = { ...(this._sidebarConfig || {}) };
+    const baseSchema = {
+      header_title: config?.header_title,
+      hide_header_toggle: config?.hide_header_toggle,
+      animation_off: config?.animation_off,
+      animation_delay: config?.animation_delay,
+    };
     return html`
       <div id="theme-container"></div>
       <div class="color-container">
-        ${createHaForm(this, headerSchema(this._sidebarConfig?.animation_off))} ${this._renderColorConfigFields()}
+        ${createHaForm(this, headerSchema(this._sidebarConfig?.animation_off), baseSchema)}
+        ${this._renderColorConfigFields()}
       </div>
     `;
   }
@@ -353,15 +361,12 @@ export class SidebarDialogColors extends LitElement {
   }
 
   private _renderThemePickerRow(): TemplateResult {
-    const themeSettings = this._sidebarConfig?.color_config?.custom_theme;
+    const themeSettings = { ...(this._sidebarConfig?.color_config?.custom_theme || {}) } as CustomTheme | undefined;
     const curTheme = themeSettings?.theme || this.hass.themes.theme;
     const colorMode = this._colorConfigMode as 'light' | 'dark';
 
     const THEME_DATA = {
-      color_config: {
-        ...this._sidebarConfig.color_config,
-        custom_theme: { ...themeSettings },
-      },
+      custom_theme: { ...themeSettings },
     };
 
     const modesRadio = html` <div class="header-row">
@@ -707,19 +712,36 @@ export class SidebarDialogColors extends LitElement {
     this._dispatchConfig(this._sidebarConfig);
   }
 
-  _valueChanged = (ev: CustomEvent): void => {
+  _valueChanged(ev: CustomEvent): void {
+    if (!this._sidebarConfig) return;
     ev.stopPropagation();
     const value = ev.detail.value;
-    console.log('Value changed:', value);
-    if (!this._sidebarConfig) return;
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      ...value,
-    };
+
+    let updates: Partial<SidebarConfig> = {};
+
+    if (value.custom_theme) {
+      const customTheme = value.custom_theme;
+      updates.color_config = {
+        ...(this._sidebarConfig.color_config || {}),
+        custom_theme: customTheme,
+      };
+    } else {
+      updates = {
+        ...value,
+      };
+    }
+
+    console.log('updates:', updates);
+    if (Object.keys(updates).length > 0) {
+      this._sidebarConfig = {
+        ...this._sidebarConfig,
+        ...updates,
+      };
+    }
 
     // sidebarConfigChanged(this, this._sidebarConfig);
     fireEvent(this, 'sidebar-config-changed', { config: this._sidebarConfig });
-  };
+  }
 
   static get styles(): CSSResultGroup {
     return [
