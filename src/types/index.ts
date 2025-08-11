@@ -107,10 +107,11 @@ export interface CustomStyles {
   [key: string]: string;
 }
 
-export type CustomTheme = {
+export type ThemeMode = 'light' | 'dark';
+export interface CustomTheme {
   theme?: string;
-  mode?: 'dark' | 'light';
-};
+  mode?: ThemeMode;
+}
 
 export interface NotificationConfig {
   [key: string]: string;

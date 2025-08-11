@@ -25,7 +25,7 @@ export const headerSchema = (delayDisabled = false) =>
               helper: 'Toggle button for collapsing/expanding groups',
               default: false,
             },
-          ],
+          ] as const,
         },
         {
           name: '',
@@ -48,7 +48,7 @@ export const headerSchema = (delayDisabled = false) =>
               valueMin: 0,
               valueMax: 100,
             },
-          ],
+          ] as const,
         },
       ],
     },
