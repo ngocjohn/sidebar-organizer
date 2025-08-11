@@ -142,4 +142,6 @@ export interface SidebarConfig {
   };
   notification?: NotificationConfig;
   new_items?: NewItemConfig[];
+  animation_off?: boolean;
+  animation_delay?: number;
 }

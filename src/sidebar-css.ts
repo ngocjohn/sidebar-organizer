@@ -168,7 +168,7 @@ export const DIVIDER_ADDED_STYLE = css`
   :host ha-md-list-item.slideIn {
     animation-name: slideIn;
     animation-duration: 0.3s;
-    animation-fill-mode: both;
+    animation-fill-mode: forwards;
   }
 
   @keyframes slideIn {
@@ -177,7 +177,7 @@ export const DIVIDER_ADDED_STYLE = css`
       opacity: 0.3;
     }
     to {
-      max-height: 1000px;
+      max-height: 40px;
       opacity: 1;
     }
   }
@@ -185,11 +185,10 @@ export const DIVIDER_ADDED_STYLE = css`
   :host ha-md-list-item.slideOut {
     animation-name: slideOut;
     animation-duration: 0.3s;
-    animation-fill-mode: both;
   }
   @keyframes slideOut {
     from {
-      max-height: 1000px;
+      max-height: 40px;
       opacity: 1;
     }
     to {
