@@ -53,7 +53,7 @@ export class SidebarConfigDialog extends LitElement {
   @state() private _newItems: string[] = [];
 
   @state() private _uploading = false;
-  @state() private _invalidConfig?: INVALID_CONFIG;
+  @state() _invalidConfig?: INVALID_CONFIG;
 
   @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
@@ -97,6 +97,7 @@ export class SidebarConfigDialog extends LitElement {
       console.log('Invalid config changed, updating dialog state');
       const isValid = this.isValidConfig;
       this._mainDialog._configValid = isValid;
+      this.requestUpdate();
     }
   }
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
@@ -449,7 +450,7 @@ export class SidebarConfigDialog extends LitElement {
       });
       return { inSidebar, notInSidebar };
     });
-    console.log('Fetched dashboards:', _dasboards);
+    // console.log('Fetched dashboards:', _dasboards);
     // Check if the current panel order has extra or missing items
     const extraPanels = _dasboards.notInSidebar.filter((panel: string) => allPanels.includes(panel));
     const missingPanels = _dasboards.inSidebar.filter((panel: string) => !allPanels.includes(panel));
@@ -510,6 +511,7 @@ export class SidebarConfigDialog extends LitElement {
         console.log('Config validation result:', result);
         if (typeof result === 'object' && result !== null) {
           this._invalidConfig = result;
+
           this.requestUpdate();
         }
         break;
@@ -519,6 +521,7 @@ export class SidebarConfigDialog extends LitElement {
         console.log('Corrected config:', correctedConfig);
         this._invalidConfig = { ...this._invalidConfig, config: correctedConfig };
         this._handleInvalidConfig('check');
+        this.requestUpdate();
         break;
       case 'save':
         console.log('Saving config to storage');
@@ -532,11 +535,11 @@ export class SidebarConfigDialog extends LitElement {
           this._sidebarConfig = this._invalidConfig.config;
           this._invalidConfig = undefined;
           this._useConfigFile = false;
+          this._mainDialog._configValid = true;
           setStorage(STORAGE.USE_CONFIG_FILE, 'false');
           setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);
           this.requestUpdate();
         }
-
         break;
     }
   };
@@ -551,6 +554,7 @@ export class SidebarConfigDialog extends LitElement {
     let hiddenItems = [...(this._sidebarConfig?.hidden_items || [])];
 
     const hiddenItemsDiff = JSON.stringify(hiddenItems) !== JSON.stringify(initHiddenItems);
+    console.log('Hidden items diff:', hiddenItemsDiff);
 
     // Remove the default panel from any custom group
     Object.keys(customGroup).forEach((key) => {
@@ -572,7 +576,7 @@ export class SidebarConfigDialog extends LitElement {
         ...this._sidebarConfig,
         custom_groups: customGroup,
         default_collapsed: updatedCollapsedGroups,
-        hidden_items: initHiddenItems,
+        hidden_items: hiddenItems,
         bottom_items: bottomItems,
       };
       setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);

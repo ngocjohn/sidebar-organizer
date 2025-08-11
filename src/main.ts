@@ -451,6 +451,21 @@ class SidebarOrganizer {
         item.setAttribute('data-panel', item.href.replace('/', ''));
       }
 
+      if (this._hiddenPanels && this._hiddenPanels.length > 0) {
+        this._sidebarItems.forEach((item) => {
+          const itemToHide = Array.from(scrollbarItems).filter((el) => {
+            return (
+              el.getAttribute(ATTRIBUTE.DATA_PANEL) === item.getAttribute(ATTRIBUTE.DATA_PANEL) &&
+              this._hiddenPanels.includes(el.getAttribute(ATTRIBUTE.DATA_PANEL) || '')
+            );
+          });
+          if (itemToHide.length > 0) {
+            itemToHide.forEach((el) => {
+              el.style.display = 'none';
+            });
+          }
+        });
+      }
       const initOrder = Array.from(scrollbarItems)
         .filter((item) => !SHOW_AFTER_BOTTOM.includes(item.href))
         .map((item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', ''));
@@ -767,7 +782,6 @@ class SidebarOrganizer {
   private _handleHidden(hiddenItems: string[]): void {
     if (!hiddenItems || hiddenItems.length === 0) return;
     this._hiddenPanels = hiddenItems;
-    this.HaSidebar._hiddenPanels = [...this._hiddenPanels];
   }
 
   private _addNewItems(newItems: NewItemConfig[]): void {

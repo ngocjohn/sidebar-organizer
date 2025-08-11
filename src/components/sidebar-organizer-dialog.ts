@@ -24,6 +24,7 @@ export class SidebarOrganizerDialog extends LitElement {
 
   @state() _codeUiLabel: string = TRANSLATED_LABEL.BTN_LABEL.SHOW_CODE_EDITOR;
   @state() _configValid = true;
+  @state() _saveDisabled = false;
 
   @query('ha-dialog') private _dialog?: HTMLDialogElement;
   @query('sidebar-organizer-config-dialog') private _configDialog!: SidebarConfigDialog;
@@ -65,7 +66,10 @@ export class SidebarOrganizerDialog extends LitElement {
   }
 
   private get _canSaveConfig(): boolean {
-    return this._configValid && Object.keys(this._configDialog._sidebarConfig).length !== 0;
+    return (
+      this._configDialog._invalidConfig === undefined ||
+      (this._configValid && Object.keys(this._configDialog._sidebarConfig).length !== 0)
+    );
   }
 
   private get _isConfigChanged(): boolean {
@@ -187,12 +191,7 @@ export class SidebarOrganizerDialog extends LitElement {
           <ha-button appearance="plain" size="small" .label=${BTN_LABEL.CANCEL} @click=${this.closeDialog}>
             ${BTN_LABEL.CANCEL}
           </ha-button>
-          <ha-button
-            appearance="plain"
-            size="small"
-            .label=${BTN_LABEL.SAVE}
-            .disabled=${!this._configValid}
-            @click=${this._handleSaveConfig}
+          <ha-button appearance="plain" size="small" .label=${BTN_LABEL.SAVE} @click=${this._handleSaveConfig}
             >${BTN_LABEL.SAVE}
           </ha-button>
         </div>
