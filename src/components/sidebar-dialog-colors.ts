@@ -288,18 +288,30 @@ export class SidebarDialogColors extends LitElement {
   private _renderColorConfigFields(): TemplateResult {
     const configKeySelected = this._currentConfigValue !== undefined;
     const themeSelect = this._renderThemePickerRow();
+    const currentMode = this._colorConfigMode as 'light' | 'dark';
+    const currentColorConfig = this._sidebarConfig?.color_config?.[currentMode];
+    const hasChanged = currentColorConfig !== undefined && Object.keys(currentColorConfig).length > 0;
 
     const headerInfo = html`<div class="header-row" ?hidden=${configKeySelected}>
       <div class="title">
         Theme: ${this._sidebarConfig?.color_config?.custom_theme?.theme || this.hass.themes.theme}
       </div>
-      <ha-button @click=${() => this._resetColorConfig('currentMode')}>RESET ALL</ha-button>
+      <ha-button
+        appearance="plain"
+        size="small"
+        variant="warning"
+        .disabled=${!hasChanged}
+        @click=${() => this._resetColorConfig('currentMode')}
+        >RESET ALL</ha-button
+      >
     </div> `;
 
     const pickerActive = html` <div class="header-row">
-      <ha-button @click=${() => this._picker?.color.reset()}>Reset</ha-button>
-      <ha-button @click=${() => this._handleColorPicker('cancel')}>Cancel</ha-button>
-      <ha-button @click=${() => this._handleColorPicker('save')}>Save</ha-button>
+      <ha-button appearance="plain" size="small" variant="warning" @click=${() => this._picker?.color.reset()}
+        >Reset</ha-button
+      >
+      <ha-button appearance="plain" size="small" @click=${() => this._handleColorPicker('cancel')}>Cancel</ha-button>
+      <ha-button appearance="outlined" size="small" @click=${() => this._handleColorPicker('save')}>Save</ha-button>
     </div>`;
 
     const colorConfigContent = html`
@@ -463,8 +475,12 @@ export class SidebarDialogColors extends LitElement {
           })}
           ${this._currentConfigValue === configValue
             ? html` <div class="change-format">
-                <ha-button @click=${() => this._handleColorPicker('hex')}>HEX</ha-button>
-                <ha-button @click=${() => this._handleColorPicker('rgb')}>RGBA</ha-button>
+                <ha-button appearance="plain" size="small" @click=${() => this._handleColorPicker('hex')}
+                  >HEX</ha-button
+                >
+                <ha-button appearance="plain" size="small" @click=${() => this._handleColorPicker('rgb')}
+                  >RGBA</ha-button
+                >
               </div>`
             : html` <a
                 class="color-picker-box"
@@ -483,7 +499,8 @@ export class SidebarDialogColors extends LitElement {
     if (this._state === THEME_STATE.LOADING) {
       return html`<ha-fade-in .delay=${500}><ha-spinner size="large"></ha-spinner></ha-fade-in>`;
     }
-
+    const currentMode = this._colorConfigMode as 'light' | 'dark';
+    const hasCustomStyles = this._sidebarConfig?.color_config?.[currentMode]?.custom_styles !== undefined;
     const currentStyleConfig = this._initCustomStyles || {};
     return html`
       <div class="color-item" id="custom_styles">
@@ -498,7 +515,7 @@ export class SidebarDialogColors extends LitElement {
             @value-changed=${this._handleYamlChange}
             style="flex: 1; overflow: auto;"
           >
-            <ha-button slot="extra-actions" style="float: inline-end;"  @click=${() => this._resetColorConfig('custom_styles')}>Reset</ha-button>
+            <ha-button appearance="plain" size="small" slot="extra-actions" .disabled=${!hasCustomStyles} style="float: inline-end;"  @click=${() => this._resetColorConfig('custom_styles')}>Reset</ha-button>
           </ha-yaml-editor>
         </div>
       </div>
@@ -622,15 +639,15 @@ export class SidebarDialogColors extends LitElement {
     } else if (configValue === 'custom_styles') {
       this._initCustomStyles = {};
       this._yamlEditor._codeEditor.value = '';
-      // Explicitly set custom_styles to an empty array before spreading
-      currentModeConfig.custom_styles = {};
+
+      // delete currentModeConfig.custom_styles;
+      delete currentModeConfig['custom_styles'];
       colorConfig[colorMode] = currentModeConfig;
       console.log('Reset custom styles:', colorConfig[colorMode]);
     } else {
       delete currentModeConfig[configValue];
       colorConfig[colorMode] = currentModeConfig;
     }
-
     this._sidebarConfig = {
       ...this._sidebarConfig,
       color_config: colorConfig,

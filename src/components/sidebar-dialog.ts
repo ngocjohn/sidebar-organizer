@@ -300,15 +300,20 @@ export class SidebarConfigDialog extends LitElement {
         >
           <div slot="extra-actions" style="${extraActionsStyle}">
             <ha-button
-              .label=${BTN_LABEL.AUTO_CORRECT}
+              appearance="plain"
+              size="small"
               .disabled=${isConfigValid}
               @click=${() => this._handleInvalidConfig('auto-correct')}
-            ></ha-button>
+              >${BTN_LABEL.AUTO_CORRECT}</ha-button
+            >
             <ha-button
+              appearance="plain"
+              size="small"
               destructive
               .label=${isConfigValid ? BTN_LABEL.SAVE_MIGRATE : BTN_LABEL.CHECK_VALIDITY}
               @click=${() => this._handleInvalidConfig(isConfigValid ? 'save' : 'check')}
-            ></ha-button>
+              >${isConfigValid ? BTN_LABEL.SAVE_MIGRATE : BTN_LABEL.CHECK_VALIDITY}</ha-button
+            >
           </div>
         </ha-yaml-editor>
 
@@ -343,7 +348,13 @@ export class SidebarConfigDialog extends LitElement {
         ${this._renderInvalidConfig()}
 
         <div class="header-row">
-          <ha-button .label=${BTN_LABEL.UPLOAD} @click=${() => this._uploadConfigFile()}></ha-button>
+          <ha-button
+            appearance="filled"
+            size="small"
+            .label=${BTN_LABEL.UPLOAD}
+            @click=${() => this._uploadConfigFile()}
+            >${BTN_LABEL.UPLOAD}</ha-button
+          >
           <ha-formfield label="Use YAML File" style="min-height: 48px;">
             <ha-switch
               .label=${BTN_LABEL.USE_CONFIG_FILE}

@@ -180,10 +180,20 @@ export class SidebarOrganizerDialog extends LitElement {
 
         ${this._renderContent()}
 
-        <ha-button .label=${this._codeUiLabel} slot=${SLOT.SECONDARY_ACTION} @click=${this._toggleCodeUi}> </ha-button>
+        <ha-button appearance="plain" size="small" slot=${SLOT.SECONDARY_ACTION} @click=${this._toggleCodeUi}
+          >${this._codeUiLabel}
+        </ha-button>
         <div slot=${SLOT.PRIMARY_ACTION}>
-          <ha-button .label=${BTN_LABEL.CANCEL} @click=${this.closeDialog}> </ha-button>
-          <ha-button .label=${BTN_LABEL.SAVE} .disabled=${!this._configValid} @click=${this._handleSaveConfig}>
+          <ha-button appearance="plain" size="small" .label=${BTN_LABEL.CANCEL} @click=${this.closeDialog}>
+            ${BTN_LABEL.CANCEL}
+          </ha-button>
+          <ha-button
+            appearance="plain"
+            size="small"
+            .label=${BTN_LABEL.SAVE}
+            .disabled=${!this._configValid}
+            @click=${this._handleSaveConfig}
+            >${BTN_LABEL.SAVE}
           </ha-button>
         </div>
       </ha-dialog>
