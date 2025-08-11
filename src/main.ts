@@ -1138,6 +1138,8 @@ class SidebarOrganizer {
 
   private _toggleGroup(event: MouseEvent) {
     event.stopPropagation();
+    const noAnimation = this._config?.animation_off || false;
+    const animationDelay = this._config?.animation_delay || 50;
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
 
@@ -1158,9 +1160,16 @@ class SidebarOrganizer {
     target.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
     target.parentElement?.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
 
+    // Animate items if noAnimation is false
+    if (noAnimation) {
+      items.forEach((item) => {
+        item.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
+      });
+      return;
+    }
     items.forEach((item, index) => {
       const animationClass = isCollapsed ? 'slideIn' : 'slideOut';
-      item.style.animationDelay = `${index * 50}ms`;
+      item.style.animationDelay = `${index * animationDelay}ms`;
       item.classList.add(animationClass);
       item.addEventListener(
         'animationend',

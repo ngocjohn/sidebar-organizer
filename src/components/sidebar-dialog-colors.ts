@@ -259,7 +259,9 @@ export class SidebarDialogColors extends LitElement {
   protected render(): TemplateResult {
     return html`
       <div id="theme-container"></div>
-      <div class="color-container">${createHaForm(this, headerSchema)} ${this._renderColorConfigFields()}</div>
+      <div class="color-container">
+        ${createHaForm(this, headerSchema(this._sidebarConfig?.animation_off))} ${this._renderColorConfigFields()}
+      </div>
     `;
   }
 
