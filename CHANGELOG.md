@@ -1,3 +1,39 @@
+<a id="v2.1.2"></a>
+# [v2.1.2](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v2.1.2) - 2025-08-12
+
+<!-- Release notes generated using configuration in .github/release.yml at v2.1.2 -->
+
+## What's Changed
+### New Features 🎉
+* Add animation configuration options by [@ngocjohn](https://github.com/ngocjohn) [#43](https://github.com/ngocjohn/sidebar-organizer/issues/43) 
+  Introduce options to enable or disable animations and set animation delays for group toggling in the sidebar.
+### Fixes 🐛
+* Update ha-button component styles by [@ngocjohn](https://github.com/ngocjohn) [#42](https://github.com/ngocjohn/sidebar-organizer/issues/42) 
+* Fix hidden items  by [@ngocjohn](https://github.com/ngocjohn) [#44](https://github.com/ngocjohn/sidebar-organizer/issues/44) 
+### Other Changes
+* Refactor sidebar initialization by removing temporary items handling by [@ngocjohn](https://github.com/ngocjohn) [#35](https://github.com/ngocjohn/sidebar-organizer/issues/35) 
+
+
+**Full Changelog**: [v2.1.1...v2.1.2](https://github.com/ngocjohn/sidebar-organizer/compare/v2.1.1...v2.1.2)
+
+[Changes][v2.1.2]
+
+
+<a id="v2.1.1"></a>
+# [v2.1.1](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v2.1.1) - 2025-06-30
+
+<!-- Release notes generated using configuration in .github/release.yml at v2.1.1 -->
+
+## What's Changed
+### Other Changes
+* Enhance sidebar configuration and validation logic by [@ngocjohn](https://github.com/ngocjohn) in [#32](https://github.com/ngocjohn/sidebar-organizer/pull/32)
+
+
+**Full Changelog**: https://github.com/ngocjohn/sidebar-organizer/compare/v2.1.0...v2.1.1
+
+[Changes][v2.1.1]
+
+
 <a id="v2.1.0"></a>
 # [v2.1.0](https://github.com/ngocjohn/sidebar-organizer/releases/tag/v2.1.0) - 2025-06-28
 
@@ -166,6 +202,8 @@ With Sidebar Organizer, managing the sidebar in Home Assistant becomes easy and 
 [Changes][v1.0.0]
 
 
+[v2.1.2]: https://github.com/ngocjohn/sidebar-organizer/compare/v2.1.1...v2.1.2
+[v2.1.1]: https://github.com/ngocjohn/sidebar-organizer/compare/v2.1.0...v2.1.1
 [v2.1.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v2.0.0...v2.1.0
 [v2.0.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.4.0...v2.0.0
 [v1.4.0]: https://github.com/ngocjohn/sidebar-organizer/compare/v1.3.0...v1.4.0
