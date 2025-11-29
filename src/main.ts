@@ -18,7 +18,6 @@ import {
   PartialPanelResolver,
   SidebarConfig,
   SidebarPanelItem,
-  ThemeSettings,
 } from '@types';
 import { applyTheme } from '@utilities/apply-theme';
 import { computePanels } from '@utilities/compute-panels';
@@ -592,7 +591,7 @@ class SidebarOrganizer {
         break;
 
       case HA_EVENT.SETTHEME:
-        const themeSetting = detail as ThemeSettings;
+        const themeSetting = detail as HaExtened['hass']['selectedTheme'];
         console.log('Theme Changed', themeSetting);
         this._addAdditionalStyles(this._config.color_config);
         break;

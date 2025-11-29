@@ -8,7 +8,7 @@ import { showConfirmDialog } from '@utilities/show-dialog-box';
 import { SidebarConfigDialogParams } from '@utilities/show-dialog-sidebar-organizer';
 import { showToast } from '@utilities/toast-notify';
 import { LitElement, TemplateResult, html, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { DIALOG_STYLE } from 'sidebar-css';
 
 import { HA, SidebarConfig } from '../types';

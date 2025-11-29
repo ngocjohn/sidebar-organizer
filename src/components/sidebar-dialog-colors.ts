@@ -8,7 +8,7 @@ import { getDefaultThemeColors } from '@utilities/custom-styles';
 import { createExpansionPanel } from '@utilities/dom-utils';
 import { fireEvent } from '@utilities/fire_event';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators';
+import { customElement, property, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import tinycolor from 'tinycolor2';
 

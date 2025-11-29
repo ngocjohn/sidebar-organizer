@@ -22,7 +22,7 @@ import {
 } from '@utilities/storage-utils';
 import { ValidHassDomEvent } from 'custom-card-helpers/dist/fire-event';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import YAML from 'yaml';
 
 import { SidebarDialogCodeEditor } from './sidebar-dialog-code-editor';

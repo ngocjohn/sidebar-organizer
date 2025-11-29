@@ -1,8 +1,8 @@
 import type { TemplateResult } from 'lit';
 
 import { css, html, LitElement } from 'lit';
-import { customElement, property } from 'lit/decorators';
-import { ifDefined } from 'lit/directives/if-defined';
+import { customElement, property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 @customElement('sidebar-organizer-tab')
 export class SidebarOrganizerTab extends LitElement {

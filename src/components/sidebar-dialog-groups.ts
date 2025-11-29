@@ -6,8 +6,8 @@ import { isIcon } from '@utilities/is-icon';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
-import { repeat } from 'lit-html/directives/repeat.js';
-import { customElement, property, state } from 'lit/decorators';
+import { customElement, property, state } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
 
 import { dialogStyles } from './dialog-css';
 import { SidebarConfigDialog } from './sidebar-dialog';

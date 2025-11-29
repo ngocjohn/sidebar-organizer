@@ -1,5 +1,5 @@
 import { html, css, LitElement, TemplateResult, CSSResultGroup, nothing, PropertyValues } from 'lit';
-import { customElement, property, query } from 'lit/decorators';
+import { customElement, property, query } from 'lit/decorators.js';
 import YAML from 'yaml';
 /* eslint-disable */
 import { ALERT_MSG, NAMESPACE, STORAGE } from '@constants';
