@@ -17,13 +17,13 @@
     "allowJs": true,
     "sourceMap": true,
     "baseUrl": "./src",
-    "rootDir": "src",
+    "rootDir": ".",
     "paths": {
       "@types": ["types"],
       "@constants": ["constants"],
       "@utilities/*": ["utilities/*"]
     }
   },
-  "include": ["src/**/*.ts", "packages.json"],
-  "exclude": ["node_modules", "dist", "build"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
 }

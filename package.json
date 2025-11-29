@@ -20,15 +20,21 @@
     "@mdi/js": "^7.4.47",
     "custom-card-helpers": "^1.9.0",
     "get-promisable-result": "^1.0.1",
+    "home-assistant-js-websocket": "^9.6.0",
     "home-assistant-query-selector": "^4.3.0",
     "home-assistant-styles-manager": "^3.1.0",
     "lit": "^3.2.1",
     "rollup-plugin-filesize": "^10.0.0",
-    "tinycolor2": "^1.6.0"
+    "tinycolor2": "^1.6.0",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.0",
     "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@types/node": "^24.10.1",
     "@types/sortablejs": "^1.15.8",
     "@typescript-eslint/eslint-plugin": "^8.26.0",
     "@typescript-eslint/parser": "^8.26.0",
@@ -39,19 +45,17 @@
     "postcss-preset-env": "^10.1.5",
     "prettier": "3.5.3",
     "rollup": "^4.34.9",
-    "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-filesize-check": "^1.2.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-postcss": "^4.0.2",
     "rollup-plugin-postcss-lit": "^2.1.0",
     "rollup-plugin-serve": "^2.0.3",
-    "rollup-plugin-typescript2": "^0.36.0",
     "sortablejs": "^1.15.6",
+    "tslib": "^2.8.1",
     "typescript": "^5.8.2"
   },
   "scripts": {
     "start": "rollup -c --bundleConfigAsCjs --watch",
-    "build": "npm run lint && npm run rollup",
+    "build": "pnpm run lint && pnpm run rollup",
     "rollup": "rollup -c --bundleConfigAsCjs",
     "lint": "eslint src/ --ext .ts"
   }

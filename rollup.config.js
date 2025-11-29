@@ -1,3 +1,4 @@
+import typescript from '@rollup/plugin-typescript';
 import serve from 'rollup-plugin-serve';
 import terser from '@rollup/plugin-terser';
 import { version } from './package.json';
@@ -7,7 +8,7 @@ const dev = process.env.ROLLUP_WATCH;
 const port = process.env.PORT || 8235;
 const currentVersion = dev ? 'DEVELOPMENT' : `v${version}`;
 const custombanner = logCardInfo(currentVersion);
-
+const fileOutput = dev ? 'dist/sidebar-organizer.js' : 'build/sidebar-organizer.js';
 const serveopts = {
   contentBase: ['./dist'],
   port,
@@ -31,14 +32,14 @@ export default [
     input: 'src/main.ts',
     output: [
       {
-        file: dev ? 'dist/sidebar-organizer.js' : 'build/sidebar-organizer.js',
+        file: fileOutput,
         format: 'es',
         sourcemap: dev ? true : false,
         inlineDynamicImports: true,
         banner: custombanner,
       },
     ],
-    plugins: [...plugins, ...defaultPlugins],
+    plugins: [typescript({ declaration: false, outDir: dev ? 'dist' : 'build' }), ...defaultPlugins, ...plugins],
     moduleContext: (id) => {
       const thisAsWindowForModules = [
         'node_modules/@formatjs/intl-utils/lib/src/diff.js',

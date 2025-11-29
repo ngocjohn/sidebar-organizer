@@ -1,6 +1,5 @@
-import typescript from 'rollup-plugin-typescript2';
-import nodeResolve from 'rollup-plugin-node-resolve';
-import commonjs from 'rollup-plugin-commonjs';
+import { nodeResolve } from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import postcss from 'rollup-plugin-postcss';
 import postcssPresetEnv from 'postcss-preset-env';
@@ -33,7 +32,6 @@ export function logCardInfo(version) {
 export const defaultPlugins = [
   nodeResolve({}),
   commonjs(),
-  typescript({}),
   json(),
   postcss({
     plugins: [
