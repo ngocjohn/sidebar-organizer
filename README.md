@@ -93,6 +93,24 @@ https://github.com/ngocjohn/sidebar-organizer
 
 </details>
 
+## Performance improvements
+
+While sidebar-origanizer can be installed as a lovelace resource, some functionality will benefit greatly from it being installed as a frontend module instead.
+
+To do that, add the following to your `configuration.yaml` file and restart Home Assistant:
+
+```yaml
+frontend:
+  extra_module_url:
+    - /[sidebar-organizer resource URL]
+```
+
+You'll need to adjust that path according to where you have installed sidebar-organizer.js. If you installed through HACS, this is probably:
+
+```
+/hacsfiles/sidebar-organizer/sidebar-organizer.js
+```
+
 # Usage
 
 ## Configuration dialog
