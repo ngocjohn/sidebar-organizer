@@ -34,7 +34,7 @@ export default [
       {
         file: fileOutput,
         format: 'es',
-        sourcemap: dev ? true : false,
+        sourcemap: true,
         inlineDynamicImports: true,
         banner: custombanner,
       },

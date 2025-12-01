@@ -39,6 +39,7 @@ export class SidebarDialogPreview extends LitElement {
       }
       this._colorConfigMode = darkMode ? 'dark' : 'light';
       setTimeout(() => {
+        console.log('Set theme on first update:', this._colorConfigMode);
         this._setTheme(this._colorConfigMode);
       }, 0);
     }
@@ -47,11 +48,12 @@ export class SidebarDialogPreview extends LitElement {
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
     if (_changedProperties.has('_dialog') && this._dialog) {
+      console.log('Dialog changed');
       return true;
     }
-    if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
-      return true;
-    }
+    // if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
+    //   return true;
+    // }
 
     if (_changedProperties.has('invalidConfig') && Object.keys(this._sidebarConfig).length === 0) {
       this.invalidConfig = true;
@@ -85,6 +87,11 @@ export class SidebarDialogPreview extends LitElement {
           JSON.stringify(newConfig.color_config?.custom_theme?.theme);
 
         if (themeChanged) {
+          console.log(
+            'Theme changed',
+            oldConfig.color_config?.custom_theme?.theme,
+            newConfig.color_config?.custom_theme?.theme
+          );
           if (newConfig.color_config?.custom_theme?.theme === undefined) {
             this.style = '';
             setTimeout(() => {
@@ -94,14 +101,19 @@ export class SidebarDialogPreview extends LitElement {
             this._setTheme(this._colorConfigMode);
           }
         }
-        const notificationChanged =
-          JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification) ||
+
+        const notificationChanged = JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification);
+        const newItemsNotificationChanged = JSON.parse(
           JSON.stringify(
             oldConfig.new_items?.every((item) => item.notification) !==
               newConfig.new_items?.every((item) => item.notification)
-          );
-        if (notificationChanged) {
-          console.log('Notification changed');
+          )
+        );
+
+        if (!notificationChanged && !newItemsNotificationChanged) {
+          return;
+        } else {
+          console.log('Notification config changed', notificationChanged, newItemsNotificationChanged);
           this._handleNotifyChange();
         }
       }
@@ -111,7 +123,7 @@ export class SidebarDialogPreview extends LitElement {
       const oldMode = _changedProperties.get('_colorConfigMode') as string | undefined;
       const newMode = this._colorConfigMode;
       if (oldMode && newMode && oldMode !== newMode) {
-        // console.log('Color mode changed:', oldMode, '->', newMode);
+        console.log('set theme on mode change:', oldMode, '->', newMode);
         this._setTheme(newMode);
       }
     }
@@ -237,7 +249,7 @@ export class SidebarDialogPreview extends LitElement {
     setTimeout(() => {
       this._getDefaultColors();
     }, 200);
-    // console.log('Preview Theme applied', theme, mode);
+    console.log('Preview Theme applied', theme, mode);
   }
 
   private _getDefaultColors(): void {
@@ -416,6 +428,15 @@ export class SidebarDialogPreview extends LitElement {
 
     // console.log('styleAdded', styleAdded);
     return styleMap(styleAdded);
+  }
+
+  public _setCustomTheme(theme: string, mode?: string): void {
+    this.style = '';
+    applyTheme(this, this.hass, theme, mode);
+    setTimeout(() => {
+      this._getDefaultColors();
+    }, 200);
+    console.log('Preview Custom Theme applied', theme, mode);
   }
 
   static get styles(): CSSResultGroup {

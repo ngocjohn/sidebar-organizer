@@ -1,8 +1,8 @@
 import { ALERT_MSG, CUSTOM_EVENT, STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
+import * as ThemeHelper from '@utilities/apply-theme';
 import { fetchFileConfig, isItemsValid, tryCorrectConfig } from '@utilities/configs';
 import { INVALID_CONFIG } from '@utilities/configs';
-import { fetchDashboards } from '@utilities/dashboard';
 
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
@@ -11,7 +11,9 @@ import './sidebar-dialog-preview';
 import './sidebar-organizer-tab';
 import './sidebar-dialog-new-items';
 
+import { fetchDashboards } from '@utilities/dashboard';
 import { TRANSLATED_LABEL } from '@utilities/localize';
+import { getDefaultPanel } from '@utilities/panel';
 import { showAlertDialog } from '@utilities/show-dialog-box';
 import {
   getStorage,
@@ -20,7 +22,6 @@ import {
   getHiddenPanels,
   sidebarUseConfigFile,
 } from '@utilities/storage-utils';
-import { ValidHassDomEvent } from 'custom-card-helpers/dist/fire-event';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import YAML from 'yaml';
@@ -33,6 +34,19 @@ import { SidebarDialogPreview } from './sidebar-dialog-preview';
 import { SidebarOrganizerDialog } from './sidebar-organizer-dialog';
 
 const tabs = ['appearance', 'panels', 'newItems'] as const;
+
+export interface ConfigChangedEvent {
+  config: SidebarConfig;
+}
+
+declare global {
+  interface HASSDomEvents {
+    'sidebar-config-changed': ConfigChangedEvent;
+  }
+  interface HTMLElementEventMap {
+    'sidebar-config-changed': ConfigChangedEvent;
+  }
+}
 
 @customElement('sidebar-organizer-config-dialog')
 export class SidebarConfigDialog extends LitElement {
@@ -61,12 +75,13 @@ export class SidebarConfigDialog extends LitElement {
   @query('sidebar-dialog-code-editor') _dialogCodeEditor!: SidebarDialogCodeEditor;
   @query('sidebar-dialog-new-items') _dialogNewItems!: SidebarDialogNewItems;
 
+  @state() _themeHelper = ThemeHelper;
   connectedCallback(): void {
     super.connectedCallback();
     this._connected = true;
     this._useConfigFile = sidebarUseConfigFile();
     this._tabState = this._useConfigFile === true ? TAB_STATE.CODE : TAB_STATE.BASE;
-    this.addEventListener('sidebar-config-changed', this._sidebarConfigChanged.bind(this));
+    this.addEventListener('sidebar-config-changed', this._sidebarConfigChanged as EventListener);
     window.sidebarDialog = this;
   }
 
@@ -491,7 +506,7 @@ export class SidebarConfigDialog extends LitElement {
     this._configLoaded = true;
   };
 
-  private _sidebarConfigChanged(event: HASSDomEvents[ValidHassDomEvent]) {
+  private _sidebarConfigChanged(event: CustomEvent<ConfigChangedEvent>) {
     event.stopPropagation();
     const newConfig = event.detail.config as SidebarConfig;
     // Update the sidebar config
@@ -546,7 +561,7 @@ export class SidebarConfigDialog extends LitElement {
 
   private _updateSidebarItems = (currentPanelOrder: string[]) => {
     const initHiddenItems = getHiddenPanels();
-    const defaultPanel = this.hass.defaultPanel;
+    const defaultPanel = getDefaultPanel(this.hass).url_path || '';
 
     const customGroup = { ...this._sidebarConfig?.custom_groups };
     const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
@@ -554,7 +569,14 @@ export class SidebarConfigDialog extends LitElement {
     let hiddenItems = [...(this._sidebarConfig?.hidden_items || [])];
 
     const hiddenItemsDiff = JSON.stringify(hiddenItems) !== JSON.stringify(initHiddenItems);
-    console.log('Hidden items diff:', hiddenItemsDiff);
+    console.log(
+      'Initial hidden items:',
+      initHiddenItems,
+      'Current hidden items:',
+      hiddenItems,
+      'having diff:',
+      hiddenItemsDiff
+    );
 
     // Remove the default panel from any custom group
     Object.keys(customGroup).forEach((key) => {
@@ -682,7 +704,8 @@ export class SidebarConfigDialog extends LitElement {
           max-height: fit-content;
           overflow: hidden;
           align-content: center;
-          background-color: rgba(0, 0, 0, 0.2);
+          /* background-color: rgba(0, 0, 0, 0.2); */
+          background-color: var(--clear-background-color, rgba(0, 0, 0, 0.2));
         }
 
         .config-content {

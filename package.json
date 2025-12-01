@@ -18,7 +18,6 @@
   "dependencies": {
     "@jaames/iro": "^5.5.2",
     "@mdi/js": "^7.4.47",
-    "custom-card-helpers": "^1.9.0",
     "get-promisable-result": "^1.0.1",
     "home-assistant-js-websocket": "^9.6.0",
     "home-assistant-query-selector": "^4.3.0",
@@ -38,6 +37,7 @@
     "@types/sortablejs": "^1.15.8",
     "@typescript-eslint/eslint-plugin": "^8.26.0",
     "@typescript-eslint/parser": "^8.26.0",
+    "es-toolkit": "^1.42.0",
     "eslint": "^9.21.0",
     "eslint-plugin-perfectionist": "^4.9.0",
     "eslint-plugin-unused-imports": "^4.1.4",

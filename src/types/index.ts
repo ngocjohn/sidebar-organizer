@@ -2,10 +2,13 @@ import { ActionConfig } from '@utilities/action';
 
 import { HomeAssistant } from './ha';
 
+interface defaultPanel extends HomeAssistant {
+  defaultPanel: string;
+}
 export type HA = HomeAssistant;
 
 export interface HaExtened extends HTMLElement {
-  hass: HA;
+  hass: HomeAssistant & defaultPanel;
 }
 
 export interface Router extends HTMLElement {

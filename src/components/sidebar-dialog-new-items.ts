@@ -21,6 +21,7 @@ export const computeOptionalActionSchema = () => {
       selector: {
         ui_action: {
           actions: DEFAULT_ACTIONS,
+          default_action: 'none' as const,
         },
       },
     },
@@ -34,6 +35,7 @@ export const computeOptionalActionSchema = () => {
           selector: {
             ui_action: {
               actions: DEFAULT_ACTIONS,
+              default_action: 'none' as const,
             },
           },
         },
@@ -43,6 +45,7 @@ export const computeOptionalActionSchema = () => {
           selector: {
             ui_action: {
               actions: DEFAULT_ACTIONS,
+              default_action: 'none' as const,
             },
           },
         },
@@ -236,9 +239,22 @@ export class SidebarDialogNewItems extends LitElement {
     </div>`;
 
     const baseData = { ...this._sidebarConfig.new_items![this._selectedItemIndex!] };
+    // console.log('Editing item:', baseData);
+    const groupName = this.getGroupName(newItems.title!);
+    console.log('Group name:', groupName);
+    let inGroup: string | undefined;
+    if (groupName === 'Bottom Panels') {
+      inGroup = 'bottom';
+    } else if (groupName === 'Ungrouped') {
+      inGroup = undefined;
+    } else {
+      inGroup = groupName;
+    }
+
+    console.log('Item is in group:', inGroup);
     const dataWithoutActions = {
       icon: baseData.icon,
-      group: baseData.group,
+      group: inGroup,
     };
     const actionData = {
       entity: baseData.entity,
@@ -282,6 +298,7 @@ export class SidebarDialogNewItems extends LitElement {
                 .hass=${this.hass}
                 .data=${dataWithoutActions}
                 .schema=${baseSchema}
+                .configKey=${'base'}
                 .computeLabel=${this._computeLabel}
                 .computeHelper=${this._computeHelper}
                 @value-changed=${this._valueChanged}
@@ -291,6 +308,7 @@ export class SidebarDialogNewItems extends LitElement {
                 .hass=${this.hass}
                 .data=${actionData}
                 .schema=${actionSchema}
+                .configKey=${'actions'}
                 .computeLabel=${this._computeLabel}
                 .computeHelper=${this._computeHelper}
                 @value-changed=${this._valueChanged}
@@ -300,6 +318,7 @@ export class SidebarDialogNewItems extends LitElement {
                 .hass=${this.hass}
                 .data=${notificationData}
                 .schema=${notificationSchema}
+                .configKey=${'notification'}
                 .computeLabel=${this._computeLabel}
                 .computeHelper=${this._computeHelper}
                 @value-changed=${this._valueChanged}
@@ -404,34 +423,49 @@ export class SidebarDialogNewItems extends LitElement {
 
   private _valueChanged(ev: CustomEvent): void {
     ev.stopPropagation();
-
     const newItemConfig = ev.detail.value;
     if (!newItemConfig) return;
+    const configKey = (ev.target as any).configKey;
+    console.log('Value changed for key:', configKey, newItemConfig);
 
     const index = this._selectedItemIndex;
     if (index === null) return;
-    const title = this._sidebarConfig.new_items![index].title!;
-    const group = newItemConfig.group;
+    const currentItem = this._sidebarConfig.new_items![index];
+    const title = currentItem.title!;
+    let updatedItem: NewItemConfig = { ...currentItem };
+
+    if (configKey === 'base') {
+      const group = newItemConfig.group;
+      updatedItem = {
+        ...updatedItem,
+        ...newItemConfig,
+      };
+      this._handleGroupChange(title, group);
+    } else {
+      updatedItem = {
+        ...updatedItem,
+        ...newItemConfig,
+      };
+    }
 
     const newItems = [...(this._sidebarConfig.new_items || [])];
-    const oldItem = { ...newItems[index] };
-
-    newItems[index] = { ...oldItem, ...newItemConfig };
+    newItems[index] = updatedItem;
+    console.log('Updated item:', updatedItem);
     this._sidebarConfig = {
       ...this._sidebarConfig,
       new_items: newItems,
     };
     // If item is in group, we need to update that item in the group
-    this._handleGroupChange(title, group);
+    // this._handleGroupChange(title, group);
 
-    this._selectedItem = { ...newItemConfig } as NewItemConfig;
+    this._selectedItem = { ...updatedItem };
     this._dispatchConfig(this._sidebarConfig);
   }
 
   private _handleGroupChange(title: string, group: string | undefined): void {
     const inGroup = this.getGroupName(title);
     // If item is already in the group, we do nothing
-
+    console.log('Handling group change:', title, 'from', inGroup, 'to', group);
     if (
       inGroup === group ||
       (inGroup === 'Ungrouped' && !group) ||

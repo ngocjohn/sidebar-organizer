@@ -6,6 +6,7 @@ import { fireEvent, HASSDomEvent, ValidHassDomEvent } from './fire_event';
 declare global {
   // for fire event
   interface HASSDomEvents {
+    'show-dialog': ShowDialogParams<unknown>;
     'close-dialog': undefined;
     'dialog-closed': DialogClosedParams;
   }

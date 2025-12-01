@@ -1,6 +1,7 @@
 import { SidebarConfig } from '@types';
-import { HomeAssistant } from 'custom-card-helpers';
 import { html, TemplateResult } from 'lit';
+
+import { HomeAssistant } from '../types/ha';
 
 export const createHaForm = (component: any, schema: any, data?: any): TemplateResult => {
   const DATA = data ?? ({ ...component._sidebarConfig } as SidebarConfig);

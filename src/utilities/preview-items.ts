@@ -2,12 +2,13 @@ import { PANEL_ICONS } from '@constants';
 import { SidebarConfigDialog } from 'components/sidebar-dialog';
 
 import { HaExtened, SidebarConfig, PanelInfo, Panels, NewItemConfig } from '../types';
+import { getDefaultPanel, getPanelTitle } from './panel';
 
 export const getPreviewItems = (dialog: SidebarConfigDialog, config: SidebarConfig) => {
   const hass = dialog.hass as HaExtened['hass'];
-  const hassPanels = hass?.panels as Panels;
-  const defaultPanel = hass.defaultPanel;
-
+  // const hassPanels = hass?.panels as Panels;
+  const defaultPanel = getDefaultPanel(hass);
+  const defaultTitle = getPanelTitle(hass, defaultPanel);
   const createPanelItems = (items: string[]) => {
     return _createPanelItems(hass, [...items], dialog);
   };
@@ -16,9 +17,9 @@ export const getPreviewItems = (dialog: SidebarConfigDialog, config: SidebarConf
   const _panelItems: Record<string, PanelInfo[]> = {
     defaultPage: [
       {
-        component_name: hassPanels[defaultPanel]?.title || hass.localize('panel.states'),
-        title: hassPanels[defaultPanel]?.title || hass.localize('panel.states'),
-        icon: hassPanels[defaultPanel]?.icon || PANEL_ICONS.lovelace,
+        component_name: defaultPanel.component_name || 'lovelace',
+        title: defaultTitle || defaultPanel.title || 'Lovelace',
+        icon: defaultPanel.icon || PANEL_ICONS.lovelace,
       },
     ],
   };

@@ -11,6 +11,7 @@ import {
   STORAGE,
 } from '@constants';
 import {
+  DividerColorSettings,
   HaExtened,
   NewItemConfig,
   PanelInfo,
@@ -19,20 +20,21 @@ import {
   SidebarConfig,
   SidebarPanelItem,
 } from '@types';
-import { applyTheme } from '@utilities/apply-theme';
+import { _getSupportedModes, applyTheme } from '@utilities/apply-theme';
 import { computePanels } from '@utilities/compute-panels';
 import { fetchConfig } from '@utilities/configs';
 import { getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
 import { addAction, getInitPanelOrder, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
-import { ValidHassDomEvent } from '@utilities/fire_event';
 import { fetchFrontendUserData, saveFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
+import * as LOGGER from '@utilities/logger';
 
 import './components/sidebar-dialog';
 
-import * as LOGGER from '@utilities/logger';
+import * as PanelHelper from '@utilities/panel';
+import { getDefaultPanel } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog } from '@utilities/show-dialog-box';
 import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
 import { isStoragePanelEmpty, setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
@@ -122,12 +124,33 @@ class SidebarOrganizer {
   private sideBarRoot!: ShadowRoot;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
+  private _panelHelpers = PanelHelper;
+  private _baseColorFromTheme: DividerColorSettings = {};
 
   get hass(): HaExtened['hass'] {
     return this.ha!.hass;
   }
 
   get darkMode(): boolean {
+    const themeConfig = this._config.color_config?.custom_theme;
+    const configTheme = themeConfig?.theme || this.hass.themes.theme;
+    const forceTheme = themeConfig?.mode;
+    const themeSupportedModes = _getSupportedModes(configTheme, this.hass);
+    let isDark = this.hass.themes.darkMode;
+    if (themeSupportedModes.length) {
+      if (forceTheme === 'dark' && themeSupportedModes.includes('dark')) {
+        isDark = true;
+      } else if (forceTheme === 'light' && themeSupportedModes.includes('light')) {
+        isDark = false;
+      } else {
+        isDark = themeSupportedModes.includes('dark') ? this.hass.themes.darkMode : false;
+      }
+    } else {
+      isDark = this.hass.themes.darkMode;
+    }
+    return isDark;
+  }
+  get _darkMode(): boolean {
     const forceTheme = this._config.color_config?.custom_theme?.mode;
     if (forceTheme === 'dark') {
       return true;
@@ -406,7 +429,7 @@ class SidebarOrganizer {
 
   private async _checkUserSidebarSettings() {
     const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
-    this._userHasSidebarSettings = (userData && userData?.panelOrder?.length > 0) || false;
+    this._userHasSidebarSettings = (userData?.panelOrder && userData.panelOrder.length > 0) || false;
     console.log('User has sidebar settings:', this._userHasSidebarSettings);
   }
 
@@ -577,7 +600,7 @@ class SidebarOrganizer {
     }
   }
 
-  private async _handleHaEvents(event: HASSDomEvents[ValidHassDomEvent]) {
+  private async _handleHaEvents(event: any) {
     if (this._notCompatible) return;
     event.stopPropagation();
     const { type, detail } = event;
@@ -593,7 +616,10 @@ class SidebarOrganizer {
       case HA_EVENT.SETTHEME:
         const themeSetting = detail as HaExtened['hass']['selectedTheme'];
         console.log('Theme Changed', themeSetting);
-        this._addAdditionalStyles(this._config.color_config);
+        this._styleManager.removeStyle(this.sideBarRoot!);
+        setTimeout(() => {
+          this._addAdditionalStyles(this._config.color_config);
+        }, 100);
         break;
       case HA_EVENT.DEFAULT_PANEL:
         this._handleDefaultPanelChange(detail.defaultPanel);
@@ -668,7 +694,7 @@ class SidebarOrganizer {
 
   private async _getConfig() {
     const config = await fetchConfig(this.hass);
-    console.log('Fetched Config:', config);
+    // console.log('Fetched Config:', config);
     if (!config) {
       console.log('No config found, stopping further setup');
       this._setInitPanelOrder();
@@ -925,9 +951,10 @@ class SidebarOrganizer {
   private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
     mode = mode ? mode : this.darkMode ? 'dark' : 'light';
     const customTheme = color_config?.custom_theme?.theme || undefined;
+    console.log('Adding Additional Styles for mode:', mode);
     if (customTheme) {
       applyTheme(this.HaSidebar, this.hass, customTheme, mode);
-      // console.log('Custom Theme:', customTheme, 'Mode:', mode);
+      console.log('Custom Theme:', customTheme, 'Mode:', mode);
     }
     const colorConfig = color_config?.[mode] || {};
     const borderRadius = color_config?.border_radius ? `${color_config.border_radius}px` : undefined;
@@ -938,10 +965,12 @@ class SidebarOrganizer {
     const CUSTOM_STYLES = convertCustomStyles(customStyles) || '';
 
     const defaultColors = getDefaultThemeColors(customTheme !== undefined ? this.HaSidebar : undefined);
+
+    this._baseColorFromTheme = defaultColors;
     // console.log('Default Colors:', defaultColors);
-    // console.log('theme', theme, 'colorConfig', colorConfig, 'defaultColors', defaultColors);
+    // console.log('theme', customTheme, 'colorConfig', colorConfig, 'defaultColors', defaultColors);
     const getColor = (key: string): string => {
-      const color = colorConfig?.[key] ? `${colorConfig[key]} !important` : defaultColors[key];
+      const color = colorConfig?.[key] ? `${colorConfig[key]} !important` : this._baseColorFromTheme[key];
       // console.log('Color:', key, color);
       return color;
     };
@@ -954,6 +983,7 @@ class SidebarOrganizer {
       '--sidebar-background-color': getColor('custom_sidebar_background_color'),
       '--divider-border-radius': borderRadius,
       '--divider-margin-radius': marginRadius,
+      '--sidebar-text-color': getColor('divider_text_color'),
     };
 
     const CUSTOM_COLOR_CONFIG = `:host {${Object.entries(colorCssConfig)
@@ -999,7 +1029,7 @@ class SidebarOrganizer {
   }
 
   private _computePanels(currentPanel: string[]) {
-    const { defaultPanel } = this.hass;
+    const defaultPanel = getDefaultPanel(this.hass).url_path;
     const bottomMovedItems = this._config.bottom_items || [];
     const customGroups = this._config.custom_groups || {};
 
@@ -1007,14 +1037,11 @@ class SidebarOrganizer {
     const groupedItems = Object.values(customGroups)
       .flat()
       .filter((item) => currentPanel.includes(item));
-    // console.log('Grouped Items:', groupedItems);
 
     // Filter default items that are not in grouped or bottom items
     const defaultItems = currentPanel.filter(
       (item) => !groupedItems.includes(item) && !bottomMovedItems.includes(item)
     );
-
-    // console.log('Default Items:', defaultItems);
 
     // Move default panel item to the front
     const defaultPanelItem = defaultItems.find((item) => item === defaultPanel);

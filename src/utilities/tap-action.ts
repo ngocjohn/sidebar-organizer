@@ -9,6 +9,20 @@ export function addHandlerActions(element: HTMLElement, config: NewItemConfig) {
   element.addEventListener('pointerup', handler.handleEnd.bind(handler));
 
   element.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  element.addEventListener('click', (e) => {
+    e.preventDefault(); // no href="#" jump
+    e.stopImmediatePropagation(); // stop HA / other click handlers, if desired
+  });
+
+  element.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      // manually trigger the pointer logic or directly send a tap:
+      handler.handleStart(e as any);
+      handler.handleEnd(e as any);
+    }
+  });
   element.style.cursor = 'pointer';
 }
 
