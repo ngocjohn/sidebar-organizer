@@ -15,6 +15,8 @@ import { HA, SidebarConfig } from '../types';
 import { fireEvent } from '../utilities/fire_event';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
+let mql = window.matchMedia('(min-width: 1000px) and (max-width: 1440px)');
+
 @customElement('sidebar-organizer-dialog')
 export class SidebarOrganizerDialog extends LitElement {
   @property({ attribute: false }) public hass!: HA;
@@ -40,7 +42,9 @@ export class SidebarOrganizerDialog extends LitElement {
 
   public async showDialog(param: SidebarConfigDialogParams): Promise<void> {
     this._open = true;
-    this._large = true; // Default to large dialog
+    if (mql.matches) {
+      this._large = true; // Default to large dialog
+    }
     this._params = param;
   }
 

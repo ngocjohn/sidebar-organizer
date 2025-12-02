@@ -290,7 +290,7 @@ export class SidebarConfigDialog extends LitElement {
     }
     const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
     const _invalidConfig = this._invalidConfig;
-    const isConfigValid = _invalidConfig.valid === true;
+    const isConfigValid = this._invalidConfig.valid === true;
     const sections = [
       { title: 'Duplicated:', key: 'duplikatedItems' },
       { title: 'Not exist:', key: 'invalidItems' },
@@ -303,8 +303,9 @@ export class SidebarConfigDialog extends LitElement {
         <ha-yaml-editor
           .label=${'EDITOR FOR INVALID CONFIG'}
           .hass=${this.hass}
-          .defaultValue=${_invalidConfig.config}
+          .defaultValue=${this._invalidConfig.config}
           .hasExtraActions=${true}
+          .readOnly=${isConfigValid}
           @value-changed=${(ev: CustomEvent) => {
             ev.stopPropagation();
             const { isValid, value } = ev.detail;
@@ -526,7 +527,6 @@ export class SidebarConfigDialog extends LitElement {
         console.log('Config validation result:', result);
         if (typeof result === 'object' && result !== null) {
           this._invalidConfig = result;
-
           this.requestUpdate();
         }
         break;
@@ -560,12 +560,13 @@ export class SidebarConfigDialog extends LitElement {
   };
 
   private _updateSidebarItems = (currentPanelOrder: string[]) => {
+    // let hasChanged: boolean = false;
     const initHiddenItems = getHiddenPanels();
     const defaultPanel = getDefaultPanel(this.hass).url_path || '';
 
     const customGroup = { ...this._sidebarConfig?.custom_groups };
-    const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
     const bottomItems = [...(this._sidebarConfig?.bottom_items || [])];
+    const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
     let hiddenItems = [...(this._sidebarConfig?.hidden_items || [])];
 
     const hiddenItemsDiff = JSON.stringify(hiddenItems) !== JSON.stringify(initHiddenItems);
@@ -594,6 +595,7 @@ export class SidebarConfigDialog extends LitElement {
     // If there are any changes (default panel removed from group, hidden items or collapsed groups changed)
     if (hiddenItemsDiff || updatedCollapsedGroups.length !== defaultCollapsed.length) {
       console.log('updateSidebarItems', hiddenItemsDiff, updatedCollapsedGroups.length !== defaultCollapsed.length);
+
       this._sidebarConfig = {
         ...this._sidebarConfig,
         custom_groups: customGroup,
@@ -611,7 +613,7 @@ export class SidebarConfigDialog extends LitElement {
     this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
     // Initialize panel combinations
     this._initCombiPanels = [..._sidebarItems, ...initHiddenItems];
-    console.log('Init combi panels:', this._initCombiPanels);
+    // console.log('Init combi panels:', this._initCombiPanels);
 
     this._initPanelOrder = [..._sidebarItems];
 
