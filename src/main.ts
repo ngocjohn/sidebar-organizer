@@ -119,6 +119,7 @@ class SidebarOrganizer {
   private sideBarRoot!: ShadowRoot;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
+  public _logger = LOGGER;
   private _baseColorFromTheme: DividerColorSettings = {};
 
   get hass(): HaExtened['hass'] {

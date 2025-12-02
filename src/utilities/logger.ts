@@ -1,3 +1,5 @@
+import { ALERT_MSG } from '@constants';
+
 const LOG_STYLES = {
   prefix: ['color: #4fc3f7', 'font-weight: bold'].join(';'),
   error: ['color: #f44336', 'font-weight: bold'].join(';'),
@@ -52,4 +54,11 @@ export const loggingMSG = (message: string, ...data: unknown[]): void => {
   const formattedData =
     data.length > 0 ? [formattedMessage, formattedStyle, ...data] : [formattedMessage, formattedStyle];
   console.log(...formattedData);
+};
+
+export const infoFrontendModule = (hacsUrl?: string): void => {
+  const logMsg = [ALERT_MSG.FRONTEND_MODULE, hacsUrl ? `hacs path: ${hacsUrl}` : '', ALERT_MSG.INSTALLATION_LINK]
+    .filter((line) => line)
+    .join('\n');
+  info('sidebar-organizer:', logMsg);
 };

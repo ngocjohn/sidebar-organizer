@@ -97,4 +97,6 @@ export const ALERT_MSG = {
   CLEAN_SUCCESS_RELOAD: `Your synced settings have been cleared successfully.  Click 'OK' reload the page to apply the changes.`,
   LEGACY_EDIT_WARNING:
     'You have Sidebar Organizer installed. It is recommended to use Sidebar Organizer Dialog to edit the sidebar. Do you want to open Sidebar Organizer Dialog instead?',
+  FRONTEND_MODULE: 'You may experience issues when plugin is not loaded as a module.',
+  INSTALLATION_LINK: `See: ${REPO_URL}#installation`,
 };
