@@ -1,3 +1,5 @@
+import { HaExtened } from '@types';
+
 export interface ThemeVars {
   // Incomplete
   'primary-color': string;
@@ -25,7 +27,6 @@ export interface Themes {
   theme?: string;
 }
 
-import { HaExtened } from '../types';
 export const getAllThemeData = (data: Theme, mode: string): ThemeVars => {
   // console.log('Getting all theme data for mode:', data, mode);
   const filteredThemeData = Object.keys(data)
