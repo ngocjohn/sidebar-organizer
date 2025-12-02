@@ -1,10 +1,11 @@
 import { HA as HomeAssistant } from '@types';
-import { PanelInfo } from '@types';
 import memoizeOne from 'memoize-one';
 
+import { PanelInfo } from '../types';
 import { stringCompare } from './compare';
+import { FIXED_PANELS, SHOW_AFTER_SPACER_PANELS } from './panel';
 
-const SHOW_AFTER_SPACER = ['config', 'developer-tools'];
+// const SHOW_AFTER_SPACER = ['config', 'developer-tools'];
 
 const SORT_VALUE_URL_PATHS = {
   energy: 1,
@@ -80,11 +81,20 @@ export const computePanels = memoizeOne(
     const beforeSpacer: PanelInfo[] = [];
     const afterSpacer: PanelInfo[] = [];
 
-    Object.values(panels).forEach((panel) => {
-      if (hiddenPanels.includes(panel.url_path) || (!panel.title && panel.url_path !== defaultPanel)) {
+    const allPanels = Object.values(panels).filter((panel) => !FIXED_PANELS.includes(panel.url_path));
+
+    allPanels.forEach((panel) => {
+      const isDefaultPanel = panel.url_path === defaultPanel;
+
+      if (
+        !isDefaultPanel &&
+        (!panel.title ||
+          hiddenPanels.includes(panel.url_path) ||
+          (panel.default_visible === false && !panelsOrder.includes(panel.url_path)))
+      ) {
         return;
       }
-      (SHOW_AFTER_SPACER.includes(panel.url_path) ? afterSpacer : beforeSpacer).push(panel);
+      (SHOW_AFTER_SPACER_PANELS.includes(panel.url_path) ? afterSpacer : beforeSpacer).push(panel);
     });
 
     const reverseSort = [...panelsOrder].reverse();
