@@ -48,6 +48,7 @@ export interface PanelInfo {
   url_path?: string;
   config_panel_domain?: string;
   notification?: string;
+  default_visible?: boolean;
 }
 export type Panels = Record<string, PanelInfo>;
 

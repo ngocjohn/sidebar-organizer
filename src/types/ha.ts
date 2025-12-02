@@ -56,6 +56,8 @@ export interface PanelInfo<T = Record<string, any> | null> {
   icon: string | null;
   title: string | null;
   url_path: string;
+  config_panel_domain?: string;
+  default_visible?: boolean;
 }
 
 export interface Panels {
