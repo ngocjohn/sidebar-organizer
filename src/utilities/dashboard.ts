@@ -61,3 +61,36 @@ export const deleteDashboard = (hass: HomeAssistant, id: string) =>
 export interface HaConfigDashboards extends LitElement {
   _dashboards: LovelaceDashboard[];
 }
+
+export interface DashboardItems {
+  inSidebar: string[];
+  notInSidebar: string[];
+}
+
+export async function _getCurrentDashboardItems(hass: HomeAssistant): Promise<DashboardItems> {
+  const items = await fetchDashboards(hass).then((dashboards) => {
+    const inSidebar: string[] = [];
+    const notInSidebar: string[] = [];
+    dashboards.forEach((dashboard) => {
+      if (dashboard.show_in_sidebar) {
+        inSidebar.push(dashboard.url_path);
+      } else {
+        notInSidebar.push(dashboard.url_path);
+      }
+    });
+    return { inSidebar, notInSidebar };
+  });
+  return items;
+}
+
+export interface DashboardComparison {
+  currentItems: DashboardItems;
+  added: string[];
+  removed: string[];
+}
+export const compareDashboardItems = async (hass: HomeAssistant, panels: string[]): Promise<DashboardComparison> => {
+  const currentItems = await _getCurrentDashboardItems(hass);
+  const added = currentItems.inSidebar.filter((item) => !panels.includes(item));
+  const removed = currentItems.notInSidebar.filter((panel) => panels.includes(panel));
+  return { currentItems, added, removed };
+};
