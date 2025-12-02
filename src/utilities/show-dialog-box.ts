@@ -1,11 +1,4 @@
 import { NAMESPACE_TITLE } from '@constants';
-const HELPERS = (window as any).loadCardHelpers ? (window as any).loadCardHelpers() : undefined;
-let helpers: any;
-if ((window as any).loadCardHelpers) {
-  helpers = await (window as any).loadCardHelpers();
-} else if (HELPERS) {
-  helpers = HELPERS;
-}
 
 export const showConfirmDialog = async (
   element: HTMLElement,
@@ -13,6 +6,7 @@ export const showConfirmDialog = async (
   confirmText: string,
   cancelText?: string
 ): Promise<boolean> => {
+  const helpers = await (window as any).loadCardHelpers();
   const result = await helpers.showConfirmationDialog(element, {
     title: NAMESPACE_TITLE,
     text: message,
@@ -31,6 +25,7 @@ export const showPromptDialog = async (
   confirmText: string,
   cancelText?: string
 ): Promise<string | null> => {
+  const helpers = await (window as any).loadCardHelpers();
   const result = await helpers.showPromptDialog(element, {
     title: NAMESPACE_TITLE,
     text,
@@ -46,9 +41,11 @@ export const showPromptDialog = async (
   return result;
 };
 
-export const showAlertDialog = async (element: HTMLElement, message: string): Promise<void> => {
+export const showAlertDialog = async (element: HTMLElement, message: string, confirmText?: string): Promise<void> => {
+  const helpers = await (window as any).loadCardHelpers();
   await helpers.showAlertDialog(element, {
     title: NAMESPACE_TITLE,
     text: message,
+    confirmText,
   });
 };
