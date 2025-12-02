@@ -25,16 +25,12 @@ import { computePanels } from '@utilities/compute-panels';
 import { fetchConfig } from '@utilities/configs';
 import { getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
+import { compareDashboardItems, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
 import { addAction, getInitPanelOrder, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
-import { fetchFrontendUserData, saveFrontendUserData } from '@utilities/frontend';
+import { fetchFrontendUserData, saveFrontendUserData, SidebarFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
-
-import './components/sidebar-dialog';
-
-import * as PanelHelper from '@utilities/panel';
-import { getDefaultPanel } from '@utilities/panel';
+import { getDefaultPanel, getDefaultPanelUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog } from '@utilities/show-dialog-box';
 import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
 import { isStoragePanelEmpty, setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
@@ -106,7 +102,6 @@ class SidebarOrganizer {
   private _diffCheck: boolean = false;
   private _haDrawer: any;
   private _haMain!: HAElement;
-  private _hassPanelsChanged: boolean = false;
   private _initDashboards: LovelaceDashboard[] = [];
   private _notCompatible: boolean = false;
   private _panelResolver!: HAElement;
@@ -124,7 +119,6 @@ class SidebarOrganizer {
   private sideBarRoot!: ShadowRoot;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
-  private _panelHelpers = PanelHelper;
   private _baseColorFromTheme: DividerColorSettings = {};
 
   get hass(): HaExtened['hass'] {
@@ -149,16 +143,6 @@ class SidebarOrganizer {
       isDark = this.hass.themes.darkMode;
     }
     return isDark;
-  }
-  get _darkMode(): boolean {
-    const forceTheme = this._config.color_config?.custom_theme?.mode;
-    if (forceTheme === 'dark') {
-      return true;
-    } else if (forceTheme === 'light') {
-      return false;
-    } else {
-      return this.hass.themes.darkMode;
-    }
   }
 
   get _scrollbar(): HTMLElement {
@@ -205,8 +189,6 @@ class SidebarOrganizer {
       await this._getConfig();
       this._processConfig();
     }
-
-    // this._removeSidebarEditModeProperty();
   }
 
   private async _watchEditLegacySidebar() {
@@ -355,25 +337,22 @@ class SidebarOrganizer {
   }
 
   private async _checkDashboardChange(): Promise<void> {
+    if (this._userHasSidebarSettings || !this._baseOrder.length) {
+      console.log('User has sidebar settings or base order is empty, skipping dashboard change check');
+      return;
+    }
     const baseOrder = this._baseOrder;
 
-    const updatedDashboards = await fetchDashboards(this.hass).then((dashboards) => {
-      const notInSidebar = dashboards.filter((dashboard) => !dashboard.show_in_sidebar);
-      const inSidebar = dashboards.filter((dashboard) => dashboard.show_in_sidebar);
-      return { inSidebar: inSidebar.map((d) => d.url_path), notInSidebar: notInSidebar.map((d) => d.url_path) };
-    });
+    const updatedDashboards = await compareDashboardItems(this.hass, baseOrder);
 
-    const itemsLength = updatedDashboards.inSidebar.length + updatedDashboards.notInSidebar.length;
+    const itemsLength = Object.values(updatedDashboards.currentItems).flat().length;
     const initLength = this._initDashboards.length;
-
-    const notShowItems = updatedDashboards.notInSidebar.filter((panel) => baseOrder.includes(panel));
-    const addedNewItems = updatedDashboards.inSidebar.filter((panel) => !baseOrder.includes(panel));
 
     let changed = false;
 
-    if (notShowItems.length > 0) {
+    if (updatedDashboards.removed.length > 0) {
       const config = { ...this._config };
-      const hiddenToRemove = new Set(notShowItems);
+      const hiddenToRemove = new Set(updatedDashboards.removed);
       // Remove invalid items from custom groups, bottom items, and hidden items
       const cleanItems = (items: string[]) => items.filter((item) => !hiddenToRemove.has(item));
       const updatedGroups = Object.fromEntries(
@@ -392,12 +371,12 @@ class SidebarOrganizer {
 
       // Update storage with new config
       setStorage(STORAGE.UI_CONFIG, newConfig);
-      setStorage(STORAGE.HIDDEN_PANELS, updatedHiddenItems);
+      // setStorage(STORAGE.HIDDEN_PANELS, updatedHiddenItems);
 
       changed = true;
-      console.log('Removed Not Show Items:', notShowItems, 'Updated Config:', newConfig);
-    } else if (addedNewItems.length > 0 || (itemsLength !== initLength && itemsLength < initLength)) {
-      console.log('Added New Items:', addedNewItems);
+      console.log('Removed Not Show Items:', updatedDashboards.removed, 'Updated Config:', newConfig);
+    } else if (updatedDashboards.added.length > 0 || (itemsLength !== initLength && itemsLength < initLength)) {
+      console.log('Added New Items:', updatedDashboards.added);
       changed = true;
     }
 
@@ -430,17 +409,18 @@ class SidebarOrganizer {
   private async _checkUserSidebarSettings() {
     const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
     this._userHasSidebarSettings = (userData?.panelOrder && userData.panelOrder.length > 0) || false;
-    console.log('User has sidebar settings:', this._userHasSidebarSettings);
+    console.log('User has sidebar settings:', this._userHasSidebarSettings, userData);
   }
 
   private async _setupConfigBtn() {
+    console.log('Setting up config button in profile item');
     let profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
     if (!profileEl) {
       profileEl = this.sideBarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement;
     }
     if (!profileEl) return;
     if (this._userHasSidebarSettings) {
-      // console.log('User has sidebar settings, adding remove legacy data action');
+      console.log('User has sidebar settings, adding remove legacy data action');
       addAction(profileEl, this._addDiaglogRemoveLegacyUserData.bind(this));
       return;
     } else {
@@ -697,7 +677,7 @@ class SidebarOrganizer {
     // console.log('Fetched Config:', config);
     if (!config) {
       console.log('No config found, stopping further setup');
-      this._setInitPanelOrder();
+      // this._setInitPanelOrder();
       return;
     }
     if (config) {
@@ -707,13 +687,15 @@ class SidebarOrganizer {
   }
 
   private _setInitPanelOrder(): void {
-    if (isStoragePanelEmpty()) {
-      console.log('No initial panel order found, setting default');
-      const beforeSpacer = this._getComputedPanelOrder().beforeSpacer;
-      const panelOrder = beforeSpacer.map((panel) => panel.url_path);
-      setStorage(STORAGE.PANEL_ORDER, panelOrder);
-      console.log('Initial Panel Order Set:', panelOrder);
-    }
+    const isEmptyOrder = isStoragePanelEmpty();
+    console.log('Is Storage Panel Order Empty:', isEmptyOrder);
+    if (!isEmptyOrder) return;
+
+    console.log('No initial panel order found, setting default');
+    const beforeSpacer = this._getComputedPanelOrder().beforeSpacer;
+    const panelOrder = beforeSpacer.map((panel) => panel.url_path);
+    setStorage(STORAGE.PANEL_ORDER, panelOrder);
+    console.log('Initial Panel Order Set:', panelOrder);
   }
 
   private _setupInitialConfig() {
@@ -726,7 +708,8 @@ class SidebarOrganizer {
     this._addAdditionalStyles(color_config);
   }
 
-  private async _addDiaglogRemoveLegacyUserData() {
+  private async _addDiaglogRemoveLegacyUserData(): Promise<void> {
+    console.log('Adding dialog to remove legacy user data');
     const confirmed = await showConfirmDialog(this._haDrawer, ALERT_MSG.CLEAN_USER_DATA, 'Clear', 'Cancel');
     if (!confirmed) {
       console.log('User data clearing cancelled');
@@ -734,6 +717,7 @@ class SidebarOrganizer {
     }
 
     try {
+      const currentUserData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
       await saveFrontendUserData(this.hass.connection, 'sidebar', {
         panelOrder: [],
         hiddenPanels: [],
@@ -741,17 +725,33 @@ class SidebarOrganizer {
 
       console.log('User data cleared successfully');
       this._checkUserSidebarSettings();
-
-      const initConfirmed = await showConfirmDialog(this._haDrawer, ALERT_MSG.CLEAN_SUCCESS_RELOAD, 'OK', 'Cancel');
-      if (initConfirmed) {
-        this._hasSidebarConfig ? window.location.reload() : this._getInitPanelOrder();
+      await this._updateUserDataToStorage(currentUserData!);
+      await showAlertDialog(
+        this._haDrawer,
+        'User data cleared and migrated to storage successfully.',
+        'Show Organizer Dialog'
+      );
+      if (this._hasSidebarConfig) {
+        this._addConfigDialog();
       } else {
-        await showAlertDialog(this._haDrawer, 'User data cleared, but initial panel order not set.');
+        this._config = {
+          hidden_items: currentUserData?.hiddenPanels || [],
+        };
+        setStorage(STORAGE.UI_CONFIG, this._config);
+        this._addConfigDialog();
       }
     } catch (err: any) {
       console.error('Error clearing user data:', err);
       await showAlertDialog(this._haDrawer, `Error clearing user data: ${err.message}`);
     }
+  }
+
+  private async _updateUserDataToStorage(currentUserData: SidebarFrontendUserData) {
+    setStorage(STORAGE.PANEL_ORDER, currentUserData.panelOrder || []);
+    // setStorage(STORAGE.HIDDEN_PANELS, currentUserData.hiddenPanels || []);
+    console.log('User data migrated to storage successfully');
+
+    // window.location.reload();
   }
 
   private async _getInitPanelOrder() {
@@ -1247,9 +1247,10 @@ class SidebarOrganizer {
   private _getComputedPanelOrder(): { beforeSpacer: PanelInfo[]; afterSpacer: PanelInfo[] } {
     const haSidebar = this.HaSidebar;
     const hass = this.hass;
+    const defaultPanel = getDefaultPanelUrlPath(hass);
     const _computePanels = computePanels(
       hass.panels,
-      hass.defaultPanel,
+      defaultPanel,
       haSidebar._panelOrder,
       haSidebar._hiddenPanels,
       hass.locale
