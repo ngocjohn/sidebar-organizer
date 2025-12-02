@@ -91,9 +91,9 @@ export const isItemsValid = (
     ...(config.bottom_items || []),
     ...(config.hidden_items || []),
   ];
-
+  // console.log('allItems to validate', allItems);
   if (allItems.length === 0) {
-    return log ? { valid: false, config, duplikatedItems: [], invalidItems: [], noTitleItems: [] } : false;
+    return log ? { valid: true, config, duplikatedItems: [], invalidItems: [], noTitleItems: [] } : true;
   }
   const newConfigItems = Array.from(config.new_items || []).map((item) => item.title!);
   allItems = allItems.filter((item) => !newConfigItems.includes(item));
