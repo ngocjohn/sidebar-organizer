@@ -28,6 +28,10 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+declare global {
+  interface HASSDomEvents {}
+}
+
 export type ValidHassDomEvent = keyof HASSDomEvents;
 
 export interface HASSDomEvent<T> extends Event {
