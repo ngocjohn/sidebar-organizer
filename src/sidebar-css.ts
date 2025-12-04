@@ -214,12 +214,11 @@ export const DIALOG_STYLE = css`
     display: flex;
     flex-direction: column;
   }
-
-  ha-dialog[large] {
+  :host([large]) ha-dialog {
     --mdc-dialog-min-width: 90vw;
     --mdc-dialog-max-width: 90vw;
   }
-  ha-dialog[large] sidebar-organizer-config-dialog {
+  :host([large]) ha-dialog sidebar-organizer-config-dialog {
     max-width: none;
     width: 100%;
   }
@@ -237,7 +236,7 @@ export const DIALOG_STYLE = css`
     }
   }
   @media all and (min-width: 451px) and (min-height: 501px) {
-    ha-dialog[large] sidebar-organizer-config-dialog {
+    :host([large]) ha-dialog sidebar-organizer-config-dialog {
       max-width: none;
       width: 100%;
     }

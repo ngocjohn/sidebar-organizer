@@ -60,7 +60,7 @@ export interface DividerColorSettings {
   divider_text_color?: string;
   scrollbar_thumb_color?: string;
   sidebar_icon_color?: string;
-  custom_styles?: CustomStyles;
+  custom_styles?: Record<string, string>;
 }
 
 export interface CustomStyles {
@@ -86,23 +86,28 @@ export interface NewItemConfig extends PanelInfo {
   group?: string;
 }
 
-export interface SidebarConfig {
+export interface SidebarAppearanceConfig {
+  header_title?: string;
+  hide_header_toggle?: boolean;
+  animation_off?: boolean;
+  animation_delay?: number;
+}
+
+export interface SidebarColorConfig {
+  border_radius?: number;
+  light?: DividerColorSettings;
+  dark?: DividerColorSettings;
+  custom_theme?: CustomTheme;
+}
+
+export interface SidebarConfig extends SidebarAppearanceConfig {
   bottom_items?: string[];
   custom_groups?: {
     [key: string]: string[];
   };
   hidden_items?: string[];
   default_collapsed?: string[];
-  header_title?: string;
-  hide_header_toggle?: boolean;
-  color_config?: {
-    border_radius?: number;
-    light?: DividerColorSettings;
-    dark?: DividerColorSettings;
-    custom_theme?: CustomTheme;
-  };
+  color_config?: SidebarColorConfig;
   notification?: NotificationConfig;
   new_items?: NewItemConfig[];
-  animation_off?: boolean;
-  animation_delay?: number;
 }

@@ -1,4 +1,4 @@
-import { HaExtened } from '@types';
+import { HaExtened, SidebarConfig } from '@types';
 
 export interface ThemeVars {
   // Incomplete
@@ -39,8 +39,12 @@ export const getAllThemeData = (data: Theme, mode: string): ThemeVars => {
 
   const allData = { ...filteredThemeData, ...modeData };
   if (!('sidebar-text-color' in allData)) {
-    console.log('Assigning sidebar-text-color to primary-text-color');
+    // console.log('Assigning sidebar-text-color to primary-text-color');
     allData['sidebar-text-color'] = 'var(--primary-text-color)';
+  }
+  if (!('sidebar-icon-color' in allData)) {
+    // console.log('sidebar-icon-color not found, assigning default value');
+    allData['sidebar-icon-color'] = ' rgba(var(--rgb-primary-text-color), 0.6)';
   }
 
   return allData;
@@ -62,35 +66,6 @@ export const applyTheme = (element: any, hass: HaExtened['hass'], theme: string,
     applyThemesOnElement(element, allTheme, theme, false);
   }
 };
-// export const applyTheme = (element: any, hass: HaExtened['hass'], theme: string, mode?: string): void => {
-//   if (!element) return;
-//   const themeData = hass.themes.themes[theme];
-//   if (themeData) {
-//     // Filter out only top-level properties for CSS variables and the modes property
-//     const filteredThemeData = Object.keys(themeData)
-//       .filter((key) => key !== 'modes')
-//       .reduce(
-//         (obj, key) => {
-//           obj[key] = themeData[key];
-//           return obj;
-//         },
-//         {} as Record<string, string>
-//       );
-
-//     if (!mode) {
-//       mode = hass.themes.darkMode ? 'dark' : 'light';
-//       // Get the current mode (light or dark)
-//     } else {
-//       mode = mode;
-//     }
-
-//     const modeData = themeData.modes && typeof themeData.modes === 'object' ? themeData.modes[mode] : {};
-//     // Merge the top-level and mode-specific variables
-//     const allThemeData = { ...filteredThemeData, ...modeData };
-//     const allTheme = { default_theme: hass.themes.default_theme, themes: { [theme]: allThemeData } };
-//     applyThemesOnElement(element, allTheme, theme, false);
-//   }
-// };
 
 export const applyThemesOnElement = (element: any, themes: Themes, localTheme: string, updateMeta = false) => {
   if (!element._themes) {
@@ -168,4 +143,24 @@ export const _getSupportedModes = (themeName: string, hass: HaExtened['hass']): 
     return [];
   }
   return Object.keys(hass.themes.themes[themeName].modes!);
+};
+
+export const _getDarkConfigMode = (color_config: SidebarConfig['color_config'], hass: HaExtened['hass']): boolean => {
+  const themeConfig = color_config?.custom_theme;
+  const configTheme = themeConfig?.theme || hass.themes.theme;
+  const forceTheme = themeConfig?.mode;
+  const themeSupportedModes = _getSupportedModes(configTheme, hass);
+  let isDark = hass.themes.darkMode;
+  if (themeSupportedModes.length) {
+    if (forceTheme === 'dark' && themeSupportedModes.includes('dark')) {
+      isDark = true;
+    } else if (forceTheme === 'light' && themeSupportedModes.includes('light')) {
+      isDark = false;
+    } else {
+      isDark = themeSupportedModes.includes('dark') ? hass.themes.darkMode : false;
+    }
+  } else {
+    isDark = hass.themes.darkMode;
+  }
+  return isDark;
 };

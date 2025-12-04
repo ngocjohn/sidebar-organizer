@@ -60,14 +60,6 @@ export const getDefaultThemeColors = (element?: HTMLElement): DividerColorSettin
   const sideBarTextColor = styles.getPropertyValue('--sidebar-text-color');
   const primaryTextColor = styles.getPropertyValue('--primary-text-color');
   const backgroundColor = styles.getPropertyValue('--sidebar-background-color');
-  // console.log(
-  //   'sideBarTextColor',
-  //   sideBarTextColor,
-  //   'primaryTextColor',
-  //   primaryTextColor,
-  //   'backgroundColor',
-  //   backgroundColor
-  // );
   return {
     divider_color,
     background_color,

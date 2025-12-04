@@ -20,13 +20,13 @@ import {
   SidebarConfig,
   SidebarPanelItem,
 } from '@types';
-import { _getSupportedModes, applyTheme } from '@utilities/apply-theme';
+import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { computePanels } from '@utilities/compute-panels';
 import { fetchConfig } from '@utilities/configs';
 import { getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { compareDashboardItems, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
-import { addAction, getInitPanelOrder, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
 import { fetchFrontendUserData, saveFrontendUserData, SidebarFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
@@ -127,23 +127,7 @@ class SidebarOrganizer {
   }
 
   get darkMode(): boolean {
-    const themeConfig = this._config.color_config?.custom_theme;
-    const configTheme = themeConfig?.theme || this.hass.themes.theme;
-    const forceTheme = themeConfig?.mode;
-    const themeSupportedModes = _getSupportedModes(configTheme, this.hass);
-    let isDark = this.hass.themes.darkMode;
-    if (themeSupportedModes.length) {
-      if (forceTheme === 'dark' && themeSupportedModes.includes('dark')) {
-        isDark = true;
-      } else if (forceTheme === 'light' && themeSupportedModes.includes('light')) {
-        isDark = false;
-      } else {
-        isDark = themeSupportedModes.includes('dark') ? this.hass.themes.darkMode : false;
-      }
-    } else {
-      isDark = this.hass.themes.darkMode;
-    }
-    return isDark;
+    return _getDarkConfigMode(this._config.color_config, this.hass);
   }
 
   get _scrollbar(): HTMLElement {
@@ -414,7 +398,6 @@ class SidebarOrganizer {
   }
 
   private async _setupConfigBtn() {
-    console.log('Setting up config button in profile item');
     let profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
     if (!profileEl) {
       profileEl = this.sideBarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement;
@@ -578,6 +561,7 @@ class SidebarOrganizer {
       const collapsedItems = JSON.parse(event.newValue!);
       this.collapsedItems = new Set(collapsedItems);
       this._handleCollapsed(this.collapsedItems);
+      console.log('Collapsed items updated from storage event:', this.collapsedItems);
     }
   }
 
@@ -668,7 +652,7 @@ class SidebarOrganizer {
       ...update,
     };
     setStorage(STORAGE.UI_CONFIG, this._config);
-    setStorage(STORAGE.HIDDEN_PANELS, this._config.hidden_items || []);
+    // setStorage(STORAGE.HIDDEN_PANELS, this._config.hidden_items || []);
 
     this._reloadWindow();
   }
@@ -751,24 +735,6 @@ class SidebarOrganizer {
     setStorage(STORAGE.PANEL_ORDER, currentUserData.panelOrder || []);
     // setStorage(STORAGE.HIDDEN_PANELS, currentUserData.hiddenPanels || []);
     console.log('User data migrated to storage successfully');
-
-    // window.location.reload();
-  }
-
-  private async _getInitPanelOrder() {
-    if (!this.ha) return;
-    const sidebarMenu = this.sideBarRoot?.querySelector(SELECTOR.MENU) as HTMLElement;
-    if (sidebarMenu) {
-      sidebarMenu.dispatchEvent(new CustomEvent('action', { detail: { action: 'hold' } }));
-      setTimeout(async () => {
-        const initPanelOrder = await getInitPanelOrder(this.ha!);
-        console.log('Initial Panel Order:', initPanelOrder);
-        setStorage(STORAGE.PANEL_ORDER, initPanelOrder);
-        const dialog = this.ha?.shadowRoot?.querySelector('dialog-edit-sidebar');
-        dialog?.remove();
-        window.location.reload();
-      }, 100);
-    }
   }
 
   private _handleSidebarHeader(): void {
@@ -785,24 +751,38 @@ class SidebarOrganizer {
     if (hide_header_toggle) return;
     const groupKeys = Object.keys(this._config?.custom_groups || {});
     if (groupKeys.length === 0 || Object.values(this._config.custom_groups || {}).flat().length === 0) return;
-    const isSomeCollapsed = this.collapsedItems.size > 0;
+    const groupsLength = groupKeys.length;
+    const collapsedSize = this.collapsedItems.size;
+    const isAllCollapsed = collapsedSize === groupsLength;
 
     const collapseEl = document.createElement('ha-icon') as any;
-    collapseEl.icon = isSomeCollapsed ? 'mdi:plus' : 'mdi:minus';
+    collapseEl.icon = isAllCollapsed ? 'mdi:plus' : 'mdi:minus';
     collapseEl.classList.add('collapse-toggle');
-    collapseEl.classList.toggle('active', isSomeCollapsed);
+    collapseEl.classList.toggle('active', isAllCollapsed!);
 
     const handleToggle = (ev: Event) => {
       ev.preventDefault();
-      this.collapsedItems.size === 0 ? (this.collapsedItems = new Set([...groupKeys])) : this.collapsedItems.clear();
+      this.collapsedItems.size === groupKeys.length
+        ? this.collapsedItems.clear()
+        : (this.collapsedItems = new Set([...groupKeys]));
       this._handleCollapsed(this.collapsedItems);
     };
-
     ['touchstart', 'mousedown'].forEach((eventType) => {
-      collapseEl.addEventListener(eventType, handleToggle);
+      collapseEl.addEventListener(eventType, handleToggle, { passive: true });
     });
 
     titleEl.appendChild(collapseEl);
+  }
+
+  private _handleCollapsedChange(): void {
+    const toggleIcon = this.sideBarRoot?.querySelector(SELECTOR.HEADER_TOGGLE_ICON) as HTMLElement;
+    if (!toggleIcon) return;
+    const collapsedSize = this.collapsedItems.size;
+    const groupsLength = Object.keys(this._config?.custom_groups || {}).length;
+    const isAllCollapsed = collapsedSize === groupsLength;
+
+    toggleIcon.classList.toggle('active', isAllCollapsed!);
+    toggleIcon.setAttribute('icon', isAllCollapsed ? 'mdi:plus' : 'mdi:minus');
   }
 
   private _handleHidden(hiddenItems: string[]): void {
@@ -912,7 +892,7 @@ class SidebarOrganizer {
       // remove empty custom group or alert to abort
 
       setStorage(STORAGE.UI_CONFIG, config);
-      setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
+      // setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
       this._config = config;
 
       this._reloadWindow();
@@ -923,7 +903,6 @@ class SidebarOrganizer {
   private _handleCollapsed(collapsedItems: Set<string>) {
     const toggleIcon = this.sideBarRoot!.querySelector(SELECTOR.HEADER_TOGGLE_ICON) as HTMLElement;
     const isCollapsed = collapsedItems.size > 0;
-
     // Update toggle icon
     toggleIcon?.classList.toggle('active', isCollapsed);
     toggleIcon?.setAttribute('icon', isCollapsed ? 'mdi:plus' : 'mdi:minus');
@@ -952,7 +931,7 @@ class SidebarOrganizer {
   private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
     mode = mode ? mode : this.darkMode ? 'dark' : 'light';
     const customTheme = color_config?.custom_theme?.theme || undefined;
-    console.log('Adding Additional Styles for mode:', mode);
+    // console.log('Adding Additional Styles for mode:', mode);
     if (customTheme) {
       applyTheme(this.HaSidebar, this.hass, customTheme, mode);
       console.log('Custom Theme:', customTheme, 'Mode:', mode);
@@ -1099,7 +1078,6 @@ class SidebarOrganizer {
     } else {
       // this._handleNotification();
       this._diffCheck = true;
-      // this._handleCollapsed(this.collapsedItems);
     }
   };
 
@@ -1230,6 +1208,7 @@ class SidebarOrganizer {
       this.collapsedItems.delete(group);
     }
     setStorage(STORAGE.COLLAPSE, [...this.collapsedItems]);
+    this._handleCollapsedChange();
   }
 
   private _getItemInConfig(id: string): string | undefined {

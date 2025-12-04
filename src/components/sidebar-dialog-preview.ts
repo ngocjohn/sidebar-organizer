@@ -1,15 +1,16 @@
 import { PREVIEW_MOCK_PANELS } from '@constants';
-import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '@types';
-import { applyTheme } from '@utilities/apply-theme';
+import { CustomStyles, DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '@types';
+import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
 import { isIcon } from '@utilities/is-icon';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import { _createPanelItems, getPreviewItems } from '../utilities/preview-items';
 import { SidebarConfigDialog } from './sidebar-dialog';
+
 @customElement('sidebar-dialog-preview')
 export class SidebarDialogPreview extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
@@ -24,22 +25,16 @@ export class SidebarDialogPreview extends LitElement {
 
   @state() private _ready = false;
 
+  @query('.divider-preview') private _previewContainer!: HTMLElement;
+
   protected firstUpdated(): void {
     // console.log('colorMode', colorMode);
     if (this._sidebarConfig) {
       this._paperListbox = getPreviewItems(this._dialog, this._sidebarConfig);
-      const colorMode = this._sidebarConfig.color_config?.custom_theme?.mode;
-      let darkMode: boolean;
-      if (colorMode === 'dark') {
-        darkMode = true;
-      } else if (colorMode === 'light') {
-        darkMode = false;
-      } else {
-        darkMode = this.hass.themes.darkMode;
-      }
+      const darkMode = _getDarkConfigMode(this._sidebarConfig.color_config, this.hass);
       this._colorConfigMode = darkMode ? 'dark' : 'light';
       setTimeout(() => {
-        console.log('Set theme on first update:', this._colorConfigMode);
+        console.log('Preview first update, set color mode:', this._colorConfigMode);
         this._setTheme(this._colorConfigMode);
       }, 0);
     }
@@ -66,6 +61,7 @@ export class SidebarDialogPreview extends LitElement {
     super.updated(_changedProperties);
     if (_changedProperties.has('_paperListbox') && this._paperListbox) {
       this._ready = true;
+      console.log('Paper listbox updated');
     }
 
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
@@ -137,7 +133,7 @@ export class SidebarDialogPreview extends LitElement {
       // console.log('Not ready to add notification');
       return;
     }
-    console.log('Adding notification');
+
     const groups = this.shadowRoot?.querySelector('div.groups-container');
     const items = groups!.querySelectorAll('a') as NodeListOf<HTMLElement>;
     const newItems = this._sidebarConfig?.new_items || [];
@@ -148,6 +144,7 @@ export class SidebarDialogPreview extends LitElement {
         const notification = notify.notification;
         if (panel && notification) {
           this._subscribeNotification(panel, notification);
+          // console.log('added notification for new item:', notify.title);
         }
       });
     }
@@ -158,6 +155,7 @@ export class SidebarDialogPreview extends LitElement {
         const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === key);
         if (panel) {
           this._subscribeNotification(panel, value);
+          // console.log('added notification for panels:', key);
         }
       });
     }
@@ -249,7 +247,7 @@ export class SidebarDialogPreview extends LitElement {
     setTimeout(() => {
       this._getDefaultColors();
     }, 200);
-    console.log('Preview Theme applied', theme, mode);
+    // console.log('Preview Theme applied', theme, mode);
   }
 
   private _getDefaultColors(): void {
@@ -259,7 +257,7 @@ export class SidebarDialogPreview extends LitElement {
 
   protected render(): TemplateResult {
     if (!this._ready) {
-      return html`<ha-spinner style="place-self: center;" .size=${'medium'}></ha-spinner>`;
+      return html`<ha-spinner .size=${'medium'}></ha-spinner>`;
     }
 
     const { mockCustomGroups, mockDefaultPage } = PREVIEW_MOCK_PANELS;
@@ -404,9 +402,8 @@ export class SidebarDialogPreview extends LitElement {
     const color_config = this._sidebarConfig?.color_config || {};
     const borderRadius = color_config?.border_radius || 0;
     const colorConfig = color_config?.[colorMode] || {};
-    const customStyles = colorConfig.custom_styles || [];
-    const styleAddedCustom = convertPreviewCustomStyles(customStyles);
-    // console.log('Converted Custom Styles:', styleAddedCustom);
+    const customStyles = colorConfig?.custom_styles || {};
+    const convertedStyles = convertPreviewCustomStyles(customStyles);
 
     const getColor = (key: string): string => {
       const color = colorConfig?.[key] ? `${colorConfig[key]} !important` : this._baseColorFromTheme[key];
@@ -423,11 +420,22 @@ export class SidebarDialogPreview extends LitElement {
       '--divider-border-radius': `${borderRadius}px`,
       '--sidebar-text-color': getColor('divider_text_color'),
       '--sidebar-icon-color': getColor('sidebar_icon_color'),
-      ...styleAddedCustom,
+      ...convertedStyles,
     };
 
     // console.log('styleAdded', styleAdded);
     return styleMap(styleAdded);
+  }
+
+  private _setCustomStyle(customStyles: CustomStyles): void {
+    console.log('Setting preview custom styles:', customStyles);
+    if (!customStyles || Object.keys(customStyles).length === 0) {
+      console.log('No custom styles to apply, clearing styles.');
+      return;
+    }
+    Object.keys(customStyles).forEach((key) => {
+      this._previewContainer.style.setProperty(key, customStyles[key]!, 'important');
+    });
   }
 
   public _setCustomTheme(theme: string, mode?: string): void {
@@ -452,6 +460,16 @@ export class SidebarDialogPreview extends LitElement {
         }
         :host {
           --selected-container-color: rgb(from var(--primary-color) r g b / 0.4);
+          background-color: var(--clear-background-color, rgba(0, 0, 0, 0.2));
+          min-height: 100%;
+          display: flex;
+          width: 100%;
+          justify-content: center;
+        }
+
+        :host ha-spinner {
+          display: flex;
+          place-self: center;
         }
 
         .preview-container {

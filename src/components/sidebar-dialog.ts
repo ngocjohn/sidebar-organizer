@@ -1,7 +1,6 @@
-import { ALERT_MSG, CUSTOM_EVENT, STORAGE, TAB_STATE } from '@constants';
+import { ALERT_MSG, STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
-import * as ThemeHelper from '@utilities/apply-theme';
-import { fetchFileConfig, isItemsValid, tryCorrectConfig } from '@utilities/configs';
+import { fetchFileConfig, isDefaultIncluded, isItemsValid, tryCorrectConfig } from '@utilities/configs';
 import { INVALID_CONFIG } from '@utilities/configs';
 
 import './sidebar-dialog-colors';
@@ -11,7 +10,7 @@ import './sidebar-dialog-preview';
 import './sidebar-organizer-tab';
 import './sidebar-dialog-new-items';
 
-import { fetchDashboards } from '@utilities/dashboard';
+import { compareDashboardItems } from '@utilities/dashboard';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { getDefaultPanel } from '@utilities/panel';
 import { showAlertDialog } from '@utilities/show-dialog-box';
@@ -21,6 +20,7 @@ import {
   getStorageConfig,
   getHiddenPanels,
   sidebarUseConfigFile,
+  removeStorage,
 } from '@utilities/storage-utils';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -42,6 +42,7 @@ export interface ConfigChangedEvent {
 declare global {
   interface HASSDomEvents {
     'sidebar-config-changed': ConfigChangedEvent;
+    'config-has-changed': boolean;
   }
   interface HTMLElementEventMap {
     'sidebar-config-changed': ConfigChangedEvent;
@@ -75,7 +76,6 @@ export class SidebarConfigDialog extends LitElement {
   @query('sidebar-dialog-code-editor') _dialogCodeEditor!: SidebarDialogCodeEditor;
   @query('sidebar-dialog-new-items') _dialogNewItems!: SidebarDialogNewItems;
 
-  @state() _themeHelper = ThemeHelper;
   connectedCallback(): void {
     super.connectedCallback();
     this._connected = true;
@@ -88,6 +88,14 @@ export class SidebarConfigDialog extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._connected = false;
+  }
+
+  public get GUImode(): boolean {
+    return this._tabState === TAB_STATE.BASE;
+  }
+
+  public get _currentConfig(): SidebarConfig {
+    return this._sidebarConfig;
   }
 
   protected willUpdate(_changedProperties: PropertyValues): void {
@@ -450,47 +458,20 @@ export class SidebarConfigDialog extends LitElement {
     if (!currentPanelOrder || currentPanelOrder.length === 0) {
       console.log('no initial panel order found, fetching from storage');
     }
-
     const hiddenItems = getHiddenPanels();
     const allPanels = [...currentPanelOrder, ...hiddenItems];
-    console.log('Current panel order:', currentPanelOrder);
-    const _dasboards = await fetchDashboards(this.hass).then((dashboards) => {
-      const notInSidebar: string[] = [];
-      const inSidebar: string[] = [];
-      dashboards.forEach((dashboard) => {
-        if (dashboard.show_in_sidebar) {
-          inSidebar.push(dashboard.url_path);
-        } else {
-          notInSidebar.push(dashboard.url_path);
-        }
-      });
-      return { inSidebar, notInSidebar };
-    });
-    // console.log('Fetched dashboards:', _dasboards);
-    // Check if the current panel order has extra or missing items
-    const extraPanels = _dasboards.notInSidebar.filter((panel: string) => allPanels.includes(panel));
-    const missingPanels = _dasboards.inSidebar.filter((panel: string) => !allPanels.includes(panel));
 
-    if (extraPanels.length > 0 || missingPanels.length > 0) {
+    const { added, removed } = await compareDashboardItems(this.hass, allPanels);
+    if (Boolean(added.length || removed.length)) {
       // If there are changes, update the sidebar items
-      console.log('Sidebar panels have changed');
-      console.log('Extra panels:', extraPanels);
-      console.log('Missing panels:', missingPanels);
-      const newEvent = new CustomEvent(CUSTOM_EVENT.CONFIG_DIFF, {
-        detail: {
-          extraPanels,
-          missingPanels,
-        },
-        bubbles: true,
-        composed: true,
-      });
-      this.dispatchEvent(newEvent);
+      console.log('Sidebar panels have changed:', { added, removed });
+      window.location.reload();
       return;
     } else {
       // If there are no changes, update the sidebar items
       console.log('Sidebar panels are up to date');
       this._sidebarConfig = getStorageConfig() || {};
-      this._updateSidebarItems(currentPanelOrder);
+      this._updateSidebarItems(currentPanelOrder, hiddenItems);
     }
   };
 
@@ -559,9 +540,7 @@ export class SidebarConfigDialog extends LitElement {
     }
   };
 
-  private _updateSidebarItems = (currentPanelOrder: string[]) => {
-    // let hasChanged: boolean = false;
-    const initHiddenItems = getHiddenPanels();
+  private _updateSidebarItems = (currentPanelOrder: string[], initHiddenItems: string[]): void => {
     const defaultPanel = getDefaultPanel(this.hass).url_path || '';
 
     const customGroup = { ...this._sidebarConfig?.custom_groups };
@@ -569,33 +548,41 @@ export class SidebarConfigDialog extends LitElement {
     const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
     let hiddenItems = [...(this._sidebarConfig?.hidden_items || [])];
 
-    const hiddenItemsDiff = JSON.stringify(hiddenItems) !== JSON.stringify(initHiddenItems);
-    console.log(
-      'Initial hidden items:',
-      initHiddenItems,
-      'Current hidden items:',
-      hiddenItems,
-      'having diff:',
-      hiddenItemsDiff
-    );
+    let hasChanged: boolean = false;
 
-    // Remove the default panel from any custom group
-    Object.keys(customGroup).forEach((key) => {
-      customGroup[key] = customGroup[key].filter((item: string) => item !== defaultPanel);
-    });
+    if (initHiddenItems.length && JSON.stringify(initHiddenItems) !== JSON.stringify(hiddenItems)) {
+      console.log('Hidden items have changed, updating hidden items', initHiddenItems, hiddenItems);
+      hiddenItems = initHiddenItems;
+      // Remove hidden in storage
+      removeStorage(STORAGE.HIDDEN_PANELS);
+      hasChanged = true;
+    }
 
     // Remove collapsed groups that no longer exist in customGroup
     const updatedCollapsedGroups = defaultCollapsed.filter((group) => customGroup[group]);
+    if (updatedCollapsedGroups.length !== defaultCollapsed.length) {
+      console.log('Default collapsed groups have changed, updating collapsed groups', updatedCollapsedGroups);
+      hasChanged = true;
+    }
 
-    // Remove default panel from bottom items
-    if (bottomItems.includes(defaultPanel)) {
-      bottomItems.splice(bottomItems.indexOf(defaultPanel), 1);
+    if (isDefaultIncluded(defaultPanel, Object.values(customGroup).flat(), bottomItems)) {
+      console.log('Default panel is included in sidebar items, removing it from groups and bottom items');
+      // Remove the default panel from any custom group
+      Object.keys(customGroup).forEach((key) => {
+        customGroup[key] = customGroup[key].filter((item: string) => item !== defaultPanel);
+      });
+
+      // Remove the default panel from bottom items
+      const bottomIndex = bottomItems.indexOf(defaultPanel);
+      if (bottomIndex !== -1) {
+        bottomItems.splice(bottomIndex, 1);
+      }
+      hasChanged = true;
     }
 
     // If there are any changes (default panel removed from group, hidden items or collapsed groups changed)
-    if (hiddenItemsDiff || updatedCollapsedGroups.length !== defaultCollapsed.length) {
-      console.log('updateSidebarItems', hiddenItemsDiff, updatedCollapsedGroups.length !== defaultCollapsed.length);
-
+    if (hasChanged) {
+      console.log('Sidebar configuration has changed, updating storage');
       this._sidebarConfig = {
         ...this._sidebarConfig,
         custom_groups: customGroup,
@@ -612,7 +599,7 @@ export class SidebarConfigDialog extends LitElement {
     const configNewItems = this._sidebarConfig?.new_items || [];
     this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
     // Initialize panel combinations
-    this._initCombiPanels = [..._sidebarItems, ...initHiddenItems];
+    this._initCombiPanels = [..._sidebarItems, ...hiddenItems];
     // console.log('Init combi panels:', this._initCombiPanels);
 
     this._initPanelOrder = [..._sidebarItems];

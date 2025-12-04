@@ -4,55 +4,15 @@ import { isIcon } from '@utilities/is-icon';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
+import { capitalize, pick } from 'es-toolkit/compat';
 import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import memoizeOne from 'memoize-one';
 
 import { dialogStyles } from './dialog-css';
+import { computeOptionalActionSchemaFull } from './forms';
 import { SidebarConfigDialog } from './sidebar-dialog';
-
-const DEFAULT_ACTIONS = ['more-info', 'toggle', 'navigate', 'perform-action', 'assist'];
-
-export const computeOptionalActionSchema = () => {
-  return [
-    {
-      name: 'tap_action',
-      selector: {
-        ui_action: {
-          actions: DEFAULT_ACTIONS,
-          default_action: 'none' as const,
-        },
-      },
-    },
-    {
-      name: '',
-      type: 'optional_actions',
-      flatten: true,
-      schema: [
-        {
-          name: 'hold_action',
-          selector: {
-            ui_action: {
-              actions: DEFAULT_ACTIONS,
-              default_action: 'none' as const,
-            },
-          },
-        },
-
-        {
-          name: 'double_tap_action',
-          selector: {
-            ui_action: {
-              actions: DEFAULT_ACTIONS,
-              default_action: 'none' as const,
-            },
-          },
-        },
-      ],
-    },
-  ] as const;
-};
 
 @customElement('sidebar-dialog-new-items')
 export class SidebarDialogNewItems extends LitElement {
@@ -106,24 +66,23 @@ export class SidebarDialogNewItems extends LitElement {
 
   private _actionsSchema = [
     {
-      name: '',
-      type: 'expandable',
-      iconPath: mdiGestureTap,
       title: 'Interaction',
+      type: 'expandable',
+      flatten: true,
+      iconPath: mdiGestureTap,
       schema: [
         {
           name: 'entity',
           selector: { entity: {} },
           helper: 'Entity to control when the button is pressed',
         },
-        ...computeOptionalActionSchema(),
+        ...computeOptionalActionSchemaFull(),
       ],
     },
   ] as const;
 
   private _notificationSchema = [
     {
-      name: '',
       type: 'expandable',
       title: 'Notification badge template',
       iconPath: mdiMessageBadgeOutline,
@@ -143,7 +102,6 @@ export class SidebarDialogNewItems extends LitElement {
     (groupsOptions: string[]) =>
       [
         {
-          name: '',
           type: 'grid',
           schema: [
             {
@@ -159,8 +117,7 @@ export class SidebarDialogNewItems extends LitElement {
                 select: {
                   mode: 'dropdown',
                   options: [
-                    { value: 'bottom', label: 'BOTTOM' },
-                    ...groupsOptions.map((group: string) => ({
+                    ['bottom', ...groupsOptions].map((group: string) => ({
                       value: group,
                       label: group.replace(/_/g, ' ').toUpperCase(),
                     })),
@@ -241,7 +198,7 @@ export class SidebarDialogNewItems extends LitElement {
     const baseData = { ...this._sidebarConfig.new_items![this._selectedItemIndex!] };
     // console.log('Editing item:', baseData);
     const groupName = this.getGroupName(newItems.title!);
-    console.log('Group name:', groupName);
+    // console.log('Group name:', groupName);
     let inGroup: string | undefined;
     if (groupName === 'Bottom Panels') {
       inGroup = 'bottom';
@@ -251,17 +208,13 @@ export class SidebarDialogNewItems extends LitElement {
       inGroup = groupName;
     }
 
-    console.log('Item is in group:', inGroup);
+    // console.log('Item is in group:', inGroup);
     const dataWithoutActions = {
-      icon: baseData.icon,
+      icon: baseData?.icon,
       group: inGroup,
     };
-    const actionData = {
-      entity: baseData.entity,
-      tap_action: baseData.tap_action,
-      hold_action: baseData.hold_action,
-      double_tap_action: baseData.double_tap_action,
-    };
+
+    const actionData = pick(baseData, ['entity', 'tap_action', 'hold_action', 'double_tap_action']);
 
     const notificationData = {
       notification: baseData.notification,
@@ -294,37 +247,9 @@ export class SidebarDialogNewItems extends LitElement {
                 </div>
               </div>
 
-              <ha-form
-                .hass=${this.hass}
-                .data=${dataWithoutActions}
-                .schema=${baseSchema}
-                .configKey=${'base'}
-                .computeLabel=${this._computeLabel}
-                .computeHelper=${this._computeHelper}
-                @value-changed=${this._valueChanged}
-              >
-              </ha-form>
-              <ha-form
-                .hass=${this.hass}
-                .data=${actionData}
-                .schema=${actionSchema}
-                .configKey=${'actions'}
-                .computeLabel=${this._computeLabel}
-                .computeHelper=${this._computeHelper}
-                @value-changed=${this._valueChanged}
-              >
-              </ha-form>
-              <ha-form
-                .hass=${this.hass}
-                .data=${notificationData}
-                .schema=${notificationSchema}
-                .configKey=${'notification'}
-                .computeLabel=${this._computeLabel}
-                .computeHelper=${this._computeHelper}
-                @value-changed=${this._valueChanged}
-                id="notification-form"
-              >
-              </ha-form>
+              ${this._createHaForm(dataWithoutActions, baseSchema, 'base')}
+              ${this._createHaForm(actionData, actionSchema, 'actions')}
+              ${this._createHaForm(notificationData, notificationSchema, 'notification', 'notification-form')}
               ${this._notificationExpanded ? this._renderNotifyResult() : html``}
             `
           : html`
@@ -410,56 +335,81 @@ export class SidebarDialogNewItems extends LitElement {
     return groupName || (bottom_items.includes(item) ? 'Bottom Panels' : 'Ungrouped');
   }
 
-  private _computeLabel = (schema: any) => {
-    if (schema.label) {
-      return schema.label;
+  private _createHaForm(data: any, schema: any, configKey?: string | number | undefined, id?: string): TemplateResult {
+    return html`
+      <ha-form
+        .hass=${this.hass}
+        .data=${data}
+        .schema=${schema}
+        .configKey=${configKey}
+        .computeLabel=${this._computeLabel}
+        .computeHelper=${this._computeHelper}
+        @value-changed=${this._valueChanged}
+        id=${id ? id : nothing}
+      >
+      </ha-form>
+    `;
+  }
+  private _computeLabel = (schema: any): string | undefined => {
+    if (schema.name === 'entity' && !schema.context?.group_entity) {
+      return undefined;
     }
+    const label = schema.label || schema.name || schema.title || '';
+    return capitalize(label.replace(/_/g, ' '));
   };
-  private _computeHelper = (schema: any) => {
-    if (schema.helper) {
-      return schema.helper;
-    }
+  private _computeHelper = (schema: any): string | TemplateResult | undefined => {
+    return schema.helper || undefined;
   };
 
   private _valueChanged(ev: CustomEvent): void {
     ev.stopPropagation();
-    const newItemConfig = ev.detail.value;
-    if (!newItemConfig) return;
-    const configKey = (ev.target as any).configKey;
-    console.log('Value changed for key:', configKey, newItemConfig);
-
+    if (this._selectedItemIndex === null) return;
     const index = this._selectedItemIndex;
-    if (index === null) return;
-    const currentItem = this._sidebarConfig.new_items![index];
-    const title = currentItem.title!;
-    let updatedItem: NewItemConfig = { ...currentItem };
+    const currentItem = { ...this._sidebarConfig.new_items![index] };
 
+    const incoming = ev.detail.value as Partial<NewItemConfig>;
+    const configKey = (ev.target as any).configKey;
+    console.log('Value changed for key:', configKey, incoming);
+
+    let updates: Partial<NewItemConfig> = {};
     if (configKey === 'base') {
-      const group = newItemConfig.group;
-      updatedItem = {
-        ...updatedItem,
-        ...newItemConfig,
+      const group = incoming?.group;
+      const title = currentItem.title!;
+      updates = {
+        ...incoming,
       };
       this._handleGroupChange(title, group);
-    } else {
-      updatedItem = {
-        ...updatedItem,
-        ...newItemConfig,
-      };
+    } else if (configKey === 'actions') {
+      const currentActions = pick(currentItem, ['entity', 'tap_action', 'hold_action', 'double_tap_action']);
+      if (JSON.stringify(currentActions) !== JSON.stringify(incoming)) {
+        updates = {
+          ...incoming,
+        };
+      }
+    } else if (configKey === 'notification') {
+      if (JSON.stringify(currentItem.notification) !== JSON.stringify(incoming.notification)) {
+        updates = {
+          notification: incoming.notification,
+        };
+      }
     }
+    if (Object.keys(updates).length > 0) {
+      const updatedItem: NewItemConfig = {
+        ...currentItem,
+        ...updates,
+      };
 
-    const newItems = [...(this._sidebarConfig.new_items || [])];
-    newItems[index] = updatedItem;
-    console.log('Updated item:', updatedItem);
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      new_items: newItems,
-    };
-    // If item is in group, we need to update that item in the group
-    // this._handleGroupChange(title, group);
+      const newItems = [...(this._sidebarConfig.new_items || [])];
+      newItems[index] = updatedItem;
+      console.log('Updated item:', updatedItem);
+      this._sidebarConfig = {
+        ...this._sidebarConfig,
+        new_items: newItems,
+      };
 
-    this._selectedItem = { ...updatedItem };
-    this._dispatchConfig(this._sidebarConfig);
+      this._selectedItem = { ...updatedItem };
+      this._dispatchConfig(this._sidebarConfig);
+    }
   }
 
   private _handleGroupChange(title: string, group: string | undefined): void {

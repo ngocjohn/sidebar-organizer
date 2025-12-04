@@ -16,3 +16,4 @@ export * from './sidebar-config-changed';
 export * from './create-ha-form';
 export * from './compare';
 export * from './compute-panels';
+export * from './merge-with-cleanup';

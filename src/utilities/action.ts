@@ -71,19 +71,22 @@ export type ActionConfig =
 
 export type UiAction = Exclude<ActionConfig['action'], 'fire-dom-event'>;
 
-export const computeActionsFormSchema = (actions?: UiAction[]): any[] => {
-  return [
-    {
-      name: 'tap_action',
-      selector: { ui_action: { actions } },
-    },
-    {
-      name: 'hold_action',
-      selector: { ui_action: { actions } },
-    },
-    {
-      name: 'double_tap_action',
-      selector: { ui_action: { actions } },
-    },
-  ];
+export type ActionsSharedConfig = {
+  entity?: string;
+  tap_action?: ActionConfig;
+  hold_action?: ActionConfig;
+  double_tap_action?: ActionConfig;
 };
+
+export function hasAction(config?: ActionConfig): boolean {
+  return config !== undefined && config.action !== 'none';
+}
+
+export function hasItemAction(config?: ActionsSharedConfig): boolean {
+  return (
+    config !== undefined &&
+    Object.keys(config)
+      .filter((key) => key !== 'entity')
+      .some((action) => hasAction(config[action]))
+  );
+}
