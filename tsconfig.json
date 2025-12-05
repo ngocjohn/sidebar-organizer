@@ -15,7 +15,6 @@
     "experimentalDecorators": true,
     "esModuleInterop": true,
     "allowJs": true,
-    "sourceMap": true,
     "baseUrl": "./src",
     "rootDir": "src",
     "paths": {
