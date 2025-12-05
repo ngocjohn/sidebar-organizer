@@ -112,6 +112,7 @@ frontend:
 1. Download the [sidebar-organizer.js].
 2. Place the downloaded file on your Home Assistant machine in the `config/www` folder (when there is no `www` folder in the folder where your `configuration.yaml` file is, create it and place the file there).
 3. Add the url of the plugin as an extra_module_url in your configuration.yaml:
+4. Restart Home Assistant
 
 ```yaml
 frontend:
@@ -120,7 +121,7 @@ frontend:
 ```
 
 > [!TIP]
-> It is recommended that you use a cache busting technique to assist with caching of old files on update (e.g. `.../sidebar-organizer.js?v2.0.0`). 4. Restart Home Assistant
+> It is recommended that you use a cache busting technique to assist with caching of old files on update (e.g. `.../sidebar-organizer.js?v2.0.0`).
 
 </details>
 
