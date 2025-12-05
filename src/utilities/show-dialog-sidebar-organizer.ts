@@ -1,20 +1,7 @@
 import { ELEMENT } from '@constants';
 import { SidebarConfig } from '@types';
 
-import { fireEvent, HASSDomEvent, ValidHassDomEvent } from './fire_event';
-
-declare global {
-  // for fire event
-  interface HASSDomEvents {
-    'close-dialog': undefined;
-    'dialog-closed': DialogClosedParams;
-  }
-  // for add event listener
-  interface HTMLElementEventMap {
-    'show-dialog': HASSDomEvent<ShowDialogParams<unknown>>;
-    'dialog-closed': HASSDomEvent<DialogClosedParams>;
-  }
-}
+import { fireEvent } from './fire_event';
 
 export interface SidebarConfigDialogParams {
   config: SidebarConfig;
@@ -28,19 +15,3 @@ export const showDialogSidebarOrganizer = (el: HTMLElement, dialogParam: Sidebar
     dialogParams: dialogParam,
   });
 };
-
-export interface HassDialog<T = HASSDomEvents[ValidHassDomEvent]> extends HTMLElement {
-  showDialog(params: T);
-  closeDialog?: () => boolean;
-}
-
-interface ShowDialogParams<T> {
-  dialogTag: keyof HTMLElementTagNameMap;
-  dialogImport: () => Promise<unknown>;
-  dialogParams: T;
-  addHistory?: boolean;
-}
-
-export interface DialogClosedParams {
-  dialog: string;
-}

@@ -29,7 +29,7 @@ const plugins = [dev && serve(serveopts), !dev && terser(terserOpt)];
 
 export default [
   {
-    input: 'src/main.ts',
+    input: 'src/sidebar-organizer.ts',
     output: [
       {
         file: fileOutput,

@@ -13,7 +13,7 @@ export const createExpansionPanel = ({
   options: { expanded?: boolean; header: string; icon?: string; secondary?: string; darkBg?: boolean };
 }): TemplateResult => {
   const styles = 'margin-bottom: var(--side-dialog-padding); --expansion-panel-content-padding: 0;';
-  const darkBg = options.darkBg ? 'background-color: var(--primary-background-color);' : '';
+  const darkBg = options.darkBg ? 'background-color: rgba(0, 0, 0, 0.2);' : '';
 
   return html`
     <ha-expansion-panel
@@ -22,9 +22,11 @@ export const createExpansionPanel = ({
       .expanded=${options?.expanded || false}
       .header=${options.header}
       .secondary=${options?.secondary || ''}
-      .leftChevron=${true}
+      .leftChevron=${false}
     >
-      ${options.icon ? html`<div slot="icons"><ha-icon icon=${options.icon}></ha-icon></div>` : ''}
+      ${options.icon
+        ? html`<ha-icon icon=${options.icon} slot="leading-icon" style="color: var(--secondary-text-color)"></ha-icon>`
+        : ''}
       <div style="padding: 1em; ${darkBg}">${content}</div>
     </ha-expansion-panel>
   `;
@@ -75,7 +77,7 @@ export function addAction(configItem: HTMLElement, action?: () => void, clickAct
 
   // Add event listeners for both mouse and touch
   ['touchstart', 'mousedown'].forEach((eventType) => {
-    configItem.addEventListener(eventType, handleDownEvent);
+    configItem.addEventListener(eventType, handleDownEvent, { passive: true });
   });
 
   ['touchend', 'mouseup'].forEach((eventType) => {

@@ -1,3 +1,4 @@
+import { CoreFrontendSystemData, CoreFrontendUserData } from '@utilities/frontend';
 import {
   Auth,
   Connection,
@@ -55,6 +56,8 @@ export interface PanelInfo<T = Record<string, any> | null> {
   icon: string | null;
   title: string | null;
   url_path: string;
+  config_panel_domain?: string;
+  default_visible?: boolean;
 }
 
 export interface Panels {
@@ -160,7 +163,8 @@ export interface HomeAssistant {
   defaultPanel: string;
   moreInfoEntityId: string | null;
   user?: CurrentUser;
-  userData?: any; // CoreFrontendUserData | null;
+  userData?: CoreFrontendUserData;
+  systemData?: CoreFrontendSystemData;
   hassUrl(path?): string;
   callService(
     domain: ServiceCallRequest['domain'],

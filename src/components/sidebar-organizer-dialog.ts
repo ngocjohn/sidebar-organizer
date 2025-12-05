@@ -1,4 +1,4 @@
-import { ALERT_MSG, HA_EVENT, NAMESPACE, NAMESPACE_TITLE, REPO_URL, SLOT, TAB_STATE, VERSION } from '@constants';
+import { ALERT_MSG, HA_EVENT, NAMESPACE, NAMESPACE_TITLE, REPO_URL, SLOT, VERSION } from '@constants';
 import { mdiArrowExpand, mdiClose, mdiInformation } from '@mdi/js';
 
 import './sidebar-dialog';
@@ -7,24 +7,29 @@ import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog } from '@utilities/show-dialog-box';
 import { SidebarConfigDialogParams } from '@utilities/show-dialog-sidebar-organizer';
 import { showToast } from '@utilities/toast-notify';
+import { cloneDeep } from 'es-toolkit/compat';
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { DIALOG_STYLE } from 'sidebar-css';
 
 import { HA, SidebarConfig } from '../types';
+import { HassDialog } from '../types/dialog-manager';
 import { fireEvent } from '../utilities/fire_event';
 import { SidebarConfigDialog } from './sidebar-dialog';
 
-@customElement('sidebar-organizer-dialog')
-export class SidebarOrganizerDialog extends LitElement {
-  @property({ attribute: false }) public hass!: HA;
-  @state() private _params?: SidebarConfigDialogParams;
-  @state() private _open = false;
-  @state() private _large = false;
+let mql = window.matchMedia('(min-width: 1000px) and (max-width: 1440px)');
 
-  @state() _codeUiLabel: string = TRANSLATED_LABEL.BTN_LABEL.SHOW_CODE_EDITOR;
+@customElement('sidebar-organizer-dialog')
+export class SidebarOrganizerDialog extends LitElement implements HassDialog<SidebarConfigDialogParams> {
+  @property({ attribute: false }) public hass!: HA;
+  @property({ type: Boolean, reflect: true }) public large = false;
+  @state() private _params?: SidebarConfigDialogParams;
+  @state() private _initConfig?: SidebarConfig;
+  @state() private _open = false;
+
   @state() _configValid = true;
   @state() _saveDisabled = false;
+  @state() _GUImode = true;
 
   @query('ha-dialog') private _dialog?: HTMLDialogElement;
   @query('sidebar-organizer-config-dialog') private _configDialog!: SidebarConfigDialog;
@@ -40,8 +45,11 @@ export class SidebarOrganizerDialog extends LitElement {
 
   public async showDialog(param: SidebarConfigDialogParams): Promise<void> {
     this._open = true;
-    this._large = true; // Default to large dialog
     this._params = param;
+    this._initConfig = cloneDeep(param.config);
+    if (mql.matches) {
+      this.large = true; // Default to large dialog
+    }
   }
 
   public closeDialog(): boolean {
@@ -53,8 +61,6 @@ export class SidebarOrganizerDialog extends LitElement {
 
     this._open = false;
     this._params = undefined;
-    this._params = undefined;
-    this._open = false;
     fireEvent(this, 'dialog-closed', { dialog: this.localName });
     return true;
   }
@@ -77,7 +83,7 @@ export class SidebarOrganizerDialog extends LitElement {
       // If using config file, we don't check for changes
       return false;
     }
-    return JSON.stringify(this._params.config) !== JSON.stringify(this._configDialog._sidebarConfig);
+    return JSON.stringify(this._initConfig) !== JSON.stringify(this._configDialog._sidebarConfig);
   }
 
   private async _handleSaveToStorage() {
@@ -146,12 +152,9 @@ export class SidebarOrganizerDialog extends LitElement {
       return nothing;
     }
     const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
-    const toggleLarge = () => {
-      this._large = !this._large;
-    };
 
     const rightHeaderBtns = html`<div slot="actionItems">
-      <ha-icon-button .label=${'Toggle large'} .path=${mdiArrowExpand} @click=${toggleLarge}> </ha-icon-button>
+      <ha-icon-button .label=${'Toggle large'} .path=${mdiArrowExpand} @click=${this._enlarge}> </ha-icon-button>
       <ha-icon-button
         .label=${'Documentation'}
         .path=${mdiInformation}
@@ -159,17 +162,17 @@ export class SidebarOrganizerDialog extends LitElement {
       ></ha-icon-button>
     </div>`;
 
-    const dialogTitle = html`<span slot="title" .title=${NAMESPACE} @click=${toggleLarge}> ${NAMESPACE_TITLE} </span>
+    const dialogTitle = html`<span slot="title" .title=${NAMESPACE} @click=${this._enlarge}> ${NAMESPACE_TITLE} </span>
       <span slot="subtitle">(${VERSION})</span> `;
     return html`
       <ha-dialog
         open
+        scrimClickAction
+        escapeKeyAction
+        @keydown=${this._ignoreKeydown}
         @closed=${this._dialogClosed}
         .hideActions=${false}
         .flexContent=${true}
-        ?large=${this._large}
-        scrimClickAction
-        escapeKeyAction
         .heading=${NAMESPACE_TITLE}
       >
         <ha-dialog-header slot="heading">
@@ -185,7 +188,9 @@ export class SidebarOrganizerDialog extends LitElement {
         ${this._renderContent()}
 
         <ha-button appearance="plain" size="small" slot=${SLOT.SECONDARY_ACTION} @click=${this._toggleCodeUi}
-          >${this._codeUiLabel}
+          >${this._GUImode
+            ? TRANSLATED_LABEL.BTN_LABEL.SHOW_CODE_EDITOR
+            : TRANSLATED_LABEL.BTN_LABEL.SHOW_VISUAL_EDITOR}
         </ha-button>
         <div slot=${SLOT.PRIMARY_ACTION}>
           <ha-button appearance="plain" size="small" .label=${BTN_LABEL.CANCEL} @click=${this.closeDialog}>
@@ -201,13 +206,25 @@ export class SidebarOrganizerDialog extends LitElement {
 
   private _toggleCodeUi(): void {
     this._configDialog._toggleCodeEditor();
-    this._codeUiLabel =
-      this._configDialog._tabState === TAB_STATE.CODE
-        ? TRANSLATED_LABEL.BTN_LABEL.SHOW_VISUAL_EDITOR
-        : TRANSLATED_LABEL.BTN_LABEL.SHOW_CODE_EDITOR;
+    this._GUImode = this._configDialog.GUImode;
+
+    // this._codeUiLabel =
+    //   this._configDialog._tabState === TAB_STATE.CODE
+    //     ? TRANSLATED_LABEL.BTN_LABEL.SHOW_VISUAL_EDITOR
+    //     : TRANSLATED_LABEL.BTN_LABEL.SHOW_CODE_EDITOR;
   }
 
-  static styles = [DIALOG_STYLE];
+  private _enlarge() {
+    this.large = !this.large;
+  }
+
+  private _ignoreKeydown(ev: KeyboardEvent) {
+    ev.stopPropagation();
+  }
+
+  static get styles() {
+    return DIALOG_STYLE;
+  }
 }
 
 declare global {

@@ -62,34 +62,66 @@ With Sidebar Organizer, managing the sidebar in Home Assistant becomes easy and 
 
 ## [HACS](https://hacs.xyz) (Home Assistant Community Store)
 
+If you have not disabled the [My Home Assistant], just click on the button to go to the plugin's page, otherwise follow the next steps:
+
+[![open-hacs-repo-badge]][hacs-repo-custom-url]
+
 1. Go to HACS page on your Home Assistant instance
-2. Add this repository via HACS Custom repositories [How to add Custom Repositories](https://hacs.xyz/docs/faq/custom_repositories/)
+1. Add this repository via HACS Custom repositories [How to add Custom Repositories][hacs-docs]
 
 ```
 https://github.com/ngocjohn/sidebar-organizer
 ```
 
-3. Select `Dashboard`
-1. Press add icon and search for `Sidebar Organizer`
-1. Select Sidebar Organizer repo and install
-1. Force refresh the Home Assistant page `Ctrl` + `F5` / `Shift` + `⌘` + `R`
-1. Access the Sidebar Organizer Configuration menu by press and hold the Profile menu (the last item in the sidebar).
+3. Select type `Dashboard`
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngocjohn&repository=sidebar-organizer&category=plugin)
+### Install the plugin
+
+1. Search for `Sidebar Organizer`
+1. Select Sidebar Organizer repo and install
+1. When the plugin is already downloaded, add the url of the plugin as an extra_module_url in your configuration.yaml.
+
+When installing through HACS your lovelace resource definition will be automatically added in Dashboard resources which you can access via the button below and and search for `sidebar-organizer`
+
+[![Open-dashboard-resources]][dashboard-resources-link]
+
+![Dashboard resources](assets/dashboard-resources.png)
+
+Example lovelace resource definition when installed through HACS.
+
+```
+/hacsfiles/sidebar-organizer/sidebar-organizer.js?hacstag=123456789
+```
+
+In configuration.yaml add this exact path to `frontend: extra_module_url:` When updating plugin through HACS make sure to update your `extra_module_url:` manually to match.
+This is critically important as it prevents the resource being loaded twice.
+
+```yaml
+frontend:
+  extra_module_url:
+    - /hacsfiles/sidebar-organizer/sidebar-organizer.js?hacstag=123456789
+```
+
+4. Restart Home Assistant
 
 ## Manual
 
 <details>
   <summary>Click to expand installation instructions</summary>
 
-1. Download the [sidebar-organizer.js](https://github.com/ngocjohn/sidebar-organizer/releases/latest).
+1. Download the [sidebar-organizer.js].
 2. Place the downloaded file on your Home Assistant machine in the `config/www` folder (when there is no `www` folder in the folder where your `configuration.yaml` file is, create it and place the file there).
-3. In Home Assistant go to `Settings->Dashboards->Resources` (When there is no `resources` tag on the `Lovelace Dashboard` page, enable advanced mode in your account settings, and retry this step).
-4. Add a new resource:
-   - Url = `/local/sidebar-organizer.js`
-   - Resource type = `module`
-5. Force refresh the Home Assistant page `Ctrl` + `F5` / `Shift` + `⌘` + `R`.
-6. Add sidebar-organizer to your page.
+3. Add the url of the plugin as an extra_module_url in your configuration.yaml:
+4. Restart Home Assistant
+
+```yaml
+frontend:
+  extra_module_url:
+    - /local/sidebar-organizer.js?v1.0.0
+```
+
+> [!TIP]
+> It is recommended that you use a cache busting technique to assist with caching of old files on update (e.g. `.../sidebar-organizer.js?v2.0.0`).
 
 </details>
 
@@ -251,3 +283,11 @@ In this section, you can organize the layout of the sidebar panels by customizin
 [git-download-latest-badge]: https://img.shields.io/github/downloads/ngocjohn/sidebar-organizer/latest/total?style=flat&logo=homeassistantcommunitystore&logoSize=auto
 
 <!--Urls-->
+
+[My Home Assistant]: https://www.home-assistant.io/integrations/my/
+[hacs-docs]: https://hacs.xyz/docs/faq/custom_repositories/
+[Open-dashboard-resources]: https://my.home-assistant.io/badges/lovelace_resources.svg
+[dashboard-resources-link]: https://my.home-assistant.io/redirect/lovelace_resources/
+[open-hacs-repo-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
+[hacs-repo-custom-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=ngocjohn&repository=sidebar-organizer&category=plugin
+[sidebar-organizer.js]: https://github.com/ngocjohn/sidebar-organizer/releases/latest

@@ -1,4 +1,4 @@
-import { HomeAssistant } from 'custom-card-helpers';
+import { HomeAssistant } from '../types/ha';
 
 function t(hass: HomeAssistant, key: string) {
   return hass.localize(key);
