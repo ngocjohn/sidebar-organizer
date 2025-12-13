@@ -1132,8 +1132,7 @@ class SidebarOrganizer {
     }
 
     const callback = (resultContent: any) => {
-      if (resultContent) {
-        // console.log('Notification:', resultContent);
+      if (resultContent != null && String(resultContent).trim() !== '') {
         if (typeof resultContent === 'string' && isIcon(resultContent)) {
           badge.remove();
           notifyIcon.setAttribute('icon', resultContent);
@@ -1146,10 +1145,9 @@ class SidebarOrganizer {
         }
         panel.setAttribute(ATTRIBUTE.DATA_NOTIFICATION, 'true');
       } else {
-        notifyIcon.removeAttribute('icon');
-        badge.innerHTML = '';
-        badge.classList.toggle(CLASS.NO_VISIBLE, true);
-        // panel.removeAttribute(ATTRIBUTE.DATA_NOTIFICATION);
+        notifyIcon.remove();
+        badge.remove();
+        panel.removeAttribute(ATTRIBUTE.DATA_NOTIFICATION);
       }
     };
     this._subscribeTemplate(value, callback);
