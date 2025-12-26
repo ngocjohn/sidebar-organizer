@@ -3,6 +3,7 @@ import {
   ATTRIBUTE,
   CLASS,
   ELEMENT,
+  EVENT,
   HA_EVENT,
   NAMESPACE,
   PATH,
@@ -17,13 +18,14 @@ import {
   PanelInfo,
   Panels,
   PartialPanelResolver,
+  Sidebar,
   SidebarConfig,
   SidebarPanelItem,
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { computeInitialPanelOrder, computePanels } from '@utilities/compute-panels';
 import { fetchConfig } from '@utilities/configs';
-import { getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
+import { clearSidebarOrganizerStorage, getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { compareDashboardItems, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
 import { addAction, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
@@ -44,28 +46,37 @@ import { DIVIDER_ADDED_STYLE } from './sidebar-css';
 
 export class SidebarOrganizer {
   public readonly _debugMode: boolean = false;
-  public _notCompatible: boolean = false;
 
-  constructor(debug: boolean, notCompatible: boolean) {
+  constructor(debug: boolean) {
     this._debugMode = debug;
-    this._notCompatible = notCompatible;
-
     const instance = new HAQuerySelector();
 
     instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, async (event) => {
       const { HOME_ASSISTANT, HOME_ASSISTANT_MAIN, HA_DRAWER, HA_SIDEBAR } = event.detail;
       this.ha = (await HOME_ASSISTANT.element) as HaExtened;
-      this.main = (await HOME_ASSISTANT_MAIN.selector.$.element) as ShadowRoot;
-      this._haMain = HOME_ASSISTANT_MAIN;
+
       this._haDrawer = await HA_DRAWER.element;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
+      this._debugLog(
+        'HA Elements:',
+        {
+          HOME_ASSISTANT: HOME_ASSISTANT,
+          HOME_ASSISTANT_MAIN: HOME_ASSISTANT_MAIN,
+          HA_DRAWER: HA_DRAWER,
+          HA_SIDEBAR: HA_SIDEBAR,
+          PARTIAL_PANEL_RESOLVER: event.detail.PARTIAL_PANEL_RESOLVER,
+        },
+        { stringify: false }
+      );
       this.run();
     });
 
     instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, (event: CustomEvent<OnPanelLoadDetail>) => {
       this._panelResolver = event.detail.PARTIAL_PANEL_RESOLVER;
       this._sidebar = event.detail.HA_SIDEBAR;
+      this._haMain = event.detail.HOME_ASSISTANT_MAIN;
+      this._homeAssistant = event.detail.HOME_ASSISTANT;
     });
 
     instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
@@ -99,8 +110,14 @@ export class SidebarOrganizer {
     this._sidebarItems = [];
     this._initDashboards = [];
     this._builInPanels = {};
+    this._mouseEnterBinded = this._mouseEnter.bind(this);
+    this._mouseLeaveBinded = this._mouseLeave.bind(this);
   }
 
+  private _homeAssistant!: HAElement;
+  private _haMain!: HAElement;
+  private ha?: HaExtened;
+  private _notCompatible: boolean = false;
   private _blockEditModeChange: boolean = false;
   private _bottomItems: string[] = [];
   private _config: SidebarConfig = {};
@@ -108,7 +125,6 @@ export class SidebarOrganizer {
   private _delayTimeout: number | null = null;
   private _diffCheck: boolean = false;
   private _haDrawer: any;
-  private _haMain!: HAElement;
   private _initDashboards: LovelaceDashboard[] = [];
 
   private _panelResolver!: HAElement;
@@ -119,15 +135,40 @@ export class SidebarOrganizer {
   private _userHasSidebarSettings: boolean = false;
   private collapsedItems = new Set<string>();
   private firstSetUpDone = false;
-  private ha?: HaExtened;
+
   private HaSidebar: any;
-  private main!: ShadowRoot;
   private setupConfigDone = false;
   private sideBarRoot!: ShadowRoot;
   public _builInPanels: Record<string, PanelInfo> = {};
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
   private _baseColorFromTheme: DividerColorSettings = {};
+  private _mouseEnterBinded: (event: MouseEvent) => void;
+  private _mouseLeaveBinded: () => void;
+  private _debugLog(
+    topic: string,
+    metadata?: unknown,
+    config?: {
+      stringify?: boolean;
+      table?: boolean;
+    }
+  ): void {
+    const { stringify = true, table = false } = config ?? {};
+    if (this._debugMode) {
+      const topicMessage = `${NAMESPACE} debug: ${topic}`;
+      if (metadata) {
+        console.groupCollapsed(topicMessage);
+        if (table) {
+          console.table(metadata);
+        } else {
+          console.log(stringify ? JSON.stringify(metadata, null, 4) : metadata);
+        }
+        console.groupEnd();
+      } else {
+        console.log(topicMessage);
+      }
+    }
+  }
 
   get hass(): HaExtened['hass'] {
     return this.ha!.hass;
@@ -151,19 +192,9 @@ export class SidebarOrganizer {
     return useConfigFile || (sidebarConfig !== null && sidebarConfig !== undefined);
   }
 
-  get customPanels(): Panels {
-    const panels = this.hass.panels;
-    const customPanels = Object.entries(panels)
-      .filter(([, panel]) => panel.component_name === 'custom')
-      .reduce((acc, [key, panel]) => {
-        acc[key] = panel;
-        return acc;
-      }, {});
-    return customPanels;
-  }
-
   public async run() {
-    if (this._notCompatible) {
+    if (isBeforeChange()) {
+      this._notCompatible = true;
       return;
     }
     await this._checkUserSidebarSettings();
@@ -182,7 +213,7 @@ export class SidebarOrganizer {
     }
   }
 
-  private async _watchEditLegacySidebar() {
+  private async _watchEditLegacySidebar(): Promise<void> {
     if (!this._hasSidebarConfig) return;
 
     const HaMain = customElements.get('home-assistant-main');
@@ -403,7 +434,7 @@ export class SidebarOrganizer {
     console.log('User has sidebar settings:', this._userHasSidebarSettings, userData);
   }
 
-  private async _setupConfigBtn() {
+  private async _setupConfigBtn(): Promise<void> {
     let profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
     if (!profileEl) {
       profileEl = this.sideBarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement;
@@ -534,18 +565,6 @@ export class SidebarOrganizer {
 
       this._panelLoaded();
     });
-  }
-
-  private _checkMissingPanels(initOrder: string[]): boolean {
-    if (!this._builInPanels || Object.keys(this._builInPanels).length === 0) {
-      console.log('No built-in panels found, skipping missing panel check');
-      return false;
-    }
-    const missingPanels = Object.values(this._builInPanels).filter((panel) => {
-      return !initOrder.includes(panel.url_path!);
-    });
-    console.log('Missing Panels:', missingPanels);
-    return missingPanels.length > 0;
   }
 
   private async _getElements(): Promise<[HTMLElement, NodeListOf<SidebarPanelItem>, HTMLElement]> {
@@ -1149,7 +1168,8 @@ export class SidebarOrganizer {
     haIcon.icon = icon!;
 
     item.prepend(haIcon);
-
+    item.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
+    item.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
     return item;
   }
 
@@ -1185,7 +1205,29 @@ export class SidebarOrganizer {
     if (hasNotification) {
       this._subscribeNotification(item, itemConfig.notification!);
     }
+    item.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
+    item.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
     return item;
+  }
+
+  private async _mouseEnter(event: MouseEvent) {
+    const sidebarElement = (await this._sidebar.element) as Sidebar;
+    if (sidebarElement.alwaysExpand) return;
+    if (sidebarElement._mouseLeaveTimeout) {
+      clearTimeout(sidebarElement._mouseLeaveTimeout);
+      sidebarElement._mouseLeaveTimeout = undefined;
+    }
+    sidebarElement._showTooltip(event.currentTarget as HTMLElement);
+  }
+
+  private async _mouseLeave(): Promise<void> {
+    const sidebarElement = (await this._sidebar.element) as Sidebar;
+    if (sidebarElement._mouseLeaveTimeout) {
+      clearTimeout(sidebarElement._mouseLeaveTimeout);
+    }
+    sidebarElement._mouseLeaveTimeout = window.setTimeout(() => {
+      sidebarElement._hideTooltip();
+    }, 500);
   }
 
   private _subscribeNotification(panel: HTMLElement, value: string) {
@@ -1342,6 +1384,10 @@ export class SidebarOrganizer {
       }, {} as Panels);
     return autoGeneratedPanels;
   }
+
+  _removeSidebarConfigFromStorage() {
+    return clearSidebarOrganizerStorage();
+  }
 }
 
 declare global {
@@ -1353,9 +1399,7 @@ declare global {
 // Initial Run
 
 if (!window.SidebarOrganizer) {
-  const isNotCompatible = isBeforeChange();
-
   const params = new URLSearchParams(window.location.search);
   const debugMode = params.has('so_debug');
-  window.SidebarOrganizer = new SidebarOrganizer(debugMode, isNotCompatible);
+  window.SidebarOrganizer = new SidebarOrganizer(debugMode);
 }

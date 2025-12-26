@@ -2,13 +2,10 @@ import { ActionConfig } from '@utilities/action';
 
 import { HomeAssistant } from './ha';
 
-interface defaultPanel extends HomeAssistant {
-  defaultPanel: string;
-}
 export type HA = HomeAssistant;
 
 export interface HaExtened extends HTMLElement {
-  hass: HomeAssistant & defaultPanel;
+  hass: HomeAssistant;
 }
 
 export interface Router extends HTMLElement {
@@ -39,6 +36,13 @@ export interface SidebarPanelItem extends HTMLElement {
   target: string;
   newItem?: boolean;
   'data-panel'?: string;
+}
+
+export interface Sidebar extends HTMLElement {
+  alwaysExpand: boolean;
+  _mouseLeaveTimeout?: number;
+  _showTooltip: (anchor: HTMLElement) => void;
+  _hideTooltip: () => void;
 }
 
 export interface PanelInfo {

@@ -71,4 +71,9 @@ export enum CUSTOM_EVENT {
   UI_EDITOR = 'ui-editor',
 }
 
+export enum EVENT {
+  MOUSEENTER = 'mouseenter',
+  MOUSELEAVE = 'mouseleave',
+}
+
 export const SHOW_AFTER_BOTTOM = ['/developer-tools', '/config'];
