@@ -3,7 +3,7 @@ import memoizeOne from 'memoize-one';
 
 import { PanelInfo } from '../types';
 import { stringCompare } from './compare';
-import { FIXED_PANELS, SHOW_AFTER_SPACER_PANELS } from './panel';
+import { BUILT_IN_PANELS, FIXED_PANELS, SHOW_AFTER_SPACER_PANELS } from './panel';
 
 // const SHOW_AFTER_SPACER = ['config', 'developer-tools'];
 
@@ -105,3 +105,37 @@ export const computePanels = memoizeOne(
     return [beforeSpacer, afterSpacer];
   }
 );
+
+export const computeInitialPanelOrder = (
+  panels: HomeAssistant['panels'],
+  defaultPanel: string,
+  locale: HomeAssistant['locale']
+): { beforeSpacer: PanelInfo[]; builtInDefaultNotVisible: PanelInfo[] } => {
+  if (!panels) {
+    return { beforeSpacer: [], builtInDefaultNotVisible: [] };
+  }
+
+  const beforeSpacer: PanelInfo[] = [];
+  const builtInDefaultNotVisible: PanelInfo[] = [];
+
+  const allPanels = Object.values(panels).filter(
+    (panel) => ![...FIXED_PANELS, SHOW_AFTER_SPACER_PANELS].includes(panel.url_path)
+  );
+
+  allPanels.forEach((panel) => {
+    const isDefaultPanel = panel.url_path === defaultPanel;
+
+    if (
+      !isDefaultPanel &&
+      (!panel.title || (panel.default_visible === false && !BUILT_IN_PANELS.includes(panel.url_path)))
+    ) {
+      return;
+    }
+    (BUILT_IN_PANELS.includes(panel.url_path) ? builtInDefaultNotVisible : beforeSpacer).push(panel);
+  });
+  const reverseSort = [...Object.keys(panels)].reverse();
+
+  beforeSpacer.sort((a, b) => panelSorter(reverseSort, defaultPanel, a, b, locale.language));
+
+  return { beforeSpacer, builtInDefaultNotVisible };
+};

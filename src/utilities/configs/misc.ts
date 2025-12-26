@@ -1,4 +1,4 @@
-import { STORAGE } from '@constants';
+import { ALERT_MSG, STORAGE } from '@constants';
 import { SidebarConfig } from '@types';
 
 import { getStorage, setStorage } from '../storage-utils';
@@ -22,30 +22,15 @@ export const getCollapsedItems = (
   return collapsedItems;
 };
 
-export const getInitPanelOrder = (paperListBox: HTMLElement): string[] => {
-  const children = paperListBox.children;
-  const spacerIndex = Array.from(children).findIndex((child) => child.classList.contains('spacer'));
-  const panelOrder = Array.from(children)
-    .slice(0, spacerIndex)
-    .map(
-      (child) =>
-        child.shadowRoot?.querySelector('a')?.getAttribute('href')?.replace('/', '') ||
-        child.getAttribute('data-panel') ||
-        null
-    )
-    .filter((panel) => panel !== null);
-  setStorage(STORAGE.PANEL_ORDER, panelOrder);
-  return panelOrder;
-};
-
 export const isBeforeChange = (): boolean => {
   const version = localStorage.getItem(STORAGE.HA_VERSION) || '';
-  console.log('Current version:', version);
   const [year, major, patch] = version.split('.').map(Number); //eslint-disable-line
+  let isBefore = false;
+  if (year < 2025 || (year === 2025 && major < 5)) isBefore = true;
+  if (isBefore) {
+    console.warn(ALERT_MSG.NOT_COMPATIBLE, '\n', ALERT_MSG.VERSION_INFO);
+  }
+  console.log('%cMISC:', 'color: #bada55;', 'isBeforeChange:', isBefore);
 
-  if (year < 2025) return true;
-  if (year > 2025) return false;
-
-  // If year is 2025, check the major version
-  return major < 5;
+  return isBefore;
 };

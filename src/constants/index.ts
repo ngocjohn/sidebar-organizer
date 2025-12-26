@@ -5,11 +5,13 @@ import { version, repository } from '../../package.json';
 export * from './dom';
 export const NAMESPACE = 'sidebar-organizer';
 export const NAMESPACE_TITLE = 'Sidebar Organizer';
+export const VERSION_NUMBER = version;
 export const VERSION = `v${version}`;
 export const REPO_URL = `${repository.url}`;
 
 export const CONFIG_NAME = 'sidebar-organizer';
 export const CONFIG_PATH = '/local/sidebar-organizer.yaml';
+export const NAME_RGX = /sidebar-organizer.js/i;
 
 export enum PATH {
   LOVELACE_DASHBOARD = '/config/lovelace/dashboards',
@@ -99,4 +101,6 @@ export const ALERT_MSG = {
     'You have Sidebar Organizer installed. It is recommended to use Sidebar Organizer Dialog to edit the sidebar. Do you want to open Sidebar Organizer Dialog instead?',
   FRONTEND_MODULE: 'You may experience issues when plugin is not loaded as a module.',
   INSTALLATION_LINK: `See: ${REPO_URL}#installation`,
+  UPLOAD_SUCCESS_VALID_RELOAD:
+    'Config uploaded successfully and is valid. Click OK to reload the page and apply the new configuration.',
 };

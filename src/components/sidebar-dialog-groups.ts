@@ -426,7 +426,7 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _handleGroupAction = async (action: string, key: string) => {
-    console.log('group action', action, key);
+    // console.log('group action', action, key);
 
     const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
     const updateConfig = (updates: any) => {
@@ -874,6 +874,15 @@ export class SidebarDialogGroups extends LitElement {
   private _dispatchConfig(config: SidebarConfig) {
     const event = new CustomEvent('sidebar-changed', { detail: config, bubbles: true, composed: true });
     this.dispatchEvent(event);
+  }
+
+  public clickedPanelInPreview(panel: string, group?: string | null): void {
+    console.log('Clicked panel in preview:', panel, group);
+    if (group) {
+      const selectedTab = group === 'bottom_items' ? PANEL.BOTTOM_PANEL : PANEL.CUSTOM_GROUP;
+      this._selectedTab = selectedTab;
+      this._selectedGroup = group === 'bottom_items' ? null : group;
+    }
   }
 
   static get styles(): CSSResultGroup {
