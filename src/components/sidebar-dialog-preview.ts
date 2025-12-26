@@ -282,9 +282,13 @@ export class SidebarDialogPreview extends LitElement {
       target.classList.toggle('collapsed', !isActive);
     };
 
+    const _itemClicked = (panel: string) => {
+      this._dispatchEvent('item-clicked', panel);
+    };
+
     const _renderPanelItem = (item: PanelInfo) => {
       const { icon, title, component_name } = item;
-      return html`<a data-panel=${component_name}>
+      return html`<a data-panel=${component_name} @click=${() => _itemClicked(component_name!)}>
         <div class="icon-item"><ha-icon .icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
       </a>`;
     };
@@ -322,7 +326,7 @@ export class SidebarDialogPreview extends LitElement {
             const title = groups[i].replace('_', ' ');
             const someGroupItems = _paperListbox[groups[i]] ?? mockCustomGroups[groups[i]] ?? [];
 
-            return html`<div class="divider-container" @click=${(ev: Event) => _toggleClick(ev)} group=${groups[i]}>
+            return html`<div group=${groups[i]} class="divider-container" @click=${(ev: Event) => _toggleClick(ev)}>
                 <div class=${collapsed ? 'added-content' : 'added-content collapsed'}>
                   <ha-icon icon="mdi:chevron-down"></ha-icon>
                   <span>${title}</span>
@@ -352,15 +356,24 @@ export class SidebarDialogPreview extends LitElement {
     const itemsEl = this.shadowRoot?.querySelectorAll('div.group-items') as NodeListOf<HTMLElement>;
     groups.forEach((item) => {
       const groupName = item.getAttribute('group');
-      item.classList.toggle('collapsed', groupName !== group);
+      const shouldCollapse = groupName !== group;
+      item.classList.toggle('collapsed', shouldCollapse);
       const addedContent = item.querySelector('div.added-content') as HTMLElement;
-      addedContent.classList.toggle('collapsed', groupName !== group);
+      addedContent.classList.toggle('collapsed', shouldCollapse);
+      if (!shouldCollapse) {
+        addedContent.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest',
+        });
+      }
     });
 
     if (!itemsEl) return;
     itemsEl.forEach((item) => {
       const groupName = item.getAttribute('group');
-      item.classList.toggle('collapsed', groupName !== group);
+      const shouldCollapse = groupName !== group;
+      item.classList.toggle('collapsed', shouldCollapse);
       if (groupName === group && !preview) {
         item.classList.add('hight-light');
         item.addEventListener('animationend', () => {
@@ -397,6 +410,15 @@ export class SidebarDialogPreview extends LitElement {
     }
   }
 
+  private _dispatchEvent(eventName: string, detail?: any) {
+    this.dispatchEvent(
+      new CustomEvent(eventName, {
+        detail: detail,
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
   private _computePreviewStyle() {
     const colorMode = this._colorConfigMode;
     const color_config = this._sidebarConfig?.color_config || {};

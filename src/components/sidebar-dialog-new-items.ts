@@ -4,7 +4,7 @@ import { isIcon } from '@utilities/is-icon';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
-import { capitalize, pick } from 'es-toolkit/compat';
+import { capitalize, findKey, pick } from 'es-toolkit/compat';
 import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -13,6 +13,10 @@ import memoizeOne from 'memoize-one';
 import { dialogStyles } from './dialog-css';
 import { computeOptionalActionSchemaFull } from './forms';
 import { SidebarConfigDialog } from './sidebar-dialog';
+
+const convertTitle = (title: string | undefined): string => {
+  return title ? capitalize(title.replace(/_/g, ' ')) : 'Ungrouped';
+};
 
 @customElement('sidebar-dialog-new-items')
 export class SidebarDialogNewItems extends LitElement {
@@ -60,8 +64,14 @@ export class SidebarDialogNewItems extends LitElement {
     });
   }
 
-  private get groupKeys(): string[] {
-    return Object.keys(this._sidebarConfig.custom_groups || {});
+  private get groupKeys(): { value: string; label?: string }[] {
+    const bottomPanelOption = { value: 'bottom_items', label: 'BOTTOM' };
+    const customGroups = this._sidebarConfig?.custom_groups || {};
+    const groupOptions = Object.keys(customGroups).map((group) => ({
+      value: group,
+      label: group.replace(/_/g, ' ').toUpperCase(),
+    }));
+    return [bottomPanelOption, ...groupOptions];
   }
 
   private _actionsSchema = [
@@ -99,7 +109,7 @@ export class SidebarDialogNewItems extends LitElement {
   ] as const;
 
   private _configSchema = memoizeOne(
-    (groupsOptions: string[]) =>
+    (groupsOptions: { value: string; label?: string }[]) =>
       [
         {
           type: 'grid',
@@ -116,12 +126,7 @@ export class SidebarDialogNewItems extends LitElement {
               selector: {
                 select: {
                   mode: 'dropdown',
-                  options: [
-                    ['bottom', ...groupsOptions].map((group: string) => ({
-                      value: group,
-                      label: group.replace(/_/g, ' ').toUpperCase(),
-                    })),
-                  ],
+                  options: groupsOptions.length ? groupsOptions : [{ value: '', label: 'Ungrouped' }],
                 },
               },
             },
@@ -144,6 +149,7 @@ export class SidebarDialogNewItems extends LitElement {
     if (this._selectedItemIndex !== null) return nothing;
     const addBtn = html` <ha-button size="small" @click=${this._togglePromptNewItem}>Add new item </ha-button> `;
     const newItems = this._sidebarConfig?.new_items || [];
+
     const newItemsList = html`
       ${!newItems.length
         ? html`<div>No new items added yet</div>`
@@ -160,7 +166,7 @@ export class SidebarDialogNewItems extends LitElement {
                         <ha-icon icon=${icon}></ha-icon>
                         <div class="group-name-items">
                           ${title}
-                          <span>${this.getGroupName(title!)}</span>
+                          <span>${convertTitle(this.getGroupKey(title!))}</span>
                         </div>
                       </div>
                       <div class="group-actions">
@@ -195,23 +201,15 @@ export class SidebarDialogNewItems extends LitElement {
       <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedItemIndex = null)}> </ha-icon-button>
     </div>`;
 
-    const baseData = { ...this._sidebarConfig.new_items![this._selectedItemIndex!] };
+    const baseData = { ...newItems };
     // console.log('Editing item:', baseData);
-    const groupName = this.getGroupName(newItems.title!);
-    // console.log('Group name:', groupName);
-    let inGroup: string | undefined;
-    if (groupName === 'Bottom Panels') {
-      inGroup = 'bottom';
-    } else if (groupName === 'Ungrouped') {
-      inGroup = undefined;
-    } else {
-      inGroup = groupName;
-    }
+    const groupKey = this.getGroupKey(newItems.title!);
+    const groupName = convertTitle(groupKey);
 
     // console.log('Item is in group:', inGroup);
     const dataWithoutActions = {
       icon: baseData?.icon,
-      group: inGroup,
+      group: groupKey,
     };
 
     const actionData = pick(baseData, ['entity', 'tap_action', 'hold_action', 'double_tap_action']);
@@ -219,8 +217,8 @@ export class SidebarDialogNewItems extends LitElement {
     const notificationData = {
       notification: baseData.notification,
     };
-
-    const baseSchema = this._configSchema(this.groupKeys);
+    const groupKeys = this.groupKeys;
+    const baseSchema = this._configSchema(groupKeys);
     const actionSchema = this._actionsSchema;
     const notificationSchema = this._notificationSchema;
 
@@ -234,7 +232,7 @@ export class SidebarDialogNewItems extends LitElement {
                   <ha-icon icon=${newItems.icon}></ha-icon>
                   <div class="group-name-items">
                     ${newItems.title}
-                    <span>${this.getGroupName(newItems.title!)}</span>
+                    <span>${groupName}</span>
                   </div>
                 </div>
                 <div class="group-actions">
@@ -328,12 +326,21 @@ export class SidebarDialogNewItems extends LitElement {
     );
   }
 
-  private getGroupName(item: string): string {
+  private getGroupKey(item: string): string | undefined {
     const { custom_groups = {}, bottom_items = [] } = this._sidebarConfig;
-    const groupName = Object.keys(custom_groups).find((group) => custom_groups[group].includes(item));
-
-    return groupName || (bottom_items.includes(item) ? 'Bottom Panels' : 'Ungrouped');
+    const groups = {
+      ...custom_groups,
+      bottom_items,
+    };
+    return findKey(groups, (g) => g.includes(item));
   }
+
+  // private getGroupName(item: string): string {
+  //   const { custom_groups = {}, bottom_items = [] } = this._sidebarConfig;
+  //   const groupName = Object.keys(custom_groups).find((group) => custom_groups[group].includes(item));
+
+  //   return groupName || (bottom_items.includes(item) ? 'Bottom Panels' : 'Ungrouped');
+  // }
 
   private _createHaForm(data: any, schema: any, configKey?: string | number | undefined, id?: string): TemplateResult {
     return html`
@@ -413,13 +420,14 @@ export class SidebarDialogNewItems extends LitElement {
   }
 
   private _handleGroupChange(title: string, group: string | undefined): void {
-    const inGroup = this.getGroupName(title);
+    const inGroup = this.getGroupKey(title);
     // If item is already in the group, we do nothing
     console.log('Handling group change:', title, 'from', inGroup, 'to', group);
     if (
       inGroup === group ||
-      (inGroup === 'Ungrouped' && !group) ||
-      (inGroup === 'Bottom Panels' && group === 'bottom')
+      (inGroup === '' && !group) ||
+      (!inGroup && !group) ||
+      (inGroup === 'bottom_items' && group === 'bottom')
     ) {
       console.log(`Item "${title}" is already in group "${inGroup}" or ungrouped.`);
       return;
@@ -478,33 +486,34 @@ export class SidebarDialogNewItems extends LitElement {
   };
 
   private _handleRemoveItem = (title: string) => {
-    const inGroups = this.getGroupName(title!);
-    if (inGroups !== 'Ungrouped') {
+    const inGroups = this.getGroupKey(title);
+    if (inGroups) {
       console.log(`Removing item "${title}" from group "${inGroups}"`);
       // If item is in group, we need to remove it from the group
-      if (inGroups === 'Bottom Panels') {
-        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
-        const itemIndex = bottomItems.indexOf(title!);
-        if (itemIndex !== -1) {
-          bottomItems.splice(itemIndex, 1);
-          this._sidebarConfig = {
-            ...this._sidebarConfig,
-            bottom_items: bottomItems,
-          };
+      const removeFromGroup = (group: string[]): void => {
+        const index = group.indexOf(title);
+        if (index !== -1) {
+          group.splice(index, 1);
         }
-      } else {
-        const customGroups = { ...this._sidebarConfig.custom_groups };
-        const groupItems = customGroups[inGroups] || [];
-        const itemIndex = groupItems.indexOf(title!);
-        if (itemIndex !== -1) {
-          groupItems.splice(itemIndex, 1);
+      };
+      const currentConfig = { ...this._sidebarConfig };
+      const updatedConfig: SidebarConfig = { ...currentConfig };
+      switch (inGroups) {
+        case 'bottom_items':
+          const bottomItems = [...(currentConfig.bottom_items || [])];
+          removeFromGroup(bottomItems);
+          updatedConfig.bottom_items = bottomItems;
+          break;
+        default:
+          const customGroups = { ...currentConfig.custom_groups };
+          const groupItems = customGroups[inGroups] || [];
+          removeFromGroup(groupItems);
           customGroups[inGroups] = groupItems;
-          this._sidebarConfig = {
-            ...this._sidebarConfig,
-            custom_groups: customGroups,
-          };
-        }
+          updatedConfig.custom_groups = customGroups;
+          break;
       }
+      this._sidebarConfig = updatedConfig;
+      console.log('Updated config after removal:', this._sidebarConfig);
     }
   };
 
@@ -519,33 +528,34 @@ export class SidebarDialogNewItems extends LitElement {
       return;
     }
 
-    const inGroups = this.getGroupName(currentTitle);
+    const inGroups = this.getGroupKey(currentTitle);
 
-    if (inGroups !== 'Ungrouped') {
+    if (inGroups) {
+      console.log(`Renaming item "${currentTitle}" to "${newItemTitle}" in group "${inGroups}"`);
       // If item is in group, we need to update that item in the group
-      if (inGroups === 'Bottom Panels') {
-        const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
-        const itemIndex = bottomItems.indexOf(currentTitle);
-        if (itemIndex !== -1) {
-          bottomItems[itemIndex] = newItemTitle;
-          this._sidebarConfig = {
-            ...this._sidebarConfig,
-            bottom_items: bottomItems,
-          };
-        }
-      } else {
-        const customGroups = { ...this._sidebarConfig.custom_groups };
-        const groupItems = customGroups[inGroups] || [];
-        const itemIndex = groupItems.indexOf(currentTitle);
-        if (itemIndex !== -1) {
-          groupItems[itemIndex] = newItemTitle;
+      const updatedConfig: SidebarConfig = { ...this._sidebarConfig };
+      switch (inGroups) {
+        case 'bottom_items':
+          const bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+          const bottomIndex = bottomItems.indexOf(currentTitle);
+          if (bottomIndex !== -1) {
+            bottomItems[bottomIndex] = newItemTitle;
+          }
+          updatedConfig.bottom_items = bottomItems;
+          break;
+        default:
+          const customGroups = { ...this._sidebarConfig.custom_groups };
+          const groupItems = customGroups[inGroups] || [];
+          const groupIndex = groupItems.indexOf(currentTitle);
+          if (groupIndex !== -1) {
+            groupItems[groupIndex] = newItemTitle;
+          }
           customGroups[inGroups] = groupItems;
-          this._sidebarConfig = {
-            ...this._sidebarConfig,
-            custom_groups: customGroups,
-          };
-        }
+          updatedConfig.custom_groups = customGroups;
+          break;
       }
+      this._sidebarConfig = updatedConfig;
+      console.log('Updated config after renaming:', this._sidebarConfig);
     }
     // Update the new item title
     const newItems = [...(this._sidebarConfig.new_items || [])];

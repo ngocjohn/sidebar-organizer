@@ -66,3 +66,4 @@ export const getPanelIcon = (panel: PanelInfo): string | undefined => {
 
 export const FIXED_PANELS = ['profile', 'config'];
 export const SHOW_AFTER_SPACER_PANELS = ['developer-tools'];
+export const BUILT_IN_PANELS = ['home', 'light', 'climate', 'security'];

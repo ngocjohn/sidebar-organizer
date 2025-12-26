@@ -100,12 +100,24 @@ export interface SidebarColorConfig {
   custom_theme?: CustomTheme;
 }
 
-export interface SidebarConfig extends SidebarAppearanceConfig {
+export type CustomGroups = {
+  [groupName: string]: string[];
+};
+
+export interface SidebardPanelConfig {
+  custom_groups?: CustomGroups;
   bottom_items?: string[];
-  custom_groups?: {
-    [key: string]: string[];
-  };
   hidden_items?: string[];
+}
+export const PanelTypes = ['custom_groups', 'bottom_items', 'hidden_items'] as const;
+export type PanelType = (typeof PanelTypes)[number];
+
+export enum PANEL_TYPE {
+  CUSTOM = 'custom_groups',
+  BOTTOM = 'bottom_items',
+  HIDDEN = 'hidden_items',
+}
+export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceConfig {
   default_collapsed?: string[];
   color_config?: SidebarColorConfig;
   notification?: NotificationConfig;
