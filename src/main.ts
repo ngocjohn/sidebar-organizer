@@ -1237,33 +1237,41 @@ export class SidebarOrganizer {
     if (!badge || !notifyIcon) {
       badge = document.createElement('span');
       badge.classList.add(CLASS.BADGE);
+      badge.classList.add(CLASS.NO_VISIBLE); // Start hidden
       badge.setAttribute(ATTRIBUTE.SLOT, 'end');
       notifyIcon = document.createElement('ha-icon');
       notifyIcon.classList.add(CLASS.BADGE);
+      notifyIcon.classList.add(CLASS.NO_VISIBLE); // Start hidden
       notifyIcon.setAttribute(ATTRIBUTE.SLOT, 'end');
       panel.insertBefore(badge, itemText.nextElementSibling);
       panel.insertBefore(notifyIcon, itemText);
+      panel.setAttribute(ATTRIBUTE.DATA_NOTIFICATION, 'true');
     }
 
     const callback = (resultContent: any) => {
-      if (resultContent) {
-        // console.log('Notification:', resultContent);
+      // Check for non-empty values (handle null, undefined, empty strings, whitespace-only)
+      if (resultContent != null && String(resultContent).trim() !== '') {
         if (typeof resultContent === 'string' && isIcon(resultContent)) {
-          badge.remove();
+          // Show icon, hide badge
+          badge.innerHTML = '';
+          notifyIcon.classList.toggle(CLASS.NO_VISIBLE, false);
           notifyIcon.setAttribute('icon', resultContent);
+          badge.classList.toggle(CLASS.NO_VISIBLE, true);
         } else {
-          notifyIcon.remove();
+          // Show badge, hide icon
           badge.innerHTML = resultContent;
           badge.classList.toggle(CLASS.NO_VISIBLE, false);
           badge.classList.toggle(CLASS.BADGE_NUMBER, !isNaN(resultContent));
           badge.classList.toggle(CLASS.LARGE_BADGE, resultContent.length >= 3);
+          notifyIcon.classList.toggle(CLASS.NO_VISIBLE, true);
+          notifyIcon.removeAttribute('icon');
         }
-        panel.setAttribute(ATTRIBUTE.DATA_NOTIFICATION, 'true');
       } else {
+        // Hide both elements when no value
+        notifyIcon.classList.toggle(CLASS.NO_VISIBLE, true);
         notifyIcon.removeAttribute('icon');
         badge.innerHTML = '';
         badge.classList.toggle(CLASS.NO_VISIBLE, true);
-        // panel.removeAttribute(ATTRIBUTE.DATA_NOTIFICATION);
       }
     };
     this._subscribeTemplate(value, callback);
