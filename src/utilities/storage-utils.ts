@@ -6,6 +6,8 @@ export const getStorage = (key: string): string | null => {
 };
 
 export const setStorage = (key: string, value: any): void => {
+  // console.log('%cSTORAGE-UTILS:', 'color: #4dabf7;', `Setting localStorage key "${key}" to:`, value);
+
   return localStorage.setItem(key, JSON.stringify(value));
 };
 

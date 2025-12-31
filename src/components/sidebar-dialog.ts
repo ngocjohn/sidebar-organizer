@@ -1,6 +1,6 @@
 import { ALERT_MSG, STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, HaExtened, NewItemConfig, SidebardPanelConfig } from '@types';
-import { fetchFileConfig, isItemsValid, tryCorrectConfig, validateConfig } from '@utilities/configs';
+import { ARRAY_UTILS } from '@utilities/array';
 
 import './sidebar-dialog-colors';
 import './sidebar-dialog-groups';
@@ -9,6 +9,7 @@ import './sidebar-dialog-preview';
 import './sidebar-organizer-tab';
 import './sidebar-dialog-new-items';
 
+import { fetchFileConfig, isItemsValid, tryCorrectConfig, validateConfig } from '@utilities/configs';
 import { INVALID_CONFIG } from '@utilities/configs';
 import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
 import { compareDashboardItems } from '@utilities/dashboard';
@@ -74,6 +75,7 @@ export class SidebarConfigDialog extends LitElement {
   @state() _invalidConfig?: INVALID_CONFIG;
 
   public _dashboardUtils = DASHBOARD_UTILS;
+  public _arrayUtils = ARRAY_UTILS;
 
   @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
@@ -479,10 +481,9 @@ export class SidebarConfigDialog extends LitElement {
       console.log('no initial panel order found, fetching from storage');
     }
     const hiddenItems = getHiddenPanels();
-    const allPanels = [...currentPanelOrder, ...hiddenItems];
-    console.log('Validating storage panels with current order and hidden items', allPanels);
+    const allPanels = ARRAY_UTILS.union(currentPanelOrder, hiddenItems);
+    // console.log('Validating storage panels with current order and hidden items', allPanels);
     const { added, removed } = await compareDashboardItems(this.hass, allPanels);
-    console.log('Comparison result:', { added, removed });
     if (Boolean(added.length || removed.length)) {
       // If there are changes, update the sidebar items
       console.log('Sidebar panels have changed:', { added, removed });
@@ -566,119 +567,76 @@ export class SidebarConfigDialog extends LitElement {
     let configToValidate = { ...(this._sidebarConfig || {}) };
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
 
-    const hiddenItemsToRemove = [...initHiddenItems, ...(configToValidate.hidden_items || []), defaultPanel].filter(
-      Boolean
-    ) as string[];
+    const hiddenItemsToRemove = ARRAY_UTILS.uniq([
+      ...initHiddenItems,
+      ...(configToValidate.hidden_items || []),
+      defaultPanel,
+    ]);
     // Clean items from config
     configToValidate = validateConfig(configToValidate, hiddenItemsToRemove);
 
-    const hiddenItems = [...(configToValidate.hidden_items || [])].filter((item) => item !== defaultPanel);
+    const hiddenItems = ARRAY_UTILS.without(configToValidate.hidden_items || [], defaultPanel);
 
-    configToValidate.hidden_items = hiddenItems;
+    configToValidate.hidden_items = ARRAY_UTILS.uniq(hiddenItems);
 
     const hasConfigChanged = JSON.stringify(this._sidebarConfig) !== JSON.stringify(configToValidate);
 
     if (hasConfigChanged) {
-      console.log('%cSIDEBAR-DIALOG:', 'color: #bada55;', 'config has changed, updating storage with cleaned config');
+      console.log(
+        '%cSIDEBAR-DIALOG:',
+        'color: #f59f00;',
+        'Sidebar config has changed after validation, updating storage.',
+        {
+          oldConfig: this._sidebarConfig,
+          newConfig: configToValidate,
+        }
+      );
+
       this._sidebarConfig = configToValidate;
       setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);
     }
 
     // Filter out defaultPanel and 'lovelace' from the current panel order
-    const _sidebarItems = currentPanelOrder.filter((item: string) => item !== defaultPanel && item !== 'lovelace');
-
+    const _sidebarItems = ARRAY_UTILS.uniq(currentPanelOrder);
+    // const _sidebarItems = Array.from(new Set(currentPanelOrder.filter((item: string) => item !== defaultPanel)));
+    console.log('Initial sidebar items:', _sidebarItems);
     const configNewItems = this._sidebarConfig?.new_items || [];
     this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
     // Initialize panel combinations
-    this._initCombiPanels = [..._sidebarItems, ...hiddenItems];
+    this._initCombiPanels = ARRAY_UTILS.union(_sidebarItems, hiddenItems);
     // console.log('Init combi panels:', this._initCombiPanels);
 
     this._initPanelOrder = [..._sidebarItems];
     this._configLoaded = true;
   };
-  // private _updateSidebarItems = (currentPanelOrder: string[], initHiddenItems: string[]): void => {
-  //   const defaultPanel = getDefaultPanel(this.hass).url_path || '';
-
-  //   const customGroup = { ...this._sidebarConfig?.custom_groups };
-  //   const bottomItems = [...(this._sidebarConfig?.bottom_items || [])];
-  //   const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
-  //   let hiddenItems = [...(this._sidebarConfig?.hidden_items || [])];
-
-  //   let hasChanged: boolean = false;
-
-  //   if (initHiddenItems.length && JSON.stringify(initHiddenItems) !== JSON.stringify(hiddenItems)) {
-  //     console.log('Hidden items have changed, updating hidden items', initHiddenItems, hiddenItems);
-  //     const itemsToRemoveSet = new Set([...initHiddenItems, ...hiddenItems]);
-
-  //     hiddenItems = [...itemsToRemoveSet];
-  //     // Remove hidden in storage
-  //     removeStorage(STORAGE.HIDDEN_PANELS);
-  //     hasChanged = true;
-  //   }
-
-  //   // Remove collapsed groups that no longer exist in customGroup
-  //   const updatedCollapsedGroups = defaultCollapsed.filter((group) => customGroup[group]);
-  //   if (updatedCollapsedGroups.length !== defaultCollapsed.length) {
-  //     console.log('Default collapsed groups have changed, updating collapsed groups', updatedCollapsedGroups);
-  //     hasChanged = true;
-  //   }
-
-  //   if (isDefaultIncluded(defaultPanel, Object.values(customGroup).flat(), bottomItems)) {
-  //     console.log('Default panel is included in sidebar items, removing it from groups and bottom items');
-  //     // Remove the default panel from any custom group
-  //     Object.keys(customGroup).forEach((key) => {
-  //       customGroup[key] = customGroup[key].filter((item: string) => item !== defaultPanel);
-  //     });
-
-  //     // Remove the default panel from bottom items
-  //     const bottomIndex = bottomItems.indexOf(defaultPanel);
-  //     if (bottomIndex !== -1) {
-  //       bottomItems.splice(bottomIndex, 1);
-  //     }
-  //     hasChanged = true;
-  //   }
-
-  //   // If there are any changes (default panel removed from group, hidden items or collapsed groups changed)
-  //   if (hasChanged) {
-  //     console.log('Sidebar configuration has changed, updating storage');
-  //     this._sidebarConfig = {
-  //       ...this._sidebarConfig,
-  //       custom_groups: customGroup,
-  //       default_collapsed: updatedCollapsedGroups,
-  //       hidden_items: hiddenItems,
-  //       bottom_items: bottomItems,
-  //     };
-  //     setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);
-  //   }
-
-  //   // Filter out defaultPanel and 'lovelace' from the current panel order
-  //   const _sidebarItems = currentPanelOrder.filter((item: string) => item !== defaultPanel && item !== 'lovelace');
-
-  //   const configNewItems = this._sidebarConfig?.new_items || [];
-  //   this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
-  //   // Initialize panel combinations
-  //   this._initCombiPanels = [..._sidebarItems, ...hiddenItems];
-  //   // console.log('Init combi panels:', this._initCombiPanels);
-
-  //   this._initPanelOrder = [..._sidebarItems];
-
-  //   this._configLoaded = true;
-  // };
 
   public get pickedItems(): string[] {
-    const bottomItems = this._sidebarConfig?.bottom_items || [];
-    const customGroups = this._sidebarConfig?.custom_groups || {};
-    const pickedItems = [...bottomItems, ...Object.values(customGroups).flat()];
-    return pickedItems;
+    return Array.from(this._panelConfigMap.values()).flat();
   }
 
   public get ungroupedItems(): string[] {
-    const hiddenItems = this._sidebarConfig?.hidden_items || [];
-    const pickedItems = this.pickedItems;
-    const currentOrder = [...this._initCombiPanels];
-    const ungroupedItems = currentOrder.filter((item) => !pickedItems.includes(item) && !hiddenItems.includes(item));
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
+    const assignedSet = new Set([...this.pickedItems, ...(this._sidebarConfig?.hidden_items || []), defaultPanel]);
+    const ungroupedItems = this._initCombiPanels.filter((item) => !assignedSet.has(item));
     return ungroupedItems;
   }
+  // public get ungroupedItems(): string[] {
+  //   const defaultPanel = getDefaultPanelUrlPath(this.hass);
+  //   const hiddenItems = this._sidebarConfig?.hidden_items || [];
+  //   const pickedItems = this.pickedItems;
+  //   const currentOrder = [...this._initCombiPanels];
+  //   const ungroupedItems = currentOrder.filter(
+  //     (item) => !pickedItems.includes(item) && !hiddenItems.includes(item) && item !== defaultPanel
+  //   );
+  //   return ungroupedItems;
+  // }
+
+  // public get pickedItems(): string[] {
+  //   const bottomItems = this._sidebarConfig?.bottom_items || [];
+  //   const customGroups = this._sidebarConfig?.custom_groups || {};
+  //   const pickedItems = [...bottomItems, ...Object.values(customGroups).flat()];
+  //   return pickedItems;
+  // }
 
   public _cleanItemsFromGroups = (groups: SidebardPanelConfig, itemToRemove: string[]): SidebardPanelConfig => {
     return cleanItemsFromConfig(groups, itemToRemove);

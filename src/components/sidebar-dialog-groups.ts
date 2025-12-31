@@ -11,6 +11,7 @@ import { repeat } from 'lit/directives/repeat.js';
 
 import { dialogStyles } from './dialog-css';
 import { SidebarConfigDialog } from './sidebar-dialog';
+import { getDefaultPanelUrlPath } from '@utilities/panel';
 // type PANEL_TABS = 'bottomPanel' | 'customGroups' | 'hiddenItems';
 enum PANEL {
   BOTTOM_PANEL = 'bottomPanel',
@@ -551,8 +552,11 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
-    const currentItems = this._dialog._initCombiPanels.filter((item) => !hiddenItems.includes(item));
+    const currentItems = this._dialog._initCombiPanels.filter(
+      (item) => !hiddenItems.includes(item) && item !== defaultPanel
+    );
     const pickedItems = this._dialog.pickedItems;
     const selectedType = customGroup ? customGroup : 'bottom_items';
 

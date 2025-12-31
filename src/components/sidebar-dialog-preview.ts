@@ -3,6 +3,7 @@ import { CustomStyles, DividerColorSettings, HaExtened, PanelInfo, SidebarConfig
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
 import { isIcon } from '@utilities/is-icon';
+import { shallowEqual } from '@utilities/shallow-equal';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -46,9 +47,6 @@ export class SidebarDialogPreview extends LitElement {
       console.log('Dialog changed');
       return true;
     }
-    // if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
-    //   return true;
-    // }
 
     if (_changedProperties.has('invalidConfig') && Object.keys(this._sidebarConfig).length === 0) {
       this.invalidConfig = true;
@@ -69,25 +67,36 @@ export class SidebarDialogPreview extends LitElement {
       const newConfig = this._sidebarConfig;
 
       if (oldConfig && newConfig) {
-        const bottomChanged = JSON.stringify(oldConfig.bottom_items) !== JSON.stringify(newConfig.bottom_items);
-        const customGroupsChanged = JSON.stringify(oldConfig.custom_groups) !== JSON.stringify(newConfig.custom_groups);
-        const hiddenItemsChanged = JSON.stringify(oldConfig.hidden_items) !== JSON.stringify(newConfig.hidden_items);
-        const newItemsChanged = JSON.stringify(oldConfig.new_items) !== JSON.stringify(newConfig.new_items);
-        if (bottomChanged || customGroupsChanged || hiddenItemsChanged || newItemsChanged) {
-          console.log('Items changed');
+        const bottomHasChanged = !shallowEqual(oldConfig.bottom_items, newConfig.bottom_items);
+        const customGroupsHasChanged = !shallowEqual(oldConfig.custom_groups, newConfig.custom_groups);
+        const hiddenItemsHasChanged = !shallowEqual(oldConfig.hidden_items, newConfig.hidden_items);
+        const newItemsHasChanged = !shallowEqual(oldConfig.new_items, newConfig.new_items);
+
+        if (Boolean(bottomHasChanged || customGroupsHasChanged || hiddenItemsHasChanged || newItemsHasChanged)) {
+          console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #40c057;', {
+            bottomHasChanged,
+            customGroupsHasChanged,
+            hiddenItemsHasChanged,
+            newItemsHasChanged,
+          });
           this._updateListbox(newConfig);
         }
 
-        const themeChanged =
-          JSON.stringify(oldConfig.color_config?.custom_theme?.theme) !==
-          JSON.stringify(newConfig.color_config?.custom_theme?.theme);
+        const themeChanged = !shallowEqual(
+          oldConfig.color_config?.custom_theme?.theme,
+          newConfig.color_config?.custom_theme?.theme
+        );
 
         if (themeChanged) {
           console.log(
-            'Theme changed',
+            '%cSIDEBAR-DIALOG-PREVIEW:',
+            'color: #40c057;',
+            'Custom theme changed, old -> new:',
             oldConfig.color_config?.custom_theme?.theme,
+            '->',
             newConfig.color_config?.custom_theme?.theme
           );
+
           if (newConfig.color_config?.custom_theme?.theme === undefined) {
             this.style = '';
             setTimeout(() => {
@@ -98,7 +107,7 @@ export class SidebarDialogPreview extends LitElement {
           }
         }
 
-        const notificationChanged = JSON.stringify(oldConfig.notification) !== JSON.stringify(newConfig.notification);
+        const notificationChanged = !shallowEqual(oldConfig.notification, newConfig.notification);
         const newItemsNotificationChanged = JSON.parse(
           JSON.stringify(
             oldConfig.new_items?.every((item) => item.notification) !==
@@ -109,7 +118,12 @@ export class SidebarDialogPreview extends LitElement {
         if (!notificationChanged && !newItemsNotificationChanged) {
           return;
         } else {
-          console.log('Notification config changed', notificationChanged, newItemsNotificationChanged);
+          console.log(
+            '%cSIDEBAR-DIALOG-PREVIEW:',
+            'color: #40c057;',
+            'Notification config changed, updating notifications'
+          );
+
           this._handleNotifyChange();
         }
       }
@@ -136,26 +150,25 @@ export class SidebarDialogPreview extends LitElement {
 
     const groups = this.shadowRoot?.querySelector('div.groups-container');
     const items = groups!.querySelectorAll('a') as NodeListOf<HTMLElement>;
-    const newItems = this._sidebarConfig?.new_items || [];
-    if (newItems && newItems.length > 0) {
-      const newItemsWithNotification = newItems.filter((item) => item.notification !== undefined);
-      newItemsWithNotification.forEach((notify) => {
-        const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === notify.title!);
-        const notification = notify.notification;
-        if (panel && notification) {
-          this._subscribeNotification(panel, notification);
-          // console.log('added notification for new item:', notify.title);
-        }
-      });
-    }
+    const { new_items, notification } = this._sidebarConfig || {};
+    const newItemsNotify = Array.from(new_items || [])
+      .filter((item) => item.notification !== undefined)
+      .reduce(
+        (acc, item) => {
+          acc[item.title!] = item.notification!;
+          return acc;
+        },
+        {} as Record<string, string>
+      );
 
-    const notification = this._sidebarConfig?.notification || {};
-    if (notification && Object.keys(notification).length > 0) {
-      Object.entries(notification).forEach(([key, value]) => {
+    const allNotifications = { ...(notification || {}), ...newItemsNotify };
+    // console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #ff6f61;', allNotifications);
+    if (allNotifications && Object.keys(allNotifications).length > 0) {
+      Object.entries(allNotifications).forEach(([key, value]) => {
         const panel = Array.from(items).find((item) => item.getAttribute('data-panel') === key);
         if (panel) {
           this._subscribeNotification(panel, value);
-          // console.log('added notification for panels:', key);
+          // console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #ff6f61;', 'added notification for panel:', key);
         }
       });
     }
@@ -288,12 +301,10 @@ export class SidebarDialogPreview extends LitElement {
 
     const _renderPanelItem = (item: PanelInfo) => {
       const { icon, title, component_name } = item;
-      return html`<a data-panel=${component_name} @click=${() => _itemClicked(component_name!)}>
+      return html`<a data-panel=${component_name!} @click=${() => _itemClicked(component_name!)}>
         <div class="icon-item"><ha-icon .icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
       </a>`;
     };
-
-    // const lovelacePanel = _paperListbox['defaultPage'][0] || { title: 'Home', icon: 'mdi:home' };
 
     const lovelacePanel = _paperListbox['defaultPage'][0] || mockDefaultPage[0];
 
@@ -583,9 +594,9 @@ export class SidebarDialogPreview extends LitElement {
           display: block;
           /* margin: 1rem auto; */
           align-items: center;
-          max-height: 580px;
+          max-height: calc(var(--mdc-dialog-min-height, 700px) - 40px);
           max-width: 260px;
-          height: 580px;
+          /* height: 580px; */
           width: 100%;
           background-color: var(--sidebar-background-color);
           overflow: hidden;
@@ -594,7 +605,8 @@ export class SidebarDialogPreview extends LitElement {
 
         @media all and (max-width: 800px), all and (max-height: 500px) {
           .divider-preview {
-            margin: 0 auto;
+            margin: 10px auto 0;
+            max-height: 580px;
           }
         }
         .groups-container {
@@ -718,7 +730,7 @@ export class SidebarDialogPreview extends LitElement {
           display: flex;
           min-height: 40px;
           align-items: center;
-          padding: 0 16px;
+          /* padding: 0 16px; */
         }
         .icon-item > ha-icon {
           width: 56px;
@@ -727,6 +739,7 @@ export class SidebarDialogPreview extends LitElement {
         .icon-item span.item-text {
           display: block;
           max-width: calc(100% - 56px);
+          text-transform: capitalize;
         }
 
         .hight-light {
@@ -798,6 +811,7 @@ export class SidebarDialogPreview extends LitElement {
           padding: 0 !important;
           color: var(--accent-color);
           background-color: transparent;
+          width: auto;
         }
       `,
     ];
