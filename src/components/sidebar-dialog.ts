@@ -56,6 +56,7 @@ declare global {
 export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
   @property({ attribute: false }) _mainDialog!: SidebarOrganizerDialog;
+  @property({ attribute: false }) readonly _initConfig!: SidebarConfig;
   @state() _connected: boolean = false;
   @state() public _sidebarConfig = {} as SidebarConfig;
   @state() public _useConfigFile = false;
@@ -182,6 +183,10 @@ export class SidebarConfigDialog extends LitElement {
         bottom_items: newConfig.bottom_items || [],
       };
       this._panelConfigMap = new Map(Object.entries(panelConfig));
+      // Check for config changes from initial config
+      const hasConfigChanged = JSON.stringify(this._initConfig) !== JSON.stringify(newConfig);
+      console.log('%cSIDEBAR-DIALOG:', 'color: #40c057;', 'Config changed:', hasConfigChanged);
+      this._mainDialog._saveDisabled = !hasConfigChanged;
     }
   }
 

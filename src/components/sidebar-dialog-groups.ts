@@ -1,8 +1,9 @@
 import { ALERT_MSG } from '@constants';
 import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
 import { SidebarConfig, HaExtened } from '@types';
-import { removeHiddenItems } from '@utilities/configs/validators';
+import { validateConfig } from '@utilities/configs/validators';
 import { isIcon } from '@utilities/is-icon';
+import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
@@ -11,7 +12,6 @@ import { repeat } from 'lit/directives/repeat.js';
 
 import { dialogStyles } from './dialog-css';
 import { SidebarConfigDialog } from './sidebar-dialog';
-import { getDefaultPanelUrlPath } from '@utilities/panel';
 // type PANEL_TABS = 'bottomPanel' | 'customGroups' | 'hiddenItems';
 enum PANEL {
   BOTTOM_PANEL = 'bottomPanel',
@@ -61,13 +61,6 @@ export class SidebarDialogGroups extends LitElement {
       }
       this._dialog._dialogPreview._toggleGroup(toShow);
     }
-  }
-
-  private get pickedItems() {
-    const bottomItems = this._sidebarConfig?.bottom_items || [];
-    const customGroups = this._sidebarConfig?.custom_groups || {};
-    const pickedItems = [...bottomItems, ...Object.values(customGroups).flat()];
-    return pickedItems;
   }
 
   protected render() {
@@ -136,8 +129,8 @@ export class SidebarDialogGroups extends LitElement {
     const items = this._dialog._initCombiPanels.filter((item) => !newItems.includes(item));
 
     const options = items.map((panel) => {
-      const panelName = this.hass.localize(`panel.${hassPanels[panel]?.title}`) || hassPanels[panel]?.title || panel;
-      return { value: panel, label: panelName, icon: hassPanels[panel]?.icon };
+      const panelName = getPanelTitleFromUrlPath(this.hass, panel);
+      return { value: panel, label: panelName, icon: hassPanels[panel]?.icon || 'mdi:view-dashboard' };
     });
 
     // Filter out items that are already in the notification config
@@ -226,9 +219,8 @@ export class SidebarDialogGroups extends LitElement {
 
   private _renderNotifyConfig() {
     if (!this._selectedNotification) return nothing;
-    const hassPanels = this.hass?.panels;
     const key = this._selectedNotification;
-    const panelName = this.hass.localize(`panel.${hassPanels[key]?.title}`) || hassPanels[key]?.title || key;
+    const panelName = getPanelTitleFromUrlPath(this.hass, key) || key;
     const notifyConfig = this._sidebarConfig.notification || {};
     const notifyConfigValue = notifyConfig[key] || '';
     const headerBack = html`<div class="header-row ">
@@ -648,32 +640,6 @@ export class SidebarDialogGroups extends LitElement {
             </div></ha-sortable
           >`}
     `;
-    // return html`
-    //   <div class="header-row flex-icon">
-    //     <span>ITEMS ORDER</span>
-    //     <ha-icon-button .path=${mdiSortAlphabeticalVariant} @click=${() => this._sortItems(selectedType)}>
-    //     </ha-icon-button>
-    //   </div>
-
-    //   ${this._reloadPanelItems
-    //     ? html`<ha-spinner .size=${'small'}></ha-spinner> `
-    //     : html` <ha-sortable handle-selector=".handle" @item-moved=${this._itemMoved}>
-    //         <ul class="selected-items" id="selected-items">
-    //           ${repeat(
-    //             selectedItemsArrayWithTitles,
-    //             (item) => item.key,
-    //             (item, index) => {
-    //               return html`<li data-panel=${item.key} data-index=${index} data-key=${item.key}>
-    //                 <div class="handle">
-    //                   <ha-icon icon="mdi:drag"></ha-icon>
-    //                 </div>
-    //                 ${item.title}
-    //               </li>`;
-    //             }
-    //           )}
-    //         </ul></ha-sortable
-    //       >`}
-    // `;
   }
 
   private _itemMoved = (ev: CustomEvent): void => {
@@ -779,10 +745,8 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _createSelectorOptions(items: string[], mode: string = 'list') {
-    const hassPanels = this.hass?.panels;
-
     const options = items.map((panel) => {
-      const panelName = this.hass.localize(`panel.${hassPanels[panel]?.title}`) || hassPanels[panel]?.title || panel;
+      const panelName = getPanelTitleFromUrlPath(this.hass, panel) || panel;
       return { value: panel, label: panelName };
     });
 
@@ -857,7 +821,8 @@ export class SidebarDialogGroups extends LitElement {
     const value = ev.detail.value;
     console.log('new value', value);
     this._updatePanels(value);
-    const newConfig = removeHiddenItems(this._sidebarConfig, value);
+    const newConfig = validateConfig(this._sidebarConfig, [...value]);
+    // const newConfig = removeHiddenItems(this._sidebarConfig, value);
 
     this._sidebarConfig = {
       ...this._sidebarConfig,
