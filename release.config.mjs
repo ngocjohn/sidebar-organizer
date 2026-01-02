@@ -46,5 +46,5 @@ export default {
     ],
   ],
   preset: 'conventionalcommits',
-  branches: [{ name: 'main' }, { name: 'dev', channel: 'beta', prerelease: true }],
+  branches: [{ name: 'main' }, { name: 'dev', channel: 'beta', prerelease: 'beta' }],
 };
