@@ -1,6 +1,5 @@
 name: Bug report
-description: File a bug report. 🐞
-title: '[Bug] '
+description: Report an issue related to the Sidebar Organizer plugin
 labels: ['bug']
 assignees: ['ngocjohn']
 
@@ -8,14 +7,30 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report! 🛠️ Please provide the details below to help us address the issue.
+        Make sure you are running the [latest version of Sidebar Organizer][releases] before reporting an issue.
 
+        Thanks for taking the time to fill out this bug report! 🛠️
+
+        [releases]: https://github.com/ngocjohn/sidebar-organizer/releases
+  - type: checkboxes
+    attributes:
+      label: Checklist
+      description: Please verify that you have followed these steps
+      options:
+        - label: I have updated to the latest version
+          required: true
+        - label: Add plugin path to configuration file [extra-module-url](https://github.com/ngocjohn/sidebar-organizer?tab=readme-ov-file#install-the-plugin)
+          required: true
+  - type: markdown
+    attributes:
+      value: |
+        ## The problem
   - type: input
     id: summary
     attributes:
       label: Short summary 📝
       description: A short summary of the bug
-      placeholder: "e.g., The application crashes when I click on 'Submit'"
+      placeholder: "e.g., The sidebar doesn't collapse on mobile devices"
     validations:
       required: true
 
@@ -28,43 +43,70 @@ body:
     validations:
       required: true
 
-  - type: dropdown
-    id: version
+  - type: markdown
     attributes:
-      label: Version 📦
-      description: The version of the application where the bug was found
-      options:
-        - v2.1.2-beta.2
-        - v2.1.2-beta.1
-        - v2.1.1
-        - v2.1.0
-        - v2.0.0
-        - v2.0.0-beta.1
-        - v1.4.0
-        - v1.3.0
-        - v1.2.0
-        - v1.1.1-beta.6
-        - v1.1.1-beta.5
-        - v1.1.0
-        - v1.0.2
-        - v1.0.0
+      value: |
+        ## Environment
+  - type: input
     validations:
       required: true
+    attributes:
+      label: What version of Sidebar Organizer are you using?
+      placeholder: e.g., 1.2.3
+      description: >
+        Can be found in [hacs plugin page][hacs-repo-custom-url] (top left corner). Or in the plugin configuration dialog header.
 
+        [hacs-repo-custom-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=ngocjohn&repository=sidebar-organizer&category=plugin
   - type: input
-    id: environment
-    attributes:
-      label: Environment 🌐
-      description: The environment in which the bug was found (e.g., browser, OS)
-      placeholder: 'e.g., Chrome on Windows 10'
     validations:
       required: false
-
+    attributes:
+      label: What version of Home Assistant Core has the issue?
+      placeholder: core-
+      description: >
+        Can be found in: [Settings -> About](https://my.home-assistant.io/redirect/info/).
+  - type: input
+    attributes:
+      label: In which browser are you experiencing the issue?
+      placeholder: Google Chrome 88.0.4324.150
+      description: >
+        Provide the full name and don't forget to add the version!
+  - type: input
+    attributes:
+      label: Which operating system are you using to run this browser?
+      placeholder: macOS Big Sur (1.11)
+      description: >
+        Don't forget to add the version!
+  - type: markdown
+    attributes:
+      value: |
+        # Details
   - type: textarea
-    id: logs
     attributes:
-      label: Logs and screenshots 📂
-      description: Any relevant logs or screenshots that can help identify the issue
-      placeholder: 'Paste logs or upload screenshots'
-    validations:
-      required: false
+      label: Problem-relevant plugin configuration
+      description: >
+        An example configuration that caused the problem for you, e.g., the YAML
+        configuration of the plugin. Please make sure to remove any sensitive
+        information before sharing.
+      placeholder: >
+        bottom_items: [],
+        custom_groups: {},
+        hide_header_toggle: false,
+        default_collapsed: [],
+        hidden_items: [],
+        new_items: [],
+      render: yaml
+  - type: textarea
+    attributes:
+      label: JavaScript errors shown in your browser console/inspector
+      description: >
+        If you come across any JavaScript or other error logs, e.g., in your
+        browser console/inspector please provide them.
+      render: txt
+  - type: textarea
+    attributes:
+      label: Additional information
+      description: >
+        If you have any additional information, use the field below.
+        Please note, you can attach screenshots or screen recordings here, by
+        dragging and dropping files in the field below.
