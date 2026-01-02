@@ -3,12 +3,7 @@
  */
 export default {
   plugins: [
-    [
-      '@semantic-release/commit-analyzer',
-      {
-        preset: 'conventionalcommits',
-      },
-    ],
+    '@semantic-release/commit-analyzer',
     [
       '@semantic-release/release-notes-generator',
       {
@@ -30,12 +25,6 @@ export default {
       '@semantic-release/npm',
       {
         npmPublish: false,
-      },
-    ],
-    [
-      '@semantic-release/git',
-      {
-        assets: ['CHANGELOG.md', 'README.md', 'package.json'],
       },
     ],
     [
