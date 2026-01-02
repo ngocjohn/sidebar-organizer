@@ -1,6 +1,5 @@
-import type { PanelInfo } from '@types';
-
 import type { HomeAssistant } from '../types/ha';
+import type { PanelInfo } from '@types';
 
 /** Panel to show when no panel is picked. */
 export const DEFAULT_PANEL = 'lovelace';

@@ -1,6 +1,6 @@
-import { LitElement } from 'lit';
-
 import type { HA as HomeAssistant } from '../types';
+
+import { LitElement } from 'lit';
 
 export type LovelaceDashboard = LovelaceYamlDashboard | LovelaceStorageDashboard;
 

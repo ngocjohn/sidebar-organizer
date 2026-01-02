@@ -61,7 +61,7 @@
     "start": "rollup -c --bundleConfigAsCjs --watch",
     "build": "pnpm run lint && pnpm run rollup",
     "rollup": "rollup -c --bundleConfigAsCjs",
-    "lint": "eslint src/ --ext .ts",
+    "lint": "eslint src/ --ext .ts --fix",
     "postversion": "pnpm run build"
   }
 }

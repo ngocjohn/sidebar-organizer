@@ -1,3 +1,5 @@
+import type { FrontendLocaleData, TranslationCategory } from './translation';
+
 import { CoreFrontendSystemData, CoreFrontendUserData } from '@utilities/frontend';
 import {
   Auth,
@@ -9,8 +11,6 @@ import {
   HassServiceTarget,
   MessageBase,
 } from 'home-assistant-js-websocket';
-
-import type { FrontendLocaleData, TranslationCategory } from './translation';
 
 export interface ThemeSettings {
   theme?: string;
