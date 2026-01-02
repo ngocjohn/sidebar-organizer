@@ -4,6 +4,10 @@ import { HomeAssistant } from './ha';
 
 export type HA = HomeAssistant;
 
+export interface HomeAssistantElement extends HTMLElement {
+  hass: HomeAssistant;
+}
+
 export interface HaExtened extends HTMLElement {
   hass: HomeAssistant;
 }
@@ -36,6 +40,7 @@ export interface SidebarPanelItem extends HTMLElement {
   target: string;
   newItem?: boolean;
   'data-panel'?: string;
+  group?: string;
 }
 
 export interface Sidebar extends HTMLElement {
@@ -43,6 +48,7 @@ export interface Sidebar extends HTMLElement {
   _mouseLeaveTimeout?: number;
   _showTooltip: (anchor: HTMLElement) => void;
   _hideTooltip: () => void;
+  hassSubscribe: (callback: (data: any) => void) => () => void;
 }
 
 export interface PanelInfo {

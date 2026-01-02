@@ -5,6 +5,7 @@ export enum SELECTOR {
   MENU = '.menu',
   MENU_TITLE = '.title',
   DIVIDER = '.divider',
+  DIVIDER_ADDED = 'div.divider[added]',
   SIDEBAR_CONFIG_DIALOG = '#sidebar-organizer-config-dialog',
   SELECTED = '.selected',
   HEADER_TOGGLE_ICON = 'ha-icon.collapse-toggle',
@@ -16,6 +17,9 @@ export enum SELECTOR {
   ITEM_PROFILE = 'ha-md-list-item[href="/profile"]',
   DEV_TOOLS = 'ha-md-list-item[data-panel="developer-tools"]',
   USER_ITEM = 'ha-md-list-item.user',
+  ACTION_SLOT = 'div[slot="actions"]',
+  HA_DIALOG_FOOTER = 'ha-dialog-footer',
+  FOOTER = 'footer',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',
@@ -44,6 +48,9 @@ export enum CLASS {
   LARGE_BADGE = 'large-badge',
   NO_VISIBLE = 'no-visible',
   BADGE_NUMBER = 'badge-number',
+  COLLAPSE_TOGGLE = 'collapse-toggle',
+  ACTIVE = 'active',
+  ADDED_CONTENT = 'added-content',
 }
 
 export enum ATTRIBUTE {
@@ -59,6 +66,9 @@ export enum ATTRIBUTE {
   NEW_ITEM = 'new-item',
   BOTTOM = 'bottom',
   MOVED = 'moved',
+  UNGROUPED = 'ungrouped',
+  GROUP = 'group',
+  ADDED = 'added',
 }
 
 export enum SLOT {
@@ -74,6 +84,13 @@ export enum CUSTOM_EVENT {
 export enum EVENT {
   MOUSEENTER = 'mouseenter',
   MOUSELEAVE = 'mouseleave',
+  TOUCHSTART = 'touchstart',
+  MOUSEDOWN = 'mousedown',
+}
+
+export enum MDI {
+  PLUS = 'mdi:plus',
+  MINUS = 'mdi:minus',
 }
 
 export const SHOW_AFTER_BOTTOM = ['/developer-tools', '/config'];

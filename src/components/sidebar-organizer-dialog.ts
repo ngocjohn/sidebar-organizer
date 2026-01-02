@@ -28,7 +28,7 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
   @state() private _open = false;
 
   @state() _configValid = true;
-  @state() _saveDisabled = false;
+  @state() _saveDisabled = true;
   @state() _GUImode = true;
 
   @query('ha-dialog') private _dialog?: HTMLDialogElement;
@@ -143,7 +143,11 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
 
   private _renderContent(): TemplateResult {
     return html`
-      <sidebar-organizer-config-dialog .hass=${this.hass} ._mainDialog=${this}></sidebar-organizer-config-dialog>
+      <sidebar-organizer-config-dialog
+        .hass=${this.hass}
+        ._mainDialog=${this}
+        ._initConfig=${this._initConfig}
+      ></sidebar-organizer-config-dialog>
     `;
   }
 
@@ -196,8 +200,14 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
           <ha-button appearance="plain" size="small" .label=${BTN_LABEL.CANCEL} @click=${this.closeDialog}>
             ${BTN_LABEL.CANCEL}
           </ha-button>
-          <ha-button appearance="plain" size="small" .label=${BTN_LABEL.SAVE} @click=${this._handleSaveConfig}
-            >${BTN_LABEL.SAVE}
+          <ha-button
+            appearance="plain"
+            size="small"
+            .label=${BTN_LABEL.SAVE}
+            @click=${this._handleSaveConfig}
+            .disabled=${this._saveDisabled}
+          >
+            ${BTN_LABEL.SAVE}
           </ha-button>
         </div>
       </ha-dialog>

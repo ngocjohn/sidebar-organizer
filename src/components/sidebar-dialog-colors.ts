@@ -858,7 +858,11 @@ export class SidebarDialogColors extends LitElement {
           gap: 0.5em;
           --form-grid-column-count: 2;
         }
-
+        @media (max-width: 600px) {
+          :host {
+            --form-grid-column-count: unset;
+          }
+        }
         /* .color-container {
           display: flex;
           flex: auto;

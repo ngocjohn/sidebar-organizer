@@ -5,6 +5,7 @@ import {
   ELEMENT,
   EVENT,
   HA_EVENT,
+  MDI,
   NAMESPACE,
   PATH,
   SELECTOR,
@@ -12,34 +13,49 @@ import {
   STORAGE,
 } from '@constants';
 import {
+  CustomGroups,
   DividerColorSettings,
   HaExtened,
   NewItemConfig,
+  PANEL_TYPE,
   PanelInfo,
   Panels,
   PartialPanelResolver,
   Sidebar,
   SidebarConfig,
+  SidebardPanelConfig,
   SidebarPanelItem,
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
-import { computeInitialPanelOrder, computePanels } from '@utilities/compute-panels';
-import { fetchConfig } from '@utilities/configs';
+import { computeInitialPanelOrder, getBuiltInPanels } from '@utilities/compute-panels';
+import { cleanItemsFromConfig, fetchConfig } from '@utilities/configs';
 import { clearSidebarOrganizerStorage, getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { compareDashboardItems, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
 import { addAction, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
-import { fetchFrontendUserData, saveFrontendUserData, SidebarFrontendUserData } from '@utilities/frontend';
+import {
+  CoreFrontendUserData,
+  fetchFrontendUserData,
+  saveFrontendUserData,
+  SidebarFrontendUserData,
+  subscribeFrontendSystemData,
+  subscribeFrontendUserData,
+} from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
-import { getDefaultPanel, getDefaultPanelUrlPath, getPanelTitle } from '@utilities/panel';
+import * as PANEL_UTILS from '@utilities/panel';
+import { getDefaultPanel, getDefaultPanelUrlPath, getPanelTitle, getPanelTitleFromUrlPath } from '@utilities/panel';
+import { shallowEqual } from '@utilities/shallow-equal';
 import { showAlertDialog, showConfirmDialog } from '@utilities/show-dialog-box';
 import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
 import { isStoragePanelEmpty, setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
 import { ACTION_TYPES, addHandlerActions } from '@utilities/tap-action';
+import { showToast } from '@utilities/toast-notify';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
+import { isEmpty, pick } from 'es-toolkit/compat';
 import { getPromisableResult } from 'get-promisable-result';
-import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnPanelLoadDetail } from 'home-assistant-query-selector';
+import { UnsubscribeFunc } from 'home-assistant-js-websocket';
+import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
 import { DIVIDER_ADDED_STYLE } from './sidebar-css';
@@ -52,39 +68,29 @@ export class SidebarOrganizer {
     const instance = new HAQuerySelector();
 
     instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, async (event) => {
-      const { HOME_ASSISTANT, HOME_ASSISTANT_MAIN, HA_DRAWER, HA_SIDEBAR } = event.detail;
+      const { HOME_ASSISTANT, HA_DRAWER, HA_SIDEBAR } = event.detail;
       this.ha = (await HOME_ASSISTANT.element) as HaExtened;
-
       this._haDrawer = await HA_DRAWER.element;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
-      this._debugLog(
-        'HA Elements:',
-        {
-          HOME_ASSISTANT: HOME_ASSISTANT,
-          HOME_ASSISTANT_MAIN: HOME_ASSISTANT_MAIN,
-          HA_DRAWER: HA_DRAWER,
-          HA_SIDEBAR: HA_SIDEBAR,
-          PARTIAL_PANEL_RESOLVER: event.detail.PARTIAL_PANEL_RESOLVER,
-        },
-        { stringify: false }
-      );
       this.run();
     });
 
-    instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, (event: CustomEvent<OnPanelLoadDetail>) => {
-      this._panelResolver = event.detail.PARTIAL_PANEL_RESOLVER;
-      this._sidebar = event.detail.HA_SIDEBAR;
-      this._haMain = event.detail.HOME_ASSISTANT_MAIN;
-      this._homeAssistant = event.detail.HOME_ASSISTANT;
-    });
+    instance.addEventListener(
+      HAQuerySelectorEvent.ON_LISTEN,
+      (event: CustomEvent<OnListenDetail>) => {
+        this._panelResolver = event.detail.PARTIAL_PANEL_RESOLVER;
+        this._sidebar = event.detail.HA_SIDEBAR;
+        this._haMain = event.detail.HOME_ASSISTANT_MAIN;
+        this._homeAssistant = event.detail.HOME_ASSISTANT;
+      },
+      { once: true }
+    );
 
     instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
       this._panelLoaded();
       // this._processSidebar();
     });
-
-    instance.listen();
 
     this._styleManager = new HomeAssistantStylesManager({
       prefix: NAMESPACE,
@@ -108,10 +114,9 @@ export class SidebarOrganizer {
     this._currentPath = window.location.pathname;
     this._watchPathChanges();
     this._sidebarItems = [];
-    this._initDashboards = [];
-    this._builInPanels = {};
     this._mouseEnterBinded = this._mouseEnter.bind(this);
     this._mouseLeaveBinded = this._mouseLeave.bind(this);
+    instance.listen();
   }
 
   private _homeAssistant!: HAElement;
@@ -125,7 +130,10 @@ export class SidebarOrganizer {
   private _delayTimeout: number | null = null;
   private _diffCheck: boolean = false;
   private _haDrawer: any;
+  private _configPanelMap = new Map<string, string[]>();
+
   private _initDashboards: LovelaceDashboard[] = [];
+  private _initDefaultPanel?: PanelInfo;
 
   private _panelResolver!: HAElement;
   private _prevPath: string | null = null;
@@ -139,10 +147,13 @@ export class SidebarOrganizer {
   private HaSidebar: any;
   private setupConfigDone = false;
   private sideBarRoot!: ShadowRoot;
-  public _builInPanels: Record<string, PanelInfo> = {};
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
   private _baseColorFromTheme: DividerColorSettings = {};
+  private _panelUtils = PANEL_UTILS;
+  private _coreUserData?: FrontendSystemData['core'];
+  private _userFrontendData: Record<string, any> = {};
+  private _unsubCoreData?: Promise<UnsubscribeFunc>;
   private _mouseEnterBinded: (event: MouseEvent) => void;
   private _mouseLeaveBinded: () => void;
   private _debugLog(
@@ -182,8 +193,8 @@ export class SidebarOrganizer {
     return this.sideBarRoot?.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement;
   }
 
-  get _scrollbarItems(): NodeListOf<HTMLElement> {
-    return this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<HTMLElement>;
+  get _scrollbarItems(): NodeListOf<SidebarPanelItem> {
+    return this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
   }
 
   get _hasSidebarConfig(): boolean {
@@ -213,6 +224,36 @@ export class SidebarOrganizer {
     }
   }
 
+  private _subscribeUserDefaultPanel(): void {
+    this._unsubCoreData = subscribeFrontendUserData(this.hass.connection, 'core', ({ value }) => {
+      if (value !== null) {
+        const defaultPanel = value.default_panel;
+        if (defaultPanel && defaultPanel !== this._baseOrder[0]) {
+          console.log(
+            '%cMAIN:',
+            'color: #bada55;',
+            'Default Panel Changed to:',
+            defaultPanel,
+            'from:',
+            this._baseOrder[0]
+          );
+          const newDefaultPanel = getPanelTitleFromUrlPath(this.hass, defaultPanel) || defaultPanel;
+          const toastParams = {
+            id: 'sidebar-organizer-default-panel-changed',
+            message: `${NAMESPACE.toUpperCase()}: Default panel changed to ${newDefaultPanel}. Reload page to apply changes.`,
+            action: {
+              text: 'Reload',
+              action: () => this._handleDefaultPanelChange(defaultPanel),
+            },
+            duration: -1,
+            dismissable: false,
+          };
+          showToast(this.ha!, toastParams);
+        }
+      }
+    });
+  }
+
   private async _watchEditLegacySidebar(): Promise<void> {
     if (!this._hasSidebarConfig) return;
 
@@ -231,7 +272,7 @@ export class SidebarOrganizer {
       },
       configurable: true,
     });
-    console.log('Successfully blocked sidebar edit mode');
+    // console.log('Successfully blocked sidebar edit mode');
     this._blockEditModeChange = true;
   }
 
@@ -292,8 +333,10 @@ export class SidebarOrganizer {
   private _injectSwitchButton(dialog: any) {
     setTimeout(() => {
       const switchBtn = this._createHaButton(dialog);
-      const actions = dialog.shadowRoot?.querySelector('div[slot="actions"]');
-      if (actions) {
+      const actions =
+        dialog.shadowRoot?.querySelector(SELECTOR.ACTION_SLOT) ??
+        dialog.shadowRoot?.querySelector(SELECTOR.HA_DIALOG_FOOTER).shadowRoot?.querySelector(SELECTOR.FOOTER);
+      if (actions && !actions.querySelector('ha-button')) {
         console.log('Actions Element:', actions);
         actions.prepend(switchBtn);
       }
@@ -307,6 +350,7 @@ export class SidebarOrganizer {
     button.addEventListener('click', () => {
       console.log('Switching to Sidebar Organizer');
       dialog.closeDialog();
+      dialog.remove();
       if (this._userHasSidebarSettings) {
         // If user has sidebar settings, remove legacy data
         this._addDiaglogRemoveLegacyUserData();
@@ -335,7 +379,6 @@ export class SidebarOrganizer {
             this._currentPath !== PATH.LOVELACE_DASHBOARD
           ) {
             console.log('Path changed from Dashboard to:', this._currentPath, 'from:', this._prevPath);
-
             this._checkDashboardChange();
           }
         }
@@ -363,52 +406,68 @@ export class SidebarOrganizer {
       console.log('User has sidebar settings or base order is empty, skipping dashboard change check');
       return;
     }
-    const baseOrder = this._baseOrder;
-
-    const updatedDashboards = await compareDashboardItems(this.hass, baseOrder);
-
-    const itemsLength = Object.values(updatedDashboards.currentItems).flat().length;
-    const initLength = this._initDashboards.length;
-
     let changed = false;
 
-    if (updatedDashboards.removed.length > 0) {
+    const initDefaultPanel = this._initDefaultPanel;
+    const initDashboards = this._initDashboards;
+    const baseOrder = this._baseOrder;
+
+    const newDefaultPanel = getDefaultPanel(this.hass);
+    const defaultPanelChanged = !shallowEqual(initDefaultPanel, newDefaultPanel);
+
+    const { currentItems, added, removed } = await compareDashboardItems(this.hass, baseOrder);
+    const currentItemsLength = Object.values(currentItems).flat().length;
+    const addedOrItemChanged = Boolean(
+      added.length > 0 || initDashboards.length !== currentItemsLength || initDashboards.length < currentItemsLength
+    );
+
+    if (defaultPanelChanged || removed.length > 0) {
+      const itemToRemove = [...removed, initDefaultPanel?.url_path || ''];
       const config = { ...this._config };
-      const hiddenToRemove = new Set(updatedDashboards.removed);
-      // Remove invalid items from custom groups, bottom items, and hidden items
-      const cleanItems = (items: string[]) => items.filter((item) => !hiddenToRemove.has(item));
-      const updatedGroups = Object.fromEntries(
-        Object.entries(config.custom_groups || {}).map(([key, items]) => [key, cleanItems(items)])
-      );
-      const updatedBottomItems = (config.bottom_items || []).filter((item) => !hiddenToRemove.has(item));
-      const updatedHiddenItems = (config.hidden_items || []).filter((item) => !hiddenToRemove.has(item));
-
-      // Update config with cleaned items
-      const newConfig: SidebarConfig = {
-        ...config,
-        custom_groups: updatedGroups,
-        bottom_items: updatedBottomItems,
-        hidden_items: updatedHiddenItems,
-      };
-
-      // Update storage with new config
-      setStorage(STORAGE.UI_CONFIG, newConfig);
-      // setStorage(STORAGE.HIDDEN_PANELS, updatedHiddenItems);
-
-      changed = true;
-      console.log('Removed Not Show Items:', updatedDashboards.removed, 'Updated Config:', newConfig);
-    } else if (updatedDashboards.added.length > 0 || (itemsLength !== initLength && itemsLength < initLength)) {
-      console.log('Added New Items:', updatedDashboards.added);
+      const configToUpdate = pick(config, [
+        PANEL_TYPE.CUSTOM,
+        PANEL_TYPE.BOTTOM,
+        PANEL_TYPE.HIDDEN,
+      ]) as SidebardPanelConfig;
+      const updatedPanels = cleanItemsFromConfig(configToUpdate, itemToRemove);
+      const configHasChanged = !shallowEqual(configToUpdate, updatedPanels);
+      if (configHasChanged) {
+        const newConfig: SidebarConfig = {
+          ...config,
+          ...updatedPanels,
+        };
+        setStorage(STORAGE.UI_CONFIG, newConfig);
+        changed = true;
+        console.log(
+          '%cMAIN:',
+          'color: #bada55;',
+          'Default Panel Changed or Removed Items:',
+          itemToRemove,
+          'Updated Config:',
+          newConfig
+        );
+      } else {
+        console.log('%cMAIN:', 'color: #bada55;', 'No config changes needed for removed items or default panel');
+      }
+    } else if (addedOrItemChanged) {
+      console.log('%cMAIN:', 'color: #bada55;', 'Added New Items or Items Changed:', added, currentItems);
       changed = true;
     }
 
     if (changed) {
       // Reload the window to apply changes
-      console.log('Changes detected');
+      console.log('%cMAIN:', 'color: #bada55;', 'Changes detected, reloading window');
       this._reloadWindow();
     } else {
+      this._resetPropsAfterNoChange();
       this._addBottomItems();
     }
+  }
+
+  private _resetPropsAfterNoChange(): void {
+    this._initDashboards = [];
+    this._initDefaultPanel = undefined;
+    this._unsubCoreData = undefined;
   }
 
   private async _panelLoaded(): Promise<void> {
@@ -423,15 +482,39 @@ export class SidebarOrganizer {
         if (this._diffCheck && this.firstSetUpDone && this.setupConfigDone) {
           // console.log('Diff Check and first setup done');
           onPanelLoaded(pathName, paperListBox);
+          this._getData(pathName);
         }
       }, 100);
     }
   }
 
+  private async _getData(pathName: string): Promise<void> {
+    if (pathName === PATH.LOVELACE_DASHBOARD) {
+      this._initDashboards = await fetchDashboards(this.hass);
+      this._initDefaultPanel = getDefaultPanel(this.hass);
+      let initCoreData: CoreFrontendUserData | undefined;
+      this._unsubCoreData = subscribeFrontendSystemData(this.hass.connection, 'core', ({ value }) => {
+        console.log('%cMAIN:', 'color: #bada55;', 'Core Frontend System Data Changed:', value);
+        if (value !== null) {
+          this._coreUserData = value;
+          if (!initCoreData) {
+            initCoreData = this._coreUserData;
+            return;
+          }
+          if (!shallowEqual(initCoreData, this._coreUserData)) {
+            console.log('%cMAIN:', 'color: #bada55;', 'Core Data Changed', {
+              initCoreData,
+              newCoreData: this._coreUserData,
+            });
+          }
+        }
+      });
+    }
+  }
   private async _checkUserSidebarSettings() {
     const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
     this._userHasSidebarSettings = (userData?.panelOrder && userData.panelOrder.length > 0) || false;
-    console.log('User has sidebar settings:', this._userHasSidebarSettings, userData);
+    this._subscribeUserDefaultPanel();
   }
 
   private async _setupConfigBtn(): Promise<void> {
@@ -452,15 +535,14 @@ export class SidebarOrganizer {
     await this.hass.loadFragmentTranslation('lovelace');
   }
 
-  private async _getInitDashboards(): Promise<void> {
-    this._initDashboards = await fetchDashboards(this.hass);
-    // console.log('Initial Dashboards:', this._initDashboards);
-  }
-
   private async _getDataDashboards(): Promise<void> {
-    this._initDashboards = await fetchDashboards(this.hass);
+    // this._initDashboards = await fetchDashboards(this.hass);
     // console.log('Initial Dashboards:', this._initDashboards);
-    this._builInPanels = await this._getAutoGeneratedPanels();
+    // this._builInPanels = await this._getAutoGeneratedPanels();
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
+    await getBuiltInPanels(this.hass.panels, defaultPanel).then((panels) => {
+      this._addBuiltInPanelsToSidebar(panels);
+    });
   }
 
   private _processConfig(): void {
@@ -469,9 +551,8 @@ export class SidebarOrganizer {
       return;
     }
     this._getElements().then((elements) => {
-      const { bottom_items, custom_groups, notification } = this._config;
+      const notificationMap = new Map(Object.entries(this._config.notification || {}));
       const [sidebarItemsContainer, scrollbarItems, spacer] = elements;
-      // this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
       this._sidebarItems = Array.from(scrollbarItems) as SidebarPanelItem[];
 
       for (const item of Array.from(scrollbarItems) as SidebarPanelItem[]) {
@@ -482,20 +563,15 @@ export class SidebarOrganizer {
       }
 
       if (this._hiddenPanels && this._hiddenPanels.length > 0) {
-        this._sidebarItems.forEach((item) => {
-          const itemToHide = Array.from(scrollbarItems).filter((el) => {
-            return (
-              el.getAttribute(ATTRIBUTE.DATA_PANEL) === item.getAttribute(ATTRIBUTE.DATA_PANEL) &&
-              this._hiddenPanels.includes(el.getAttribute(ATTRIBUTE.DATA_PANEL) || '')
-            );
+        this._hiddenPanels.forEach((panelId) => {
+          const itemToHide = Array.from(scrollbarItems).find((el) => {
+            return el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId;
           });
-          if (itemToHide.length > 0) {
-            itemToHide.forEach((el) => {
-              console.log('Hiding panel item:', el.getAttribute(ATTRIBUTE.DATA_PANEL));
-              el.style.display = 'none';
-            });
+          if (itemToHide) {
+            itemToHide.style.display = 'none';
           }
         });
+        console.log('%cMAIN:', 'color: #bada55;', 'Hidden Panels Applied:', this._hiddenPanels);
       }
 
       const initOrder = Array.from(scrollbarItems)
@@ -504,7 +580,8 @@ export class SidebarOrganizer {
 
       const combinedOrder = this._computePanels(initOrder);
       this._baseOrder = combinedOrder;
-      setStorage(STORAGE.PANEL_ORDER, combinedOrder);
+      setStorage(STORAGE.PANEL_ORDER, [...this._baseOrder]);
+      // console.log('%cMAIN:', 'color: #bada55;', 'Computed Combined Panel Order:', combinedOrder);
 
       // raarnge items based on the combined order, item not found in the combined order will be placed at the end
       const orderedItems = this._sidebarItems.sort((a, b) => {
@@ -513,49 +590,41 @@ export class SidebarOrganizer {
         return aIndex - bIndex;
       });
 
-      // find config or developer-tools items and move them to the end
-      const configOrDevToolsItems = orderedItems.filter((item) => SHOW_AFTER_BOTTOM.includes(item.href));
-      if (configOrDevToolsItems.length > 0) {
-        // splice them out of the ordered items and push them to the end
-        orderedItems.splice(
-          orderedItems.findIndex((item) => SHOW_AFTER_BOTTOM.includes(item.href)),
-          configOrDevToolsItems.length
-        );
-        orderedItems.push(...configOrDevToolsItems);
-      }
-
       this._sidebarItems = orderedItems;
 
       // rearrange the items in the sidebar by their new order
-
       this._sidebarItems.forEach((item) => {
+        const itemPanelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
+        const itemsGroup = this._getGroupOfPanel(itemPanelId);
+        const itemsNotificationValue = notificationMap.get(itemPanelId);
         const itemToMove = Array.from(scrollbarItems).find(
           (el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item.getAttribute(ATTRIBUTE.DATA_PANEL)
         );
+
         if (itemToMove && SHOW_AFTER_BOTTOM.indexOf(itemToMove.href) === -1) {
           // Move the item to the new position
           sidebarItemsContainer.insertBefore(itemToMove, spacer);
         }
-        if (notification && Object.keys(notification).length > 0) {
-          // Add notification if exists
-          Object.entries(notification).forEach(([key, value]) => {
-            if (item.getAttribute(ATTRIBUTE.DATA_PANEL) === key) {
-              this._subscribeNotification(item, value);
-            }
-          });
+        if (itemsNotificationValue !== undefined) {
+          this._subscribeNotification(item, itemsNotificationValue);
+        }
+        // Handle custom groups
+
+        if (itemsGroup && itemsGroup !== 'bottom_items') {
+          const isCollapsed = this.collapsedItems.has(itemsGroup);
+          const isFirstInGroup = this._configPanelMap.get(itemsGroup)?.[0] === itemPanelId;
+
+          item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
+          item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+          if (isFirstInGroup) {
+            // Handle collapsed state toggle
+            const groupDivider = this._createDividerWithGroup(itemsGroup, isCollapsed);
+            sidebarItemsContainer.insertBefore(groupDivider, item);
+          }
         }
       });
-
       // Handle bottom items
-      if (bottom_items && bottom_items.length > 0) {
-        this._bottomItems = bottom_items;
-        this._addBottomItems();
-      }
-
-      // Handle custom groups
-      if (custom_groups && Object.keys(custom_groups).length > 0) {
-        this._handleItemsGroup(custom_groups);
-      }
+      this._addBottomItems();
 
       // Reorder grouped items
       this._reorderGroupedSidebar();
@@ -656,49 +725,19 @@ export class SidebarOrganizer {
     showDialogSidebarOrganizer(this.ha!, { config: this._config });
   }
 
-  private _handleDefaultPanelChange(defaultPanel: string) {
-    const inGroup = this._getItemInConfig(defaultPanel);
-    if (!inGroup) {
-      this._reloadWindow();
-      return;
-    }
-    console.log('Default Panel Changed:', defaultPanel, 'In Group:', inGroup);
-    // remove the default panel from any custom group or bottom items
-    const update: Partial<SidebarConfig> = {};
+  private _handleDefaultPanelChange(defaultDashboard: string) {
     const config = { ...(this._config || {}) };
-    if (inGroup === 'bottom_items') {
-      const index = config.bottom_items?.indexOf(defaultPanel);
-      config.bottom_items?.splice(index!, 1);
-      update.bottom_items = config.bottom_items;
-    } else if (inGroup === 'hidden_items') {
-      // remove from hidden items
-      console.log('Removing from hidden items:', defaultPanel);
-      const index = config.hidden_items?.indexOf(defaultPanel);
-      if (index !== -1) {
-        config.hidden_items?.splice(index!, 1);
-        update.hidden_items = config.hidden_items;
-      }
-    } else {
-      // remove from custom groups
-      console.log('Removing from custom groups:', defaultPanel);
-      const customGroups = { ...(config.custom_groups || {}) };
-      Object.entries(customGroups).forEach(([group, items]) => {
-        const index = items.indexOf(defaultPanel);
-        if (index !== -1) {
-          items.splice(index, 1);
-          customGroups[group] = items;
-        }
-      });
-      update.custom_groups = customGroups;
-    }
-    // update the config
+    const configToUpdate = pick(config, [
+      PANEL_TYPE.CUSTOM,
+      PANEL_TYPE.BOTTOM,
+      PANEL_TYPE.HIDDEN,
+    ]) as SidebardPanelConfig;
+    const cleanedConfig = cleanItemsFromConfig(configToUpdate, [defaultDashboard]);
     this._config = {
       ...this._config,
-      ...update,
+      ...cleanedConfig,
     };
     setStorage(STORAGE.UI_CONFIG, this._config);
-    // setStorage(STORAGE.HIDDEN_PANELS, this._config.hidden_items || []);
-
     this._reloadWindow();
   }
 
@@ -720,6 +759,12 @@ export class SidebarOrganizer {
     const isEmptyOrder = isStoragePanelEmpty();
     console.log('Is Storage Panel Order Empty:', isEmptyOrder);
     if (!isEmptyOrder) return;
+    const baseOrder = this._baseOrder;
+    if (baseOrder.length > 0) {
+      console.log('Setting initial panel order from base order');
+      setStorage(STORAGE.PANEL_ORDER, baseOrder);
+      return;
+    }
 
     console.log('No initial panel order found, setting default');
     const { beforeSpacer, builtInhidden } = this._getInitialPanelItems();
@@ -729,12 +774,15 @@ export class SidebarOrganizer {
   }
 
   private _setupInitialConfig() {
-    console.log('Setting up initial config');
-    const { new_items, default_collapsed, custom_groups, hidden_items, color_config } = this._config;
+    console.log('%cMAIN:', 'color: #bada55;', 'Setting up initial config');
+
+    const { new_items, default_collapsed, custom_groups, hidden_items, color_config, bottom_items } = this._config;
+    this._configPanelMap = new Map(Object.entries(custom_groups || {}));
+    if (!isEmpty(bottom_items)) {
+      this._configPanelMap.set('bottom_items', bottom_items!);
+    }
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
     this._handleHidden(hidden_items || []);
-    // Add built-in panels
-    this._addBuiltInPanels();
     // Add new items
     this._addNewItems(new_items || []);
     // Add additional styles
@@ -803,10 +851,10 @@ export class SidebarOrganizer {
     const collapsedSize = this.collapsedItems.size;
     const isAllCollapsed = collapsedSize === groupsLength;
 
-    const collapseEl = document.createElement('ha-icon') as any;
-    collapseEl.icon = isAllCollapsed ? 'mdi:plus' : 'mdi:minus';
-    collapseEl.classList.add('collapse-toggle');
-    collapseEl.classList.toggle('active', isAllCollapsed!);
+    const collapseEl = document.createElement(ELEMENT.HA_ICON) as any;
+    collapseEl.icon = isAllCollapsed ? MDI.PLUS : MDI.MINUS;
+    collapseEl.classList.add(CLASS.COLLAPSE_TOGGLE);
+    collapseEl.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
 
     const handleToggle = (ev: Event) => {
       ev.preventDefault();
@@ -816,7 +864,7 @@ export class SidebarOrganizer {
       this._handleCollapsed(this.collapsedItems);
     };
     ['touchstart', 'mousedown'].forEach((eventType) => {
-      collapseEl.addEventListener(eventType, handleToggle, { passive: true });
+      collapseEl.addEventListener(eventType, handleToggle);
     });
 
     titleEl.appendChild(collapseEl);
@@ -828,9 +876,11 @@ export class SidebarOrganizer {
     const collapsedSize = this.collapsedItems.size;
     const groupsLength = Object.keys(this._config?.custom_groups || {}).length;
     const isAllCollapsed = collapsedSize === groupsLength;
-
-    toggleIcon.classList.toggle('active', isAllCollapsed!);
-    toggleIcon.setAttribute('icon', isAllCollapsed ? 'mdi:plus' : 'mdi:minus');
+    toggleIcon.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
+    toggleIcon.setAttribute('icon', isAllCollapsed ? MDI.PLUS : MDI.MINUS);
+    // const isCollapsed = collapsedSize > 0;
+    // toggleIcon?.classList.toggle(CLASS.ACTIVE, isCollapsed);
+    // toggleIcon?.setAttribute('icon', isCollapsed ? MDI.PLUS : MDI.MINUS);
   }
 
   private _handleHidden(hiddenItems: string[]): void {
@@ -849,21 +899,20 @@ export class SidebarOrganizer {
         scrollbarContainer.insertBefore(newItem, spacer);
       }
     });
-    console.log('New Items Added to Sidebar');
+    console.log('%cMAIN:', 'color: #bada55;', 'New Items Added to Sidebar');
   }
 
-  private _addBuiltInPanels(): void {
-    if (!this._builInPanels || Object.keys(this._builInPanels).length === 0) return;
-    const scrollbarContainer = this._scrollbar;
-    const spacer = scrollbarContainer.querySelector(SELECTOR.SPACER) as HTMLElement;
+  private _addBuiltInPanelsToSidebar(panels: PanelInfo[]): void {
+    if (!panels || panels.length === 0) return;
+    const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
 
-    Object.values(this._builInPanels).map((panel) => {
+    panels.map((panel) => {
       const builtInItem = this._createBuiltInPanelItem(panel);
       if (builtInItem) {
-        scrollbarContainer.insertBefore(builtInItem, spacer);
+        this._scrollbar.insertBefore(builtInItem, spacer);
       }
     });
-    console.log('Built-in Panels Added to Sidebar');
+    console.log('%cMAIN:', 'color: #bada55;', 'Built-in Panels Added to Sidebar:', panels);
   }
 
   private _subscribeTemplate(value: string, callback: (result: string) => void): void {
@@ -888,37 +937,41 @@ export class SidebarOrganizer {
     );
   }
 
-  private _createDivider = (): HTMLElement => {
+  private _createDivider = (attribute?: string): HTMLElement => {
     const divider = document.createElement('div') as HTMLElement;
     divider.classList.add('divider');
+    if (attribute) {
+      divider.setAttribute(attribute, '');
+    }
     return divider;
   };
 
-  private _createDividerWithGroup = (group: string): HTMLElement => {
+  private _createDividerWithGroup = (group: string, isCollapsed: boolean = false): HTMLElement => {
     const divider = this._createDivider();
-    divider.setAttribute('group', group);
-    divider.setAttribute('added', '');
+    divider.setAttribute(ATTRIBUTE.GROUP, group);
+    divider.setAttribute(ATTRIBUTE.ADDED, '');
+    divider.classList.toggle(CLASS.COLLAPSED, isCollapsed);
     const contentDiv = document.createElement('div');
-    contentDiv.classList.add('added-content');
-    contentDiv.setAttribute('group', group);
+    contentDiv.classList.add(CLASS.ADDED_CONTENT);
+    contentDiv.setAttribute(ATTRIBUTE.GROUP, group);
     contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.replace(/_/g, ' ')}</span>`;
+    contentDiv.classList.toggle(CLASS.COLLAPSED, isCollapsed);
     divider.appendChild(contentDiv);
     divider.addEventListener('click', this._toggleGroup.bind(this));
     return divider;
   };
 
   private _addBottomItems(): void {
-    if (!this._bottomItems.length) return;
+    if (!this._configPanelMap.get('bottom_items')) return;
 
-    const scrollbarItems = Array.from(this._scrollbarItems);
+    const value = this._configPanelMap.get('bottom_items')!;
+    const scrollbarItems = this._sidebarItems;
     const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
-
-    this._bottomItems.forEach((item, index) => {
+    value.forEach((item, index) => {
       const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
       if (!panel) return;
 
       panel.setAttribute(ATTRIBUTE.MOVED, '');
-
       // Insert spacer before first bottom item
       if (index === 0) {
         this._scrollbar.insertBefore(spacer, panel);
@@ -928,9 +981,8 @@ export class SidebarOrganizer {
       this._scrollbar.insertBefore(panel, panel.nextSibling);
 
       // Insert divider after the last bottom item
-      if (index === this._bottomItems.length - 1) {
-        const divider = this._createDivider();
-        divider.setAttribute(ATTRIBUTE.BOTTOM, '');
+      if (index === value.length - 1) {
+        const divider = this._createDivider(ATTRIBUTE.BOTTOM);
         this._scrollbar.insertBefore(divider, panel.nextSibling);
       }
 
@@ -963,26 +1015,21 @@ export class SidebarOrganizer {
   }
 
   private _handleCollapsed(collapsedItems: Set<string>) {
-    const toggleIcon = this.sideBarRoot!.querySelector(SELECTOR.HEADER_TOGGLE_ICON) as HTMLElement;
-    const isCollapsed = collapsedItems.size > 0;
-    // Update toggle icon
-    toggleIcon?.classList.toggle('active', isCollapsed);
-    toggleIcon?.setAttribute('icon', isCollapsed ? 'mdi:plus' : 'mdi:minus');
-
-    const scrollbarItems = Array.from(this._scrollbarItems).filter((item) =>
-      item.hasAttribute('group')
-    ) as HTMLElement[];
-
-    // Update visibility of collapsed items
-    scrollbarItems.forEach((item) => {
-      const group = item.getAttribute('group');
-      item.classList.toggle(CLASS.COLLAPSED, collapsedItems.has(group!));
-      // console.log('Item:', item, 'Group:', group, 'Collapsed:', collapsedItems.has(group!));
-    });
+    setStorage(STORAGE.COLLAPSE, [...collapsedItems]);
+    this._handleCollapsedChange();
+    // Update sidebar items
+    Array.from(this._sidebarItems)
+      .filter((item) => item.hasAttribute(ATTRIBUTE.GROUP))
+      .forEach((item) => {
+        const group = item.getAttribute(ATTRIBUTE.GROUP);
+        const isItemCollapsed = collapsedItems.has(group!);
+        item.classList.toggle(CLASS.COLLAPSED, isItemCollapsed);
+        // console.log('Item:', item, 'Group:', group, 'Collapsed:', isItemCollapsed);
+      });
 
     // Update dividers and their content
-    this._scrollbar!.querySelectorAll(SELECTOR.DIVIDER).forEach((divider) => {
-      const group = divider.getAttribute('group');
+    this._scrollbar.querySelectorAll(SELECTOR.DIVIDER_ADDED).forEach((divider) => {
+      const group = divider.getAttribute(ATTRIBUTE.GROUP);
       const isGroupCollapsed = collapsedItems.has(group!);
       divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
       divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
@@ -1038,7 +1085,7 @@ export class SidebarOrganizer {
     );
   }
 
-  private _handleItemsGroup(customGroups: { [key: string]: string[] }) {
+  private _handleItemsGroup(customGroups: CustomGroups) {
     if (!customGroups || Object.keys(customGroups).length === 0) return;
     const collapsedItems = this.collapsedItems || new Set<string>();
     const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
@@ -1047,13 +1094,13 @@ export class SidebarOrganizer {
     Object.entries(customGroups).forEach(([group, panels]) => {
       const isGroupCollapsed = collapsedItems.has(group!);
       // Create a divider for the group
-      const divider = this._createDividerWithGroup(group);
+      const divider = this._createDividerWithGroup(group, isGroupCollapsed);
       // Find the first item of the group
       const firstItem = scrollbarItems.find((item) => panels.includes(item.getAttribute('data-panel')!));
       if (firstItem) {
         // Insert the divider before the first item of the group
-        divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
-        divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
+        // divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
+        // divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
         this._scrollbar.insertBefore(divider, firstItem);
 
         // Set the group attribute on all items of the group
@@ -1065,9 +1112,6 @@ export class SidebarOrganizer {
           });
       }
     });
-
-    // debugger;
-    console.log('Custom Groups Setup Done');
   }
 
   private _computePanels(currentPanel: string[]) {
@@ -1098,12 +1142,13 @@ export class SidebarOrganizer {
 
   private _reorderGroupedSidebar() {
     const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
-    const lastGroupedItem = scrollbarItems.find(
-      (item) => item.hasAttribute('group') && !item.nextElementSibling?.hasAttribute('group')
-    );
+    const lastGroupedItem = scrollbarItems.findLast((item) => item.hasAttribute('group'));
+    // const lastGroupedItem = scrollbarItems.find(
+    //   (item) => item.hasAttribute('group') && !item.nextElementSibling?.hasAttribute('group')
+    // );
     if (lastGroupedItem) {
-      const divider = this._createDivider();
-      divider.setAttribute('ungrouped', '');
+      const divider = this._createDivider(ATTRIBUTE.UNGROUPED);
+      // divider.setAttribute('ungrouped', '');
       this._scrollbar.insertBefore(divider, lastGroupedItem.nextSibling);
     }
 
@@ -1114,7 +1159,8 @@ export class SidebarOrganizer {
   }
 
   private _checkDiffs = () => {
-    console.log('Checking for differences in sidebar configuration...');
+    console.log('%cMAIN:', 'color: #bada55;', 'Checking for sidebar order differences...');
+
     const baseOrder = this._baseOrder;
     const scrollbarItems = Array.from(this._scrollbarItems).slice(0, baseOrder.length) as HTMLElement[];
 
@@ -1253,10 +1299,11 @@ export class SidebarOrganizer {
       if (resultContent != null && String(resultContent).trim() !== '') {
         if (typeof resultContent === 'string' && isIcon(resultContent)) {
           // Show icon, hide badge
-          badge.innerHTML = '';
+          // badge.innerHTML = '';
           notifyIcon.classList.toggle(CLASS.NO_VISIBLE, false);
           notifyIcon.setAttribute('icon', resultContent);
           badge.classList.toggle(CLASS.NO_VISIBLE, true);
+          badge.remove();
         } else {
           // Show badge, hide icon
           badge.innerHTML = resultContent;
@@ -1265,6 +1312,7 @@ export class SidebarOrganizer {
           badge.classList.toggle(CLASS.LARGE_BADGE, resultContent.length >= 3);
           notifyIcon.classList.toggle(CLASS.NO_VISIBLE, true);
           notifyIcon.removeAttribute('icon');
+          notifyIcon.remove();
         }
       } else {
         // Hide both elements when no value
@@ -1283,6 +1331,8 @@ export class SidebarOrganizer {
     const animationDelay = this._config?.animation_delay || 50;
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
+    // const targetParent = target.parentElement as HTMLElement;
+    // console.log('%cMAIN:', 'color: #bada55;', 'Toggling group:', group, target, targetParent);
 
     const items = Array.from(this._scrollbarItems).filter((item) => {
       const itemGroup = item.getAttribute('group');
@@ -1346,24 +1396,6 @@ export class SidebarOrganizer {
     return undefined;
   }
 
-  private _getComputedPanelOrder(): { beforeSpacer: PanelInfo[]; afterSpacer: PanelInfo[] } {
-    const haSidebar = this.HaSidebar;
-    const hass = this.hass;
-    const defaultPanel = getDefaultPanelUrlPath(hass);
-    const _computePanels = computePanels(
-      hass.panels,
-      defaultPanel,
-      haSidebar._panelOrder,
-      haSidebar._hiddenPanels,
-      hass.locale
-    );
-    console.log('Computed Panel Order:', _computePanels);
-    return {
-      beforeSpacer: _computePanels[0],
-      afterSpacer: _computePanels[1],
-    };
-  }
-
   private _getInitialPanelItems(): { beforeSpacer: string[]; builtInhidden: string[] } {
     const hass = this.hass;
     const defaultPanel = getDefaultPanelUrlPath(hass);
@@ -1375,10 +1407,14 @@ export class SidebarOrganizer {
   }
 
   private _reloadWindow() {
+    showToast(this.ha!, {
+      message: 'Sidebar Organizer: Reloading window to apply changes...',
+      duration: 1000,
+    });
     console.log('Reloading window...');
     setTimeout(() => {
       window.location.reload();
-    }, 100);
+    }, 1000);
   }
 
   async _getAutoGeneratedPanels(): Promise<Record<string, PanelInfo>> {
@@ -1392,6 +1428,11 @@ export class SidebarOrganizer {
       }, {} as Panels);
     return autoGeneratedPanels;
   }
+
+  public _getGroupOfPanel = (panel: string): string | null => {
+    const group = [...this._configPanelMap.entries()].find(([, items]) => items.includes(panel));
+    return group ? group[0] : null;
+  };
 
   _removeSidebarConfigFromStorage() {
     return clearSidebarOrganizerStorage();

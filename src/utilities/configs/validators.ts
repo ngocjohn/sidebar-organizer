@@ -1,5 +1,6 @@
 import { CONFIG_NAME, STORAGE } from '@constants';
 import { HaExtened, PANEL_TYPE, SidebarConfig, SidebardPanelConfig } from '@types';
+import { ARRAY_UTILS } from '@utilities/array';
 import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
 import { getDefaultPanel } from '@utilities/panel';
 import { pick } from 'es-toolkit/compat';
@@ -20,39 +21,12 @@ export const validateConfig = (config: SidebarConfig, hidden?: string[]): Sideba
     ...config,
     ...updatedPanels,
     default_collapsed: defaultCollapsed,
-    hidden_items: Array.from(new Set([...(config.hidden_items || []), ...hiddenPanels])),
+    hidden_items: ARRAY_UTILS.union(hiddenPanels, config.hidden_items || []),
   };
-  console.log('%cVALIDATORS:', 'color: #bada55;', 'validateConfig', validatedConfig);
+  console.log('%cVALIDATORS:', 'color: #bada55;', { config, hiddenPanels, validatedConfig });
 
   return validatedConfig;
 };
-
-// export const validateConfig = (config: SidebarConfig, hidden?: string[]): SidebarConfig => {
-//   let hiddenPanels: string[] = [];
-//   if (!hidden) {
-//     hiddenPanels = getHiddenPanels();
-//   } else {
-//     hiddenPanels = hidden;
-//   }
-
-//   if (hiddenPanels.length === 0) return config;
-
-//   const newConfig = { ...config };
-//   const updatedGroups: Record<string, string[]> = {};
-
-//   for (const [key, groupItems] of Object.entries(config.custom_groups || {})) {
-//     updatedGroups[key] = groupItems.filter((item) => !hiddenPanels.includes(item));
-//   }
-
-//   const updatedBottomItems = (config.bottom_items || []).filter((item) => !hiddenPanels.includes(item));
-
-//   newConfig.hidden_items = hiddenPanels;
-//   newConfig.custom_groups = updatedGroups;
-//   newConfig.bottom_items = updatedBottomItems;
-
-//   // console.log('validateConfig', newConfig);
-//   return newConfig;
-// };
 
 export const removeHiddenItems = (config: SidebarConfig, hidden?: string[]): SidebarConfig => {
   let hiddenPanels: string[] = [];

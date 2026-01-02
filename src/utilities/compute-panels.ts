@@ -139,3 +139,12 @@ export const computeInitialPanelOrder = (
 
   return { beforeSpacer, builtInDefaultNotVisible };
 };
+
+export const getBuiltInPanels = async (panels: HomeAssistant['panels'], defaultPanel: string): Promise<PanelInfo[]> => {
+  if (!panels) {
+    return [];
+  }
+  return Object.values(panels).filter(
+    (panel) => BUILT_IN_PANELS.includes(panel.url_path) && panel.url_path !== defaultPanel && panel.title
+  );
+};

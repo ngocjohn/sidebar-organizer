@@ -17,7 +17,7 @@ export const getPreviewItems = (dialog: SidebarConfigDialog, config: SidebarConf
   const _panelItems: Record<string, PanelInfo[]> = {
     defaultPage: [
       {
-        component_name: defaultPanel.component_name || 'lovelace',
+        component_name: defaultPanel.url_path || 'lovelace',
         title: defaultTitle || defaultPanel.title || 'Lovelace',
         icon: defaultPanel.icon || PANEL_ICONS.lovelace,
       },
