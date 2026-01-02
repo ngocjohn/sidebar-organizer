@@ -19,7 +19,7 @@ body:
       options:
         - label: I have updated to the latest version
           required: true
-        - label: Add plugin path to configuration file [extra-module-url](https://github.com/ngocjohn/sidebar-organizer?tab=readme-ov-file#install-the-plugin)
+        - label: I have plugin path in configuration file [extra-module-url](https://github.com/ngocjohn/sidebar-organizer?tab=readme-ov-file#install-the-plugin)
           required: true
   - type: markdown
     attributes:
@@ -54,9 +54,7 @@ body:
       label: What version of Sidebar Organizer are you using?
       placeholder: e.g., 1.2.3
       description: >
-        Can be found in [hacs plugin page][hacs-repo-custom-url] (top left corner). Or in the plugin configuration dialog header.
-
-        [hacs-repo-custom-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=ngocjohn&repository=sidebar-organizer&category=plugin
+        Can be found in [hacs plugin page](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngocjohn&repository=sidebar-organizer&category=plugin) (top left corner). Or in the plugin configuration dialog header.
   - type: input
     validations:
       required: false
@@ -89,12 +87,14 @@ body:
         configuration of the plugin. Please make sure to remove any sensitive
         information before sharing.
       placeholder: >
+        ```yaml
         bottom_items: [],
         custom_groups: {},
         hide_header_toggle: false,
         default_collapsed: [],
         hidden_items: [],
         new_items: [],
+        ```
       render: yaml
   - type: textarea
     attributes:
