@@ -273,11 +273,10 @@ In this section, you can organize the layout of the sidebar panels by customizin
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!--Badges-->
-
 [forum-url]: https://community.home-assistant.io/t/sidebar-organizer
 [forum-badge]: https://img.shields.io/badge/forum-community?style=flat&logo=homeassistant&label=community&color=blue
-[hacs-validate]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yaml/badge.svg
-[hacs-url]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yaml
+[hacs-validate]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yml/badge.svg
+[hacs-url]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yml
 [git-last-commit-badge]: https://img.shields.io/github/last-commit/ngocjohn/sidebar-organizer
 [git-download-all-badge]: https://img.shields.io/github/downloads/ngocjohn/sidebar-organizer/total?style=flat&logo=homeassistantcommunitystore&logoSize=auto&label=Downloads&color=%2318BCF2
 [git-download-latest-badge]: https://img.shields.io/github/downloads/ngocjohn/sidebar-organizer/latest/total?style=flat&logo=homeassistantcommunitystore&logoSize=auto
