@@ -4,6 +4,8 @@ import { getPromisableResult } from 'get-promisable-result';
 import { html, TemplateResult } from 'lit';
 
 const HOLD_DURATION = 300;
+const NAME_RGX = /sidebar-organizer.js/i;
+const HACS_TAG_RGX = /[?&]hacstag=(\d+)/;
 
 export const createExpansionPanel = ({
   content,
@@ -192,4 +194,38 @@ export const getSiderbarEditDialog = async (haEl: HaExtened): Promise<any> => {
   );
   console.log('get SiderbarEditDialog', dialog);
   return dialog;
+};
+
+export const getConfigUrl = (loadedScripts: HTMLCollectionOf<HTMLScriptElement>): string | null => {
+  const resources: string[] = [];
+
+  for (const script of Array.from(loadedScripts)) {
+    if (script?.innerText?.trim()?.startsWith('import(')) {
+      const imports = script.innerText.split(';')?.map((e) => e.trim());
+      for (const imp of imports) {
+        resources.push(imp.replace(/^import\(\"/, '').replace(/\"\)/, ''));
+      }
+    }
+  }
+
+  const configUrl = resources.find((r) => NAME_RGX.test(r)) || null;
+  return configUrl;
+};
+
+interface CompareHacsTagsResult {
+  readonly loadedTagMatch: string | null;
+  readonly configTagMatch: string | null;
+}
+
+export const compareHacsTags = async (): Promise<CompareHacsTagsResult> => {
+  const loadedScripts = document.scripts;
+  const loadedUrl = Array.from(loadedScripts).find((s) => NAME_RGX.test(s.src))?.src;
+  const configUrl = getConfigUrl(loadedScripts);
+  if (!loadedUrl || !configUrl) {
+    return { loadedTagMatch: null, configTagMatch: null };
+  }
+
+  const loadedTagMatch = loadedUrl.match(HACS_TAG_RGX)?.[1];
+  const configTagMatch = configUrl.match(HACS_TAG_RGX)?.[1];
+  return { loadedTagMatch: loadedTagMatch || null, configTagMatch: configTagMatch || null };
 };

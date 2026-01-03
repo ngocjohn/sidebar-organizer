@@ -32,7 +32,7 @@ import { cleanItemsFromConfig, fetchConfig } from '@utilities/configs';
 import { clearSidebarOrganizerStorage, getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { compareDashboardItems, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
-import { addAction, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, compareHacsTags, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
 import {
   CoreFrontendUserData,
   fetchFrontendUserData,
@@ -141,6 +141,8 @@ export class SidebarOrganizer {
   private _sidebarItems: SidebarPanelItem[];
   private _styleManager: HomeAssistantStylesManager;
   private _userHasSidebarSettings: boolean = false;
+  private _pluginHacstag: string | null = null;
+
   private collapsedItems = new Set<string>();
   private firstSetUpDone = false;
 
@@ -208,6 +210,7 @@ export class SidebarOrganizer {
       this._notCompatible = true;
       return;
     }
+    await this._checkHacsTagMismatch();
     await this._checkUserSidebarSettings();
     await this._watchEditLegacySidebar();
 
@@ -511,6 +514,15 @@ export class SidebarOrganizer {
       });
     }
   }
+  private async _checkHacsTagMismatch(): Promise<void> {
+    const { loadedTagMatch, configTagMatch } = await compareHacsTags();
+    if (loadedTagMatch && configTagMatch && loadedTagMatch !== configTagMatch) {
+      this._pluginHacstag = loadedTagMatch;
+      const alertMsg = `${NAMESPACE}: HACS tag mismatch detected.\n\nPlease update the extra_module_url path in your configuration file to match the loaded script.\nYou can update the URL with ?hacstag=${loadedTagMatch} and restart Home Assistant to resolve this issue.\n\n`;
+      throw Error(alertMsg);
+    }
+  }
+
   private async _checkUserSidebarSettings() {
     const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
     this._userHasSidebarSettings = (userData?.panelOrder && userData.panelOrder.length > 0) || false;
@@ -1450,5 +1462,6 @@ declare global {
 if (!window.SidebarOrganizer) {
   const params = new URLSearchParams(window.location.search);
   const debugMode = params.has('so_debug');
+
   window.SidebarOrganizer = new SidebarOrganizer(debugMode);
 }
