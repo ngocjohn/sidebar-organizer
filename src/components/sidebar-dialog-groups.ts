@@ -821,7 +821,7 @@ export class SidebarDialogGroups extends LitElement {
     const value = ev.detail.value;
     console.log('new value', value);
     this._updatePanels(value);
-    const newConfig = validateConfig(this._sidebarConfig, [...value]);
+    const newConfig = validateConfig(this._sidebarConfig, value);
     // const newConfig = removeHiddenItems(this._sidebarConfig, value);
 
     this._sidebarConfig = {

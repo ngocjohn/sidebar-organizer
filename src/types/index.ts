@@ -35,6 +35,10 @@ export interface PartialPanelResolver extends Router {
   panel?: PanelInfo;
 }
 
+export interface HaDrawer extends HTMLElement {
+  open: boolean;
+}
+
 export interface SidebarPanelItem extends HTMLElement {
   href: string;
   target: string;

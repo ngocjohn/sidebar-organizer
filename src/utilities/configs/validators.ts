@@ -1,6 +1,5 @@
 import { CONFIG_NAME, STORAGE } from '@constants';
 import { HaExtened, PANEL_TYPE, SidebarConfig, SidebardPanelConfig } from '@types';
-import { ARRAY_UTILS } from '@utilities/array';
 import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
 import { getDefaultPanel } from '@utilities/panel';
 import { pick } from 'es-toolkit/compat';
@@ -21,7 +20,7 @@ export const validateConfig = (config: SidebarConfig, hidden?: string[]): Sideba
     ...config,
     ...updatedPanels,
     default_collapsed: defaultCollapsed,
-    hidden_items: ARRAY_UTILS.union(hiddenPanels, config.hidden_items || []),
+    hidden_items: hiddenPanels,
   };
   console.log('%cVALIDATORS:', 'color: #bada55;', { config, hiddenPanels, validatedConfig });
 

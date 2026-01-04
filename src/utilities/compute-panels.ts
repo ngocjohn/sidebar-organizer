@@ -1,9 +1,22 @@
+import { STORAGE } from '@constants';
 import { HA as HomeAssistant } from '@types';
 import memoizeOne from 'memoize-one';
 
 import { PanelInfo } from '../types';
 import { stringCompare } from './compare';
-import { BUILT_IN_PANELS, FIXED_PANELS, SHOW_AFTER_SPACER_PANELS } from './panel';
+import { fetchFrontendUserData } from './frontend';
+import { BUILT_IN_PANELS, FIXED_PANELS, getDefaultPanelUrlPath, SHOW_AFTER_SPACER_PANELS } from './panel';
+import { getStorage } from './storage-utils';
+
+export interface DisplayItem {
+  icon?: string | Promise<string | undefined>;
+  iconPath?: string;
+  value: string;
+  label: string;
+  description?: string;
+  disableSorting?: boolean;
+  disableHiding?: boolean;
+}
 
 // const SHOW_AFTER_SPACER = ['config', 'developer-tools'];
 
@@ -145,6 +158,57 @@ export const getBuiltInPanels = async (panels: HomeAssistant['panels'], defaultP
     return [];
   }
   return Object.values(panels).filter(
-    (panel) => BUILT_IN_PANELS.includes(panel.url_path) && panel.url_path !== defaultPanel && panel.title
+    (panel) => BUILT_IN_PANELS.includes(panel.url_path!) && panel.url_path !== defaultPanel
   );
+};
+
+type BasePanelData = {
+  panelOrder?: string[];
+  hiddenPanels?: string[];
+};
+
+export const getBasePanelData = async (hass: HomeAssistant): Promise<BasePanelData> => {
+  let panelOrder: string[] | undefined;
+  let hiddenPanels: string[] | undefined;
+  try {
+    const data = await fetchFrontendUserData(hass.connection, 'sidebar');
+    panelOrder = data?.panelOrder;
+    hiddenPanels = data?.hiddenPanels;
+
+    if (!panelOrder) {
+      const storedOrder = getStorage(STORAGE.PANEL_ORDER);
+      panelOrder = JSON.parse(storedOrder || 'null') || [];
+    }
+    if (!hiddenPanels) {
+      const storedHidden = getStorage(STORAGE.HIDDEN_PANELS);
+      hiddenPanels = JSON.parse(storedHidden || 'null') || [];
+    }
+  } catch (err: any) {
+    console.error('Error fetching frontend user data for sidebar:', err);
+  }
+  return { panelOrder, hiddenPanels };
+};
+
+export const getPanelItems = async (hass: HomeAssistant): Promise<{ order: string[]; hidden: string[] }> => {
+  const { panelOrder, hiddenPanels } = await getBasePanelData(hass);
+  const defaultPanel = getDefaultPanelUrlPath(hass);
+  const [beforeSpacer] = computePanels(hass.panels, defaultPanel, panelOrder || [], hiddenPanels || [], hass.locale);
+  const panels = hass.panels ? Object.values(hass.panels) : [];
+  const orderSet = new Set(panelOrder || []);
+  const hiddenSet = new Set(hiddenPanels || []);
+
+  for (const panel of panels) {
+    if (panel.default_visible === false && !orderSet.has(panel.url_path) && !hiddenSet.has(panel.url_path)) {
+      hiddenSet.add(panel.url_path);
+    }
+  }
+
+  if (hiddenSet.has(defaultPanel)) {
+    hiddenSet.delete(defaultPanel);
+  }
+
+  const hidden = Array.from(hiddenSet);
+  const order = [...beforeSpacer, ...panels.filter((p) => hidden.includes(p.url_path))].map((p) => p.url_path!);
+
+  return { order, hidden };
 };
