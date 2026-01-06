@@ -202,6 +202,7 @@ export const DIALOG_STYLE = css`
   ha-dialog {
     --mdc-dialog-max-width: 90vw;
     --mdc-dialog-min-height: 700px;
+    /* --mdc-dialog-min-height: calc(90vh - 72px); */
     --dialog-backdrop-filter: blur(2px);
     --justify-action-buttons: space-between;
     --dialog-content-padding: 0 1rem;

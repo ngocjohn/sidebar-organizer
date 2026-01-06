@@ -574,7 +574,8 @@ export class SidebarDialogPreview extends LitElement {
           display: block;
           /* margin: 1rem auto; */
           align-items: center;
-          max-height: calc(var(--mdc-dialog-min-height, 700px) - 40px);
+          max-height: calc(var(--mdc-dialog-min-height, 700px) - 50px);
+          /* max-height: max-content; */
           max-width: 260px;
           height: auto;
           width: 100%;
@@ -597,7 +598,7 @@ export class SidebarDialogPreview extends LitElement {
           overflow-y: auto;
           scrollbar-color: var(--scrollbar-thumb-color) transparent;
           scrollbar-width: thin;
-          max-height: calc(100% - 1px);
+          max-height: calc(100% - 0px);
         }
 
         .divider-container {

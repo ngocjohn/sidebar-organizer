@@ -745,9 +745,11 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _createSelectorOptions(items: string[], mode: string = 'list') {
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const options = items.map((panel) => {
+      const isDefault = panel === defaultPanel;
       const panelName = getPanelTitleFromUrlPath(this.hass, panel) || panel;
-      return { value: panel, label: panelName };
+      return { value: panel, label: panelName + (isDefault ? ' (default)' : '') };
     });
 
     // options.sort((a, b) => a.label.localeCompare(b.label));

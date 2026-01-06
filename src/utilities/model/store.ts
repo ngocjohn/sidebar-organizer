@@ -21,7 +21,7 @@ interface DashboardState {
 
 export default class Store {
   readonly haElement: HaExtened;
-  readonly _organizer: SidebarOrganizer;
+  private _organizer: SidebarOrganizer;
   public hass: HomeAssistant;
   public _panelHelper = PANEL_UTILS;
   public _computePanels = COMPUTE_PANELS;

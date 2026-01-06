@@ -35,7 +35,7 @@ import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
 import DialogHandler from '@utilities/model/dialog-handler';
 import Store from '@utilities/model/store';
-import { getDefaultPanel, getDefaultPanelUrlPath, getPanelTitle } from '@utilities/panel';
+import { getDefaultPanelUrlPath, getPanelTitle } from '@utilities/panel';
 import { isStoragePanelEmpty, setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
 import { ACTION_TYPES, addHandlerActions } from '@utilities/tap-action';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
@@ -199,7 +199,7 @@ export class SidebarOrganizer {
     this._setupConfigBtn();
     if (!this.firstSetUpDone) {
       // await this._getInitDashboards();
-      // await this._getDataDashboards();
+      await this._getDataDashboards();
       this.firstSetUpDone = true;
     }
 
@@ -386,7 +386,7 @@ export class SidebarOrganizer {
       this._baseOrder = combinedOrder;
       // console.log('%cMAIN:', 'color: #bada55;', 'Computed Combined Panel Order:', combinedOrder);
 
-      window.localStorage.setItem('sidebarPanelOrder', JSON.stringify(combinedOrder));
+      // window.localStorage.setItem('sidebarPanelOrder', JSON.stringify(combinedOrder));
 
       // raarnge items based on the combined order, item not found in the combined order will be placed at the end
       const orderedItems = this._sidebarItems.sort((a, b) => {
@@ -420,13 +420,13 @@ export class SidebarOrganizer {
           const isCollapsed = this.collapsedItems.has(itemsGroup);
           const isFirstInGroup = this._configPanelMap.get(itemsGroup)?.[0] === itemPanelId;
 
-          item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
-          item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
           if (isFirstInGroup) {
             // Handle collapsed state toggle
             const groupDivider = this._createDividerWithGroup(itemsGroup, isCollapsed);
             sidebarItemsContainer.insertBefore(groupDivider, item);
           }
+          item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
+          item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
         }
       });
 
@@ -606,14 +606,14 @@ export class SidebarOrganizer {
     collapseEl.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
 
     const handleToggle = (ev: Event) => {
-      ev.preventDefault();
+      ev.stopPropagation();
       this.collapsedItems.size === groupKeys.length
         ? this.collapsedItems.clear()
         : (this.collapsedItems = new Set([...groupKeys]));
       this._handleCollapsed(this.collapsedItems);
     };
-    ['touchstart', 'mousedown'].forEach((eventType) => {
-      collapseEl.addEventListener(eventType, handleToggle);
+    ['mousedown', 'touchstart'].forEach((eventType) => {
+      collapseEl.addEventListener(eventType, handleToggle, { passive: true });
     });
 
     titleEl.appendChild(collapseEl);
@@ -650,9 +650,15 @@ export class SidebarOrganizer {
 
   private _addBuiltInPanelsToSidebar(panels: PanelInfo[]): void {
     if (!panels || panels.length === 0) return;
+    const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
     const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
 
     panels.map((panel) => {
+      const existingPanel = scrollbarItems.find((el) => {
+        const panelId = el.getAttribute(ATTRIBUTE.DATA_PANEL) || el.href.replace('/', '');
+        return panelId === panel.url_path;
+      });
+      if (existingPanel) return; // Skip if panel already exists
       const builtInItem = this._createBuiltInPanelItem(panel);
       if (builtInItem) {
         this._scrollbar.insertBefore(builtInItem, spacer);
@@ -861,7 +867,7 @@ export class SidebarOrganizer {
   }
 
   private _computePanels(currentPanel: string[]) {
-    const defaultPanel = getDefaultPanel(this.hass).url_path;
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const bottomMovedItems = this._config.bottom_items || [];
     const customGroups = this._config.custom_groups || {};
 
