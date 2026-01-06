@@ -24,11 +24,12 @@ import {
   SidebarPanelItem,
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
+import { compareHacsTagDiff } from '@utilities/compare-urls';
 import { computeInitialPanelOrder, getBuiltInPanels } from '@utilities/compute-panels';
 import { fetchConfig } from '@utilities/configs';
 import { clearSidebarOrganizerStorage, getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { addAction, compareHacsTags, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, onPanelLoaded } from '@utilities/dom-utils';
 import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
@@ -198,7 +199,7 @@ export class SidebarOrganizer {
     this._setupConfigBtn();
     if (!this.firstSetUpDone) {
       // await this._getInitDashboards();
-      await this._getDataDashboards();
+      // await this._getDataDashboards();
       this.firstSetUpDone = true;
     }
 
@@ -309,12 +310,7 @@ export class SidebarOrganizer {
   }
 
   private async _checkHacsTagMismatch(): Promise<void> {
-    const { loadedTagMatch, configTagMatch } = await compareHacsTags();
-    if (loadedTagMatch && configTagMatch && loadedTagMatch !== configTagMatch) {
-      this._pluginHacstag = loadedTagMatch;
-      const alertMsg = `${NAMESPACE}: HACS tag mismatch detected.\n\nPlease update the extra_module_url path in your configuration file to match the loaded script.\nYou can update the URL with ?hacstag=${loadedTagMatch} and restart Home Assistant to resolve this issue.\n\n`;
-      throw Error(alertMsg);
-    }
+    compareHacsTagDiff(this.hass);
   }
 
   private async _checkUserSidebarSettings() {
@@ -1179,4 +1175,5 @@ if (!window.SidebarOrganizer) {
   const debugMode = params.has('so_debug');
 
   window.SidebarOrganizer = new SidebarOrganizer(debugMode);
+  console.log('%cMAIN:', 'color: #bada55;', 'Sidebar Organizer initialized');
 }

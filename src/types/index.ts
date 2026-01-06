@@ -4,10 +4,6 @@ import { HomeAssistant } from './ha';
 
 export type HA = HomeAssistant;
 
-export interface HomeAssistantElement extends HTMLElement {
-  hass: HomeAssistant;
-}
-
 export interface HaExtened extends HTMLElement {
   hass: HomeAssistant;
 }

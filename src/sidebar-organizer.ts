@@ -1,5 +1,6 @@
 import './main';
 import { infoFrontendModule } from '@utilities/logger';
+
 const NAME_RGX = /sidebar-organizer.js/i;
 
 const loadedScripts = Array.from(document.scripts);
@@ -16,8 +17,6 @@ for (const script of loadedScripts) {
 }
 
 if (resources.some((r) => NAME_RGX.test(r))) {
-  // const configUrl = resources.find((r) => NAME_RGX.test(r));
-  // console.log('%cSIDEBAR-ORGANIZER:', 'color: #999999;', `Loaded as a frontend module from: ${configUrl}`);
   // compareHacsTag(configUrl!);
   // console.log('%cSidebar Organizer is loaded as a module.', 'color: green; font-weight: bold;');
 } else {
