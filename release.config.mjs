@@ -28,6 +28,12 @@ export default {
       },
     ],
     [
+      '@semantic-release/git',
+      {
+        assets: ['package.json'],
+      },
+    ],
+    [
       '@semantic-release/github',
       {
         assets: 'build/*.js',
