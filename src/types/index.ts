@@ -51,6 +51,10 @@ export interface Sidebar extends HTMLElement {
   hassSubscribe: (callback: (data: any) => void) => () => void;
 }
 
+export interface HaMdList extends HTMLElement {
+  slotItems: Array<SidebarPanelItem | (HTMLElement & { item?: SidebarPanelItem })>;
+}
+
 export interface PanelInfo {
   component_name?: string;
   icon: string | null;
@@ -117,14 +121,16 @@ export type CustomGroups = {
 export interface SidebardPanelConfig {
   custom_groups?: CustomGroups;
   bottom_items?: string[];
+  bottom_grid_items?: string[];
   hidden_items?: string[];
 }
-export const PanelTypes = ['custom_groups', 'bottom_items', 'hidden_items'] as const;
+export const PanelTypes = ['custom_groups', 'bottom_items', 'bottom_grid_items', 'hidden_items'] as const;
 export type PanelType = (typeof PanelTypes)[number];
 
 export enum PANEL_TYPE {
   CUSTOM = 'custom_groups',
   BOTTOM = 'bottom_items',
+  BOTTOM_GRID = 'bottom_grid_items',
   HIDDEN = 'hidden_items',
 }
 export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceConfig {

@@ -78,6 +78,21 @@ export const DIVIDER_ADDED_STYLE = css`
     border-radius: 20px;
     font-size: 0.85em;
   }
+  :host([expanded]) .grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 25%);
+    padding: 0;
+    margin: 0;
+    overflow: clip;
+    max-height: fit-content;
+  }
+  :host([expanded]) .grid-container > ha-md-list-item[grid-item='true'] {
+    width: 48px;
+    height: 48px;
+    justify-content: center;
+    align-items: center;
+    margin: auto auto;
+  }
 
   :host .divider[added] .added-content {
     display: flex;

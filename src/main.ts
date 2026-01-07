@@ -17,6 +17,7 @@ import {
   HaDrawer,
   HaExtened,
   NewItemConfig,
+  PANEL_TYPE,
   PanelInfo,
   PartialPanelResolver,
   Sidebar,
@@ -36,7 +37,7 @@ import * as LOGGER from '@utilities/logger';
 import DialogHandler from '@utilities/model/dialog-handler';
 import Store from '@utilities/model/store';
 import { getDefaultPanelUrlPath, getPanelTitle } from '@utilities/panel';
-import { isStoragePanelEmpty, setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
+import { setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
 import { ACTION_TYPES, addHandlerActions } from '@utilities/tap-action';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { isEmpty } from 'es-toolkit/compat';
@@ -140,6 +141,7 @@ export class SidebarOrganizer {
   private _baseColorFromTheme: DividerColorSettings = {};
   private _mouseEnterBinded: (event: MouseEvent) => void;
   private _mouseLeaveBinded: () => void;
+
   private _debugLog(
     topic: string,
     metadata?: unknown,
@@ -416,7 +418,7 @@ export class SidebarOrganizer {
         }
         // Handle custom groups
 
-        if (itemsGroup && itemsGroup !== 'bottom_items') {
+        if (itemsGroup && itemsGroup !== PANEL_TYPE.BOTTOM && itemsGroup !== PANEL_TYPE.BOTTOM_GRID) {
           const isCollapsed = this.collapsedItems.has(itemsGroup);
           const isFirstInGroup = this._configPanelMap.get(itemsGroup)?.[0] === itemPanelId;
 
@@ -438,7 +440,12 @@ export class SidebarOrganizer {
       // Reorder grouped items
       this._reorderGroupedSidebar();
 
+      // Handle grid items
+      // this._handleGridItems();
+
+      // Handle sidebar header
       this._handleSidebarHeader();
+
       this.setupConfigDone = true;
 
       this._panelLoaded();
@@ -548,36 +555,24 @@ export class SidebarOrganizer {
     }
   }
 
-  private _setInitPanelOrder(): void {
-    const isEmptyOrder = isStoragePanelEmpty();
-    console.log('Is Storage Panel Order Empty:', isEmptyOrder);
-    if (!isEmptyOrder) return;
-    const baseOrder = this._baseOrder;
-    if (baseOrder.length > 0) {
-      console.log('Setting initial panel order from base order');
-      setStorage(STORAGE.PANEL_ORDER, baseOrder);
-      return;
-    }
-
-    console.log('No initial panel order found, setting default');
-    const { beforeSpacer, builtInhidden } = this._getInitialPanelItems();
-    setStorage(STORAGE.PANEL_ORDER, [...beforeSpacer]);
-    setStorage(STORAGE.HIDDEN_PANELS, [...builtInhidden]);
-    console.log('Initial Panel Order Set:', beforeSpacer, builtInhidden);
-  }
-
   private _setupInitialConfig() {
     console.log('%cMAIN:', 'color: #bada55;', 'Setting up initial config');
 
-    const { new_items, default_collapsed, custom_groups, hidden_items, color_config, bottom_items } = this._config;
+    const { new_items, default_collapsed, custom_groups, hidden_items, color_config, bottom_items, bottom_grid_items } =
+      this._config;
     this._configPanelMap = new Map(Object.entries(custom_groups || {}));
     if (!isEmpty(bottom_items)) {
-      this._configPanelMap.set('bottom_items', bottom_items!);
+      this._configPanelMap.set(PANEL_TYPE.BOTTOM, bottom_items!);
     }
+    if (!isEmpty(bottom_grid_items)) {
+      this._configPanelMap.set(PANEL_TYPE.BOTTOM_GRID, bottom_grid_items!);
+    }
+
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
     this._handleHidden(hidden_items || []);
     // Add new items
     this._addNewItems(new_items || []);
+
     // Add additional styles
     this._addAdditionalStyles(color_config);
   }
@@ -667,6 +662,52 @@ export class SidebarOrganizer {
     console.log('%cMAIN:', 'color: #bada55;', 'Built-in Panels Added to Sidebar:', panels);
   }
 
+  private _addGridContainer(): void {
+    const gridItems: NewItemConfig[] = [
+      {
+        title: 'Dev Template',
+        icon: 'mdi:code-braces',
+        url_path: '/developer-tools/template',
+      },
+      {
+        title: 'Devices & Services',
+        icon: 'mdi:devices',
+        url_path: '/config/devices/dashboard',
+      },
+    ];
+
+    const scrollbarContainer = this._scrollbar;
+    const spacer = scrollbarContainer.querySelector(SELECTOR.SPACER) as HTMLElement;
+    Array.from(gridItems).map((item) => {
+      const gridItem = this._createNewItem(item, true);
+      if (gridItem) {
+        scrollbarContainer.insertBefore(gridItem, spacer);
+      }
+    });
+    console.log('%cMAIN:', 'color: #bada55;', 'Grid Items Added to Sidebar');
+  }
+
+  private _handleGridItems(): void {
+    const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
+
+    const gridContainer = document.createElement('div') as HTMLElement;
+    gridContainer.classList.add('grid-container');
+
+    scrollbarItems
+      .filter((item) => item.hasAttribute(ATTRIBUTE.GRID_ITEM))
+      .forEach((item) => {
+        gridContainer.appendChild(item);
+      });
+
+    if (gridContainer.children.length > 0) {
+      // const bottomDivider = this._scrollbar.querySelector(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`) as HTMLElement;
+      // this._scrollbar.insertBefore(gridContainer, bottomDivider.nextElementSibling);
+      const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
+      this._scrollbar.insertBefore(gridContainer, spacer);
+      console.log('%cMAIN:', 'color: #bada55;', 'Grid Container Added to Sidebar');
+    }
+  }
+
   private _subscribeTemplate(value: string, callback: (result: string) => void): void {
     if (!this.hass || !hasTemplate(value)) {
       console.log('Not a template:', this.hass, value);
@@ -714,32 +755,52 @@ export class SidebarOrganizer {
   };
 
   private _addBottomItems(): void {
-    if (!this._configPanelMap.get('bottom_items')) return;
+    if (!this._configPanelMap.get(PANEL_TYPE.BOTTOM) && !this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID)) {
+      return;
+    }
 
-    const value = this._configPanelMap.get('bottom_items')!;
-    const scrollbarItems = this._sidebarItems;
+    const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
     const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
-    value.forEach((item, index) => {
-      const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
-      if (!panel) return;
 
-      panel.setAttribute(ATTRIBUTE.MOVED, '');
-      // Insert spacer before first bottom item
-      if (index === 0) {
-        this._scrollbar.insertBefore(spacer, panel);
-      }
+    if (this._configPanelMap.get(PANEL_TYPE.BOTTOM)) {
+      const value = this._configPanelMap.get(PANEL_TYPE.BOTTOM)!;
+      value.forEach((item, index) => {
+        const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
+        if (!panel) return;
+        panel.setAttribute(ATTRIBUTE.MOVED, '');
+        if (index === 0) {
+          this._scrollbar.insertBefore(spacer, panel);
+        }
+        this._scrollbar.insertBefore(panel, panel.nextElementSibling);
+      });
+    }
 
-      // Always insert panel (even if already in DOM it repositions)
-      this._scrollbar.insertBefore(panel, panel.nextSibling);
+    const gridContainer = document.createElement('div') as HTMLElement;
+    gridContainer.classList.add('grid-container');
 
-      // Insert divider after the last bottom item
-      if (index === value.length - 1) {
+    if (this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID)) {
+      const value = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID)!;
+      value.forEach((item) => {
+        const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
+        if (!panel) return;
+
+        panel.setAttribute(ATTRIBUTE.GRID_ITEM, 'true');
+        gridContainer.appendChild(panel);
+      });
+    }
+    if (gridContainer.children.length > 0) {
+      const lastBottomItem = scrollbarItems.findLast((item) => item.hasAttribute(ATTRIBUTE.MOVED));
+      if (lastBottomItem) {
+        const referenceNode = lastBottomItem.nextElementSibling;
         const divider = this._createDivider(ATTRIBUTE.BOTTOM);
-        this._scrollbar.insertBefore(divider, panel.nextSibling);
+        this._scrollbar.insertBefore(divider, referenceNode);
+        this._scrollbar.insertBefore(gridContainer, referenceNode);
+      } else {
+        this._scrollbar.insertBefore(gridContainer, spacer.nextElementSibling);
       }
-
-      // console.log('Adding Bottom Item:', item, 'Panel:', panel, 'Index:', index);
-    });
+    } else {
+      console.log('%cMAIN:', 'color: #bada55;', 'No Bottom Grid Items to Add');
+    }
   }
 
   private _handleNewConfig(config: SidebarConfig, useConfigFile: boolean) {
@@ -868,8 +929,9 @@ export class SidebarOrganizer {
 
   private _computePanels(currentPanel: string[]) {
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
-    const bottomMovedItems = this._config.bottom_items || [];
     const customGroups = this._config.custom_groups || {};
+    const bottomMovedItems = this._config.bottom_items || [];
+    const bottomGridItems = this._config.bottom_grid_items || [];
 
     // Get grouped items
     const groupedItems = Object.values(customGroups)
@@ -878,7 +940,7 @@ export class SidebarOrganizer {
 
     // Filter default items that are not in grouped or bottom items
     const defaultItems = currentPanel.filter(
-      (item) => !groupedItems.includes(item) && !bottomMovedItems.includes(item)
+      (item) => !groupedItems.includes(item) && !bottomMovedItems.includes(item) && !bottomGridItems.includes(item)
     );
 
     // Move default panel item to the front
@@ -889,7 +951,7 @@ export class SidebarOrganizer {
     }
 
     // Combine grouped, default, and bottom items
-    return [...groupedItems, ...defaultItems, ...bottomMovedItems];
+    return [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems];
   }
 
   private _reorderGroupedSidebar() {
@@ -972,18 +1034,20 @@ export class SidebarOrganizer {
     return item;
   }
 
-  private _createNewItem(itemConfig: NewItemConfig): SidebarPanelItem {
+  private _createNewItem(itemConfig: NewItemConfig, gridItem: boolean = false): SidebarPanelItem {
     const hasAction = ACTION_TYPES.some((action) => itemConfig[action] !== undefined);
     const hasNotification = itemConfig.notification !== undefined;
     const item = document.createElement(ELEMENT.ITEM) as SidebarPanelItem;
     item.setAttribute(ATTRIBUTE.TYPE, 'link');
 
     item.href = hasAction ? '#' : (itemConfig.url_path ?? '#');
-    item.target = itemConfig.target ?? '_self';
+    item.target = itemConfig.target ?? '';
     item.setAttribute('data-panel', itemConfig.title!);
     item.setAttribute('has-action', hasAction.toString());
-    item.setAttribute('is-new-item', 'true');
     item.setAttribute('newItem', 'true');
+    if (gridItem) {
+      item.setAttribute(ATTRIBUTE.GRID_ITEM, 'true');
+    }
     item.tabIndex = -1;
 
     const span = document.createElement('span');
@@ -1011,7 +1075,11 @@ export class SidebarOrganizer {
 
   private async _mouseEnter(event: MouseEvent) {
     const sidebarElement = (await this._sidebar.element) as Sidebar;
-    if (sidebarElement.alwaysExpand) return;
+    const target = event.currentTarget as HTMLElement;
+    const targetIsGridItem = target.hasAttribute('grid-item');
+    if (sidebarElement.alwaysExpand && !targetIsGridItem) {
+      return;
+    }
     if (sidebarElement._mouseLeaveTimeout) {
       clearTimeout(sidebarElement._mouseLeaveTimeout);
       sidebarElement._mouseLeaveTimeout = undefined;
