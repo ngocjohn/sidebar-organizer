@@ -38,6 +38,7 @@ export enum ELEMENT {
   CONFIG_DASHBOARDS = 'ha-config-lovelace-dashboards',
   DIALOG_EDIT_SIDEBAR = 'dialog-edit-sidebar',
   ITEMS_DISPLAY_EDITOR = 'ha-items-display-editor',
+  HA_MD_LIST = 'ha-md-list',
 }
 
 export enum CLASS {
@@ -64,6 +65,7 @@ export enum ATTRIBUTE {
   DATA_NOTIFICATION = 'data-notification',
   DATA_PANEL = 'data-panel',
   NEW_ITEM = 'new-item',
+  GRID_ITEM = 'grid-item',
   BOTTOM = 'bottom',
   MOVED = 'moved',
   UNGROUPED = 'ungrouped',

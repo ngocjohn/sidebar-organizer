@@ -980,12 +980,3 @@ export class SidebarDialogColors extends LitElement {
     ];
   }
 }
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'sidebar-dialog-colors': SidebarDialogColors;
-  }
-  interface Window {
-    SidebarDialogColors: SidebarDialogColors;
-  }
-}

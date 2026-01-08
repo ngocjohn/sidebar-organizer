@@ -58,6 +58,10 @@ export const saveFrontendUserData = async <UserDataKey extends ValidUserDataKey>
     value,
   });
 
+export const clearSidebarUserData = async (conn: Connection): Promise<void> => {
+  return await saveFrontendUserData(conn, 'sidebar', {});
+};
+
 export const subscribeFrontendUserData = <UserDataKey extends ValidUserDataKey>(
   conn: Connection,
   userDataKey: UserDataKey,

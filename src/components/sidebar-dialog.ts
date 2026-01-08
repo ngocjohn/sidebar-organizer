@@ -181,6 +181,7 @@ export class SidebarConfigDialog extends LitElement {
       const panelConfig = {
         ...(newConfig.custom_groups || {}),
         bottom_items: newConfig.bottom_items || [],
+        bottom_grid_items: newConfig.bottom_grid_items || [],
       };
       this._panelConfigMap = new Map(Object.entries(panelConfig));
       // Check for config changes from initial config
@@ -284,6 +285,7 @@ export class SidebarConfigDialog extends LitElement {
         ._dialog=${this}
         ._sidebarConfig=${this._sidebarConfig}
         @sidebar-changed=${this._handleSidebarChanged}
+        @item-clicked=${this._handleItemClicked}
       ></sidebar-dialog-new-items>
     `;
   }
