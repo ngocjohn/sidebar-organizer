@@ -105,14 +105,17 @@ export const resetPanelOrder = (paperListBox: HTMLElement): void => {
 
 export const resetBottomItems = (paperListBox: HTMLElement): void => {
   const bottomItems = paperListBox.querySelectorAll(`${ELEMENT.ITEM}[moved]`) as NodeListOf<HTMLElement>;
-  if (bottomItems.length === 0) return;
-  const spacerEl = paperListBox.querySelector(SELECTOR.SPACER) as HTMLElement;
-  const dividerBottom = paperListBox.querySelector(`${ELEMENT.DIVIDER}[bottom]`) as HTMLElement;
-  dividerBottom?.remove();
-  bottomItems.forEach((item) => {
-    item.removeAttribute('moved');
-    paperListBox.insertBefore(item, spacerEl);
-  });
+  if (bottomItems.length) {
+    console.log('%cDOM-UTILS:', 'color: #4dabf7;', `Resetting ${bottomItems.length} bottom items`);
+
+    const spacerEl = paperListBox.querySelector(SELECTOR.SPACER) as HTMLElement;
+    const dividerBottom = paperListBox.querySelector(`${ELEMENT.DIVIDER}[bottom]`) as HTMLElement;
+    dividerBottom?.remove();
+    bottomItems.forEach((item) => {
+      item.removeAttribute('moved');
+      paperListBox.insertBefore(item, spacerEl);
+    });
+  }
 };
 
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {

@@ -285,6 +285,7 @@ export class SidebarConfigDialog extends LitElement {
         ._dialog=${this}
         ._sidebarConfig=${this._sidebarConfig}
         @sidebar-changed=${this._handleSidebarChanged}
+        @item-clicked=${this._handleItemClicked}
       ></sidebar-dialog-new-items>
     `;
   }

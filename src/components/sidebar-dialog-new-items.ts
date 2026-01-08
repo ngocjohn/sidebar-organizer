@@ -13,6 +13,7 @@ import memoizeOne from 'memoize-one';
 import { dialogStyles } from './dialog-css';
 import { computeOptionalActionSchemaFull } from './forms';
 import { SidebarConfigDialog } from './sidebar-dialog';
+import { BottomTabPanel } from './sidebar-dialog-groups';
 
 const convertTitle = (title: string | undefined): string => {
   return title ? capitalize(title.replace(/_/g, ' ')) : 'Ungrouped';
@@ -36,6 +37,24 @@ export class SidebarDialogNewItems extends LitElement {
       setTimeout(() => {
         this._observeExpansion();
       }, 100); // Delay to ensure the DOM is updated
+    }
+  }
+
+  protected firstUpdated(changedProperties: PropertyValues): void {
+    super.firstUpdated(changedProperties);
+    this._selectedItem = null;
+  }
+
+  protected updated(changedProperties: PropertyValues): void {
+    super.updated(changedProperties);
+    if (changedProperties.has('_selectedItemIndex')) {
+      if (this._selectedItemIndex !== null) {
+        this._selectedItem = this._sidebarConfig.new_items![this._selectedItemIndex];
+        this._toggleItemInPreview(this._selectedItem.title!);
+      } else {
+        this._selectedItem = null;
+        this._yamlMode = false;
+      }
     }
   }
 
@@ -327,12 +346,27 @@ export class SidebarDialogNewItems extends LitElement {
   }
 
   private getGroupKey(item: string): string | undefined {
-    const { custom_groups = {}, bottom_items = [] } = this._sidebarConfig;
+    const { custom_groups = {}, bottom_items = [], bottom_grid_items = [] } = this._sidebarConfig;
     const groups = {
       ...custom_groups,
       bottom_items,
+      bottom_grid_items,
     };
     return findKey(groups, (g) => g.includes(item));
+  }
+
+  private _toggleItemInPreview(itemTitle: string): void {
+    const inGroups = this._dialog._getGroupOfPanel(itemTitle);
+    console.log('%cSIDEBAR-DIALOG-NEW-ITEMS:', 'color: #40c057;', '_toggleItemInPreview', itemTitle, inGroups);
+    if (inGroups && inGroups !== null) {
+      if (['bottom_items', 'bottom_grid_items'].includes(inGroups)) {
+        this._dialog._dialogPreview._toggleBottomPanel(inGroups as BottomTabPanel);
+      } else {
+        this._dialog._dialogPreview._toggleGroup(inGroups);
+      }
+    } else {
+      this._dialog._dialogPreview._toggleGroup(inGroups);
+    }
   }
 
   // private getGroupName(item: string): string {
@@ -595,23 +629,6 @@ export class SidebarDialogNewItems extends LitElement {
     this._selectedItemIndex = newItems.length - 1;
     this.requestUpdate();
   };
-
-  protected firstUpdated(changedProperties: PropertyValues): void {
-    super.firstUpdated(changedProperties);
-    this._selectedItem = null;
-  }
-
-  protected updated(changedProperties: PropertyValues): void {
-    super.updated(changedProperties);
-    if (changedProperties.has('_selectedItemIndex')) {
-      if (this._selectedItemIndex !== null) {
-        this._selectedItem = this._sidebarConfig.new_items![this._selectedItemIndex];
-      } else {
-        this._selectedItem = null;
-        this._yamlMode = false;
-      }
-    }
-  }
 
   private _dispatchConfig(config: SidebarConfig) {
     const event = new CustomEvent('sidebar-changed', { detail: config, bubbles: true, composed: true });

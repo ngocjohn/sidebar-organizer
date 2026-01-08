@@ -11,12 +11,12 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import { SidebarConfigDialog } from './sidebar-dialog';
-
-const BOTTOM_SYSTEM_PANELS = ['developer-tools', 'config'] as const;
+import { BottomTabPanel } from './sidebar-dialog-groups';
 
 export interface PreviewPanels {
   custom_groups?: Record<string, PanelInfo[]>;
   bottom_items?: PanelInfo[];
+  bottom_grid_items?: PanelInfo[];
 }
 
 @customElement('sidebar-dialog-preview')
@@ -79,13 +79,23 @@ export class SidebarDialogPreview extends LitElement {
 
       if (oldConfig && newConfig) {
         const bottomHasChanged = !shallowEqual(oldConfig.bottom_items, newConfig.bottom_items);
+        const bottomGridHasChanged = !shallowEqual(oldConfig.bottom_grid_items, newConfig.bottom_grid_items);
         const customGroupsHasChanged = !shallowEqual(oldConfig.custom_groups, newConfig.custom_groups);
         const hiddenItemsHasChanged = !shallowEqual(oldConfig.hidden_items, newConfig.hidden_items);
         const newItemsHasChanged = !shallowEqual(oldConfig.new_items, newConfig.new_items);
 
-        if (Boolean(bottomHasChanged || customGroupsHasChanged || hiddenItemsHasChanged || newItemsHasChanged)) {
+        if (
+          Boolean(
+            bottomHasChanged ||
+            bottomGridHasChanged ||
+            customGroupsHasChanged ||
+            hiddenItemsHasChanged ||
+            newItemsHasChanged
+          )
+        ) {
           console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #40c057;', {
             bottomHasChanged,
+            bottomGridHasChanged,
             customGroupsHasChanged,
             hiddenItemsHasChanged,
             newItemsHasChanged,
@@ -260,7 +270,7 @@ export class SidebarDialogPreview extends LitElement {
   private _computePreviewPanels(): PreviewPanels {
     const previewPanels: PreviewPanels = {};
 
-    const { custom_groups, bottom_items } = this._sidebarConfig || {};
+    const { custom_groups, bottom_items, bottom_grid_items } = this._sidebarConfig || {};
     if (custom_groups) {
       previewPanels.custom_groups = {};
       Object.entries(custom_groups).forEach(([groupName, items]) => {
@@ -269,6 +279,9 @@ export class SidebarDialogPreview extends LitElement {
     }
     if (bottom_items) {
       previewPanels.bottom_items = bottom_items.map((item) => this._getPanelInfo(item));
+    }
+    if (bottom_grid_items) {
+      previewPanels.bottom_grid_items = bottom_grid_items.map((item) => this._getPanelInfo(item));
     }
     return previewPanels;
   }
@@ -315,22 +328,21 @@ export class SidebarDialogPreview extends LitElement {
       return this._renderPanel(defaultDash);
     };
 
-    const bottomSys = () => {
-      return BOTTOM_SYSTEM_PANELS.map((panelId) => {
-        const panelInfo = this._getPanelInfo(panelId);
-        return this._renderPanel(panelInfo);
-      });
-    };
-
     return html` <div id="theme-container"></div>
       <div class="divider-preview" style=${this._computePreviewStyle()}>
         ${this._renderHeader()}
         <div class="groups-container">
           ${lovelacePanel()} ${this._renderCustomGroups()} ${this._renderUngroupedPanels()}
           <div class="spacer"></div>
-          <div class="bottom-panel">${this._renderBottomPanels()}</div>
-          <div class="divider"></div>
-          <div class="system-panel">${bottomSys()}</div>
+          ${isEmpty(this._previewPanels?.bottom_items)
+            ? nothing
+            : html` <div class="bottom-panel">${this._renderBottomPanels()}</div> `}
+          ${isEmpty(this._previewPanels?.bottom_grid_items)
+            ? nothing
+            : html`
+                <div class="divider"></div>
+                <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
+              `}
         </div>
       </div>`;
   }
@@ -372,14 +384,23 @@ export class SidebarDialogPreview extends LitElement {
     return ungroupedPanels.map((item: PanelInfo) => this._renderPanel(item));
   }
 
-  private _renderPanel(panel: PanelInfo): TemplateResult {
+  private _renderBottomGridPanels(): TemplateResult[] {
+    const bottomGridItems = this._previewPanels?.bottom_grid_items;
+    if (!bottomGridItems) {
+      return [];
+    }
+    return bottomGridItems.map((item: PanelInfo) => this._renderPanel(item, true));
+  }
+  private _renderPanel(panel: PanelInfo, gridItem: boolean = false): TemplateResult {
     const itemClicked = () => {
       this._dispatchEvent('item-clicked', panel.component_name);
     };
 
     const { icon, title, component_name } = panel;
     return html`<a data-panel=${component_name!} @click=${itemClicked}>
-      <div class="icon-item"><ha-icon .icon=${icon}></ha-icon><span class="item-text">${title}</span></div>
+      <div class="icon-item" ?grid-item=${gridItem}>
+        <ha-icon .icon=${icon}> </ha-icon><span class="item-text">${title}</span>
+      </div>
     </a>`;
   }
 
@@ -469,15 +490,28 @@ export class SidebarDialogPreview extends LitElement {
     });
   };
 
-  public _toggleBottomPanel(bottomPanel: boolean, anime: boolean = true) {
-    const bottomPanelEl = this.shadowRoot?.querySelector('div.bottom-panel') as HTMLElement;
-    bottomPanelEl.toggleAttribute('selected', bottomPanel && !anime);
-    if (bottomPanel && anime) {
-      bottomPanelEl.classList.add('hight-light');
-      bottomPanelEl.addEventListener('animationend', () => {
-        bottomPanelEl.classList.remove('hight-light');
-      });
-    }
+  public _toggleBottomPanel(bottomPanel: BottomTabPanel, anime: boolean = true) {
+    this._collapsedGroups = new Set(Object.keys(this._previewPanels?.custom_groups || {}));
+    this.requestUpdate();
+    this.updateComplete.then(() => {
+      let bottomPanelEl: HTMLElement;
+      bottomPanelEl =
+        bottomPanel === 'bottom_items'
+          ? (this.shadowRoot?.querySelector('div.bottom-panel') as HTMLElement)
+          : (this.shadowRoot?.querySelector('div.bottom-grid-panel') as HTMLElement);
+      if (!bottomPanelEl) {
+        return;
+      }
+      this._groupsContainer.scrollTo(0, this._groupsContainer.scrollHeight - bottomPanelEl.scrollHeight);
+      // const bottomPanelEl = this.shadowRoot?.querySelector('div.bottom-panel') as HTMLElement;
+      bottomPanelEl.toggleAttribute('selected', bottomPanel && !anime);
+      if (bottomPanel && anime) {
+        bottomPanelEl.classList.add('hight-light');
+        bottomPanelEl.addEventListener('animationend', () => {
+          bottomPanelEl.classList.remove('hight-light');
+        });
+      }
+    });
   }
 
   private _dispatchEvent(eventName: string, detail?: any) {
@@ -599,6 +633,7 @@ export class SidebarDialogPreview extends LitElement {
           scrollbar-color: var(--scrollbar-thumb-color) transparent;
           scrollbar-width: thin;
           max-height: calc(100% - 0px);
+          /* scroll-margin-block-end: -40px; */
         }
 
         .divider-container {
@@ -772,6 +807,41 @@ export class SidebarDialogPreview extends LitElement {
         .system-panel {
           display: block;
           margin-bottom: 40px;
+        }
+        .bottom-grid-panel {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, 25%);
+          padding: 0;
+          margin-bottom: 40px;
+          max-height: fit-content;
+          scroll-margin-block-end: -40px;
+        }
+        .bottom-grid-panel a {
+          width: calc(249px / 4 - 0px);
+          display: flex;
+        }
+        .icon-item[grid-item] {
+          /* padding: 0; */
+          padding-inline-start: 0;
+          /* margin: auto auto; */
+          width: 100%;
+          display: flex;
+          height: 48px;
+        }
+        .icon-item[grid-item] > ha-icon {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        .icon-item[grid-item] > span.item-text {
+          display: none !important;
+        }
+
+        .icon-item[grid-item] > ha-icon.notification-badge {
+          left: 32px;
+          width: 22px;
+          top: 8px;
         }
 
         .notification-badge {

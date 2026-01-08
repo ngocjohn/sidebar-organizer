@@ -103,6 +103,7 @@ export default class Store {
       const configToUpdate = pick(config, [
         PANEL_TYPE.CUSTOM,
         PANEL_TYPE.BOTTOM,
+        PANEL_TYPE.BOTTOM_GRID,
         PANEL_TYPE.HIDDEN,
       ]) as SidebardPanelConfig;
       const updatedPanels = cleanItemsFromConfig(configToUpdate, itemToRemove);

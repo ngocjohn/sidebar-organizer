@@ -4,7 +4,12 @@ export const dialogStyles = css`
   :host *[hidden] {
     display: none;
   }
-
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    transition: none;
+  }
   :host ha-expansion-panel .container.expanded {
     background-color: var(--primary-background-color) !important;
   }
@@ -130,6 +135,7 @@ export const dialogStyles = css`
     display: block;
     max-height: 300px;
     overflow: auto;
+    padding: 6px 4px;
   }
   .preview-container {
     min-width: 230px;

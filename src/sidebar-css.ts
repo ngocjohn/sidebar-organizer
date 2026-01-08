@@ -1,5 +1,9 @@
 import { css } from 'lit';
 export const DIVIDER_ADDED_STYLE = css`
+  :host .ha-scrollbar {
+    padding: 0;
+  }
+
   :host .collapse-toggle {
     color: var(--primary-color);
     transition: transform 0.3s ease;
@@ -33,7 +37,7 @@ export const DIVIDER_ADDED_STYLE = css`
     margin: 0 !important;
   }
 
-  :host([expanded]) .ha-scrollbar .divider[ungrouped] {
+  :host .ha-scrollbar .divider[ungrouped] {
     padding-top: 1px;
     opacity: 0.5;
   }
@@ -42,6 +46,16 @@ export const DIVIDER_ADDED_STYLE = css`
     --mdc-icon-size: 20px !important;
   }
 
+  :host([expanded]) .grid-container > ha-md-list-item[grid-item] > ha-icon.badge,
+  :host([expanded]) .grid-container > ha-md-list-item[grid-item] > span.badge {
+    position: absolute;
+    top: 0;
+    left: 26px;
+    border-radius: var(--ha-border-radius-md);
+    font-size: 0.65em;
+    line-height: var(--ha-line-height-expanded);
+    padding: 0 var(--ha-space-1);
+  }
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge {
     position: absolute;
@@ -51,6 +65,7 @@ export const DIVIDER_ADDED_STYLE = css`
     max-width: 30px;
     top: 0px;
   }
+
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
   :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge.badge-number {
     inset-inline-end: 4px !important;
@@ -80,13 +95,15 @@ export const DIVIDER_ADDED_STYLE = css`
   }
   :host([expanded]) .grid-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 25%);
+    grid-template-columns: repeat(auto-fill, calc(25% - 4px));
     padding: 0;
     margin: 0;
     overflow: clip;
-    max-height: fit-content;
+    /* max-height: fit-content; */
+    justify-content: center;
+    grid-gap: 4px 4px;
   }
-  :host([expanded]) .grid-container > ha-md-list-item[grid-item='true'] {
+  :host([expanded]) .grid-container > ha-md-list-item[grid-item] {
     width: 48px;
     height: 48px;
     justify-content: center;
