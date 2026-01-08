@@ -8,7 +8,6 @@ export const dialogStyles = css`
   *::before,
   *::after {
     box-sizing: border-box;
-    transition: none;
   }
   :host ha-expansion-panel .container.expanded {
     background-color: var(--primary-background-color) !important;

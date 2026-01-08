@@ -31,8 +31,8 @@ export const validateConfig = (config: SidebarConfig, hidden?: string[]): Sideba
   return validatedConfig;
 };
 
-export const getDuplikatedItems = (custom: string[], bottom: string[], bottomGrid: string[]): string[] => {
-  let duplikatedItems: string[] = [];
+export const findDuplicateItems = (custom: string[], bottom: string[], bottomGrid: string[]): string[] => {
+  let duplicateItemList: string[] = [];
   const itemCount: { [key: string]: number } = {};
 
   const allItems = [...custom, ...bottom, ...bottomGrid];
@@ -41,9 +41,9 @@ export const getDuplikatedItems = (custom: string[], bottom: string[], bottomGri
     itemCount[item] = (itemCount[item] || 0) + 1;
   });
 
-  duplikatedItems = Object.keys(itemCount).filter((item) => itemCount[item] > 1);
+  duplicateItemList = Object.keys(itemCount).filter((item) => itemCount[item] > 1);
 
-  return duplikatedItems;
+  return duplicateItemList;
 };
 
 export const isDefaultIncluded = (
@@ -92,7 +92,7 @@ export const isItemsValid = (
   // Check if default panel is in custom groups or bottom items
   const hasDefaultInGroupsOrBottom = isDefaultIncluded(defaultPanel, customGroups, bottomItems, bottomGridItems);
   // Find duplicated items
-  const duplikatedItems = getDuplikatedItems(customGroups, bottomItems, bottomGridItems);
+  const duplicateItems = findDuplicateItems(customGroups, bottomItems, bottomGridItems);
 
   const haPanelKeys = Object.keys(hass.panels);
 
@@ -100,14 +100,14 @@ export const isItemsValid = (
   const noTitleItems = allItems.filter((item) => hass.panels[item] && !hass.panels[item].title);
 
   const valid =
-    duplikatedItems.length === 0 &&
+    duplicateItems.length === 0 &&
     invalidItems.length === 0 &&
     noTitleItems.length === 0 &&
     !hasDefaultInGroupsOrBottom;
 
-  if (duplikatedItems.length > 0) {
-    LOGGER.warn(`${CONFIG_NAME}: Config is not valid. Duplicated items: ${duplikatedItems.join(', ')}`);
-    console.table(duplikatedItems);
+  if (duplicateItems.length > 0) {
+    LOGGER.warn(`${CONFIG_NAME}: Config is not valid. Duplicated items: ${duplicateItems.join(', ')}`);
+    console.table(duplicateItems);
   }
 
   if (invalidItems.length > 0) {
@@ -127,7 +127,7 @@ export const isItemsValid = (
   }
 
   if (log) {
-    return { valid, config, duplikatedItems, invalidItems, noTitleItems, hasDefaultInGroupsOrBottom };
+    return { valid, config, duplikatedItems: duplicateItems, invalidItems, noTitleItems, hasDefaultInGroupsOrBottom };
   }
 
   return valid;
@@ -152,7 +152,7 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
   const bottomGridItems = config.bottom_grid_items || [];
 
   // Find duplicated items
-  const duplikatedItems = getDuplikatedItems(customGroups, bottomItems, bottomGridItems);
+  const duplicateItems = findDuplicateItems(customGroups, bottomItems, bottomGridItems);
   const hasDefaultInGroupsOrBottom = isDefaultIncluded(defaultPanel, customGroups, bottomItems, bottomItems);
 
   const diffItems = allItems.filter((item) => !haPanelKeys.includes(item));
@@ -170,7 +170,7 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
     invalidItems: Array.from(invalidItems),
     allItems,
     haPanelKeys,
-    duplikatedItems,
+    duplicateItems,
   });
 
   // Remove invalid items from custom groups, bottom items, bottom grid items and hidden items
@@ -183,9 +183,9 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
   const updatedPanels = cleanItemsFromConfig(configToUpdate, invalidItems);
 
   let updatedGroups = updatedPanels.custom_groups || {};
-  if (duplikatedItems.length > 0) {
+  if (duplicateItems.length > 0) {
     // clean again to remove duplicates after removing invalid items
-    updatedGroups = cleanItemsFromConfig({ custom_groups: updatedGroups }, [...duplikatedItems]).custom_groups || {};
+    updatedGroups = cleanItemsFromConfig({ custom_groups: updatedGroups }, [...duplicateItems]).custom_groups || {};
   }
 
   const correctedConfig: SidebarConfig = {

@@ -47,7 +47,7 @@ export function compareHacsTagDiff(hass: HomeAssistant): void {
   if (!loadedTagMatch || !configTagMatch) {
     return;
   }
-  if (loadedTagMatch && configTagMatch && loadedTagMatch !== configTagMatch) {
+  if (loadedTagMatch !== configTagMatch) {
     hacsPathWarning(loadedTagMatch, configTagMatch, hass);
     return;
   }
@@ -57,19 +57,19 @@ function hacsPathWarning(loadedTag: string, configTag: string, hass: HomeAssista
   if ((window as any).so_hacstag_warning) return;
   (window as any).so_hacstag_warning = true;
 
-  const msgTigle = `${NAMESPACE.toUpperCase()} (${pjson.version}) WARNING`;
+  const msgTitle = `${NAMESPACE.toUpperCase()} (${pjson.version}) WARNING`;
   const msg = 'Plugin already loaded from frontend module!';
   const details = [
     'Plugin is being loaded twice with different resource URLs.',
     'Update resource URLs including hacstag to match exactly.',
   ];
-  const urlsDettails = [`Dashboard resource URL: ?hacstag=${loadedTag}`, `Config resource URL: ?hacstag=${configTag}`];
+  const urlsDetails = [`Dashboard resource URL: ?hacstag=${loadedTag}`, `Config resource URL: ?hacstag=${configTag}`];
 
-  console.groupCollapsed(`%c${msgTigle}${msg}`, 'color: red; font-weight: bold;');
-  [...details, ...urlsDettails].forEach((line) => console.info(line));
+  console.groupCollapsed(`%c${msgTitle}${msg}`, 'color: red; font-weight: bold;');
+  [...details, ...urlsDetails].forEach((line) => console.info(line));
   console.groupEnd();
 
-  const notification = `${details.join(' ')}\n\n${urlsDettails.map((line) => '**' + line + '**').join('\n\n')}\n\nSee [documentation](${pjson.repository.url}#installation) for more info.`;
+  const notification = `${details.join(' ')}\n\n${urlsDetails.map((line) => '**' + line + '**').join('\n\n')}\n\nSee [documentation](${pjson.repository.url}#installation) for more info.`;
 
   console.log('%cCOMPARE-URLS:', 'color: #4dabf7;', notification.toString());
 
@@ -77,7 +77,7 @@ function hacsPathWarning(loadedTag: string, configTag: string, hass: HomeAssista
   console.log('%cCOMPARE-URLS:', 'color: #4dabf7;', `Notification ID: ${notificationId}`);
   hass.callService('persistent_notification', 'create', {
     notification_id: notificationId,
-    title: msgTigle,
+    title: msgTitle,
     message: notification,
   });
 }

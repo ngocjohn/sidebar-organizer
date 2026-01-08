@@ -369,13 +369,6 @@ export class SidebarDialogNewItems extends LitElement {
     }
   }
 
-  // private getGroupName(item: string): string {
-  //   const { custom_groups = {}, bottom_items = [] } = this._sidebarConfig;
-  //   const groupName = Object.keys(custom_groups).find((group) => custom_groups[group].includes(item));
-
-  //   return groupName || (bottom_items.includes(item) ? 'Bottom Panels' : 'Ungrouped');
-  // }
-
   private _createHaForm(data: any, schema: any, configKey?: string | number | undefined, id?: string): TemplateResult {
     return html`
       <ha-form

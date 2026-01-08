@@ -478,10 +478,10 @@ export class SidebarDialogGroups extends LitElement {
         }
 
         if (defaultCollapsed.includes(key)) {
-          const updatedCollsed = defaultCollapsed.filter((item) => item !== key);
-          updatedCollsed.push(newName);
-          updates.default_collapsed = updatedCollsed;
-          console.log('item in collapsed, add renamed group to default collapsed', key, newName, updatedCollsed);
+          const updatedCollapsed = defaultCollapsed.filter((item) => item !== key);
+          updatedCollapsed.push(newName);
+          updates.default_collapsed = updatedCollapsed;
+          console.log('item in collapsed, add renamed group to default collapsed', key, newName, updatedCollapsed);
         }
         const renameGroups = Object.fromEntries(
           Object.entries(customGroups).map(([groupKey, groupItems]) => [

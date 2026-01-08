@@ -48,7 +48,7 @@ export class SidebarOrganizer {
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
       this._store = new Store(this.ha!, this);
-      this._diaglogManager = new DialogHandler(this._haDrawer, this.ha!, this);
+      this._dialogManager = new DialogHandler(this._haDrawer, this.ha!, this);
       this.run();
     });
 
@@ -113,7 +113,7 @@ export class SidebarOrganizer {
   private _sidebarItems: SidebarPanelItem[];
   private _styleManager: HomeAssistantStylesManager;
   private _store!: Store;
-  private _diaglogManager!: DialogHandler;
+  private _dialogManager!: DialogHandler;
   public _userHasSidebarSettings: boolean = false;
   private _pluginHacstag: string | null = null;
 
@@ -317,12 +317,12 @@ export class SidebarOrganizer {
     if (!profileEl) return;
     if (this._userHasSidebarSettings) {
       console.log('User has sidebar settings, adding remove legacy data action');
-      addAction(profileEl, this._diaglogManager._addDialogUserDataClear.bind(this._diaglogManager));
+      addAction(profileEl, this._dialogManager._addDialogUserDataClear.bind(this._dialogManager));
       // addAction(profileEl, this._addDiaglogRemoveLegacyUserData.bind(this));
       return;
     } else {
       // console.log('User does not have sidebar settings, adding config dialog action');
-      addAction(profileEl, this._diaglogManager._showConfigDialogEditor.bind(this._diaglogManager));
+      addAction(profileEl, this._dialogManager._showConfigDialogEditor.bind(this._dialogManager));
       // addAction(profileEl, this._addConfigDialog.bind(this));
     }
     // Load translations for dialog later
@@ -491,7 +491,7 @@ export class SidebarOrganizer {
       case HA_EVENT.HASS_EDIT_SIDEBAR:
         console.log('HASS Edit Sidebar Event:', detail);
         if (detail.editMode === true && (!this._hasSidebarConfig || this._blockEditModeChange)) {
-          this._diaglogManager._addLegacyEditWarning();
+          this._dialogManager._addLegacyEditWarning();
         }
         break;
 
@@ -510,7 +510,7 @@ export class SidebarOrganizer {
       case HA_EVENT.SHOW_DIALOG:
         if (detail.dialogTag === ELEMENT.DIALOG_EDIT_SIDEBAR) {
           console.log('Show Dialog Event:', ELEMENT.DIALOG_EDIT_SIDEBAR, detail);
-          this._diaglogManager._handleEditModeAttempt();
+          this._dialogManager._handleEditModeAttempt();
         }
         break;
       case HA_EVENT.SIDEBAR_CONFIG_SAVED:
