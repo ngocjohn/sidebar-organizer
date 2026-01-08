@@ -1,60 +1,34 @@
+import { ATTRIBUTE, CLASS, ELEMENT, EVENT, HA_EVENT, MDI, NAMESPACE, PATH, SELECTOR, STORAGE } from '@constants';
 import {
-  ALERT_MSG,
-  ATTRIBUTE,
-  CLASS,
-  ELEMENT,
-  EVENT,
-  HA_EVENT,
-  MDI,
-  NAMESPACE,
-  PATH,
-  SELECTOR,
-  SHOW_AFTER_BOTTOM,
-  STORAGE,
-} from '@constants';
-import {
-  CustomGroups,
   DividerColorSettings,
+  HaDrawer,
   HaExtened,
   NewItemConfig,
   PANEL_TYPE,
   PanelInfo,
-  Panels,
   PartialPanelResolver,
   Sidebar,
   SidebarConfig,
-  SidebardPanelConfig,
   SidebarPanelItem,
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
+import { compareHacsTagDiff } from '@utilities/compare-urls';
 import { computeInitialPanelOrder, getBuiltInPanels } from '@utilities/compute-panels';
-import { cleanItemsFromConfig, fetchConfig } from '@utilities/configs';
+import { fetchConfig } from '@utilities/configs';
 import { clearSidebarOrganizerStorage, getCollapsedItems, isBeforeChange } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { compareDashboardItems, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
-import { addAction, compareHacsTags, getSiderbarEditDialog, onPanelLoaded } from '@utilities/dom-utils';
-import {
-  CoreFrontendUserData,
-  fetchFrontendUserData,
-  saveFrontendUserData,
-  SidebarFrontendUserData,
-  subscribeFrontendSystemData,
-  subscribeFrontendUserData,
-} from '@utilities/frontend';
+import { addAction, onPanelLoaded } from '@utilities/dom-utils';
+import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
-import * as PANEL_UTILS from '@utilities/panel';
-import { getDefaultPanel, getDefaultPanelUrlPath, getPanelTitle, getPanelTitleFromUrlPath } from '@utilities/panel';
-import { shallowEqual } from '@utilities/shallow-equal';
-import { showAlertDialog, showConfirmDialog } from '@utilities/show-dialog-box';
-import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
-import { isStoragePanelEmpty, setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
+import DialogHandler from '@utilities/model/dialog-handler';
+import Store from '@utilities/model/store';
+import { getDefaultPanelUrlPath, getPanelTitle } from '@utilities/panel';
+import { setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
 import { ACTION_TYPES, addHandlerActions } from '@utilities/tap-action';
-import { showToast } from '@utilities/toast-notify';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
-import { isEmpty, pick } from 'es-toolkit/compat';
+import { isEmpty } from 'es-toolkit/compat';
 import { getPromisableResult } from 'get-promisable-result';
-import { UnsubscribeFunc } from 'home-assistant-js-websocket';
 import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
@@ -70,9 +44,11 @@ export class SidebarOrganizer {
     instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, async (event) => {
       const { HOME_ASSISTANT, HA_DRAWER, HA_SIDEBAR } = event.detail;
       this.ha = (await HOME_ASSISTANT.element) as HaExtened;
-      this._haDrawer = await HA_DRAWER.element;
+      this._haDrawer = (await HA_DRAWER.element) as HaDrawer;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
+      this._store = new Store(this.ha!, this);
+      this._dialogManager = new DialogHandler(this._haDrawer, this.ha!, this);
       this.run();
     });
 
@@ -89,7 +65,6 @@ export class SidebarOrganizer {
 
     instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
       this._panelLoaded();
-      // this._processSidebar();
     });
 
     this._styleManager = new HomeAssistantStylesManager({
@@ -111,9 +86,9 @@ export class SidebarOrganizer {
       window.addEventListener(event, this._handleHaEvents.bind(this));
     });
 
+    this._sidebarItems = [];
     this._currentPath = window.location.pathname;
     this._watchPathChanges();
-    this._sidebarItems = [];
     this._mouseEnterBinded = this._mouseEnter.bind(this);
     this._mouseLeaveBinded = this._mouseLeave.bind(this);
     instance.listen();
@@ -125,39 +100,36 @@ export class SidebarOrganizer {
   private _notCompatible: boolean = false;
   private _blockEditModeChange: boolean = false;
   private _bottomItems: string[] = [];
-  private _config: SidebarConfig = {};
+  public _config: SidebarConfig = {};
   private _currentPath: string;
   private _delayTimeout: number | null = null;
   private _diffCheck: boolean = false;
   private _haDrawer: any;
   private _configPanelMap = new Map<string, string[]>();
 
-  private _initDashboards: LovelaceDashboard[] = [];
-  private _initDefaultPanel?: PanelInfo;
-
   private _panelResolver!: HAElement;
   private _prevPath: string | null = null;
   private _sidebar!: HAElement;
   private _sidebarItems: SidebarPanelItem[];
   private _styleManager: HomeAssistantStylesManager;
-  private _userHasSidebarSettings: boolean = false;
+  private _store!: Store;
+  private _dialogManager!: DialogHandler;
+  public _userHasSidebarSettings: boolean = false;
   private _pluginHacstag: string | null = null;
 
   private collapsedItems = new Set<string>();
   private firstSetUpDone = false;
 
-  private HaSidebar: any;
+  public HaSidebar: any;
   private setupConfigDone = false;
   private sideBarRoot!: ShadowRoot;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
   private _baseColorFromTheme: DividerColorSettings = {};
-  private _panelUtils = PANEL_UTILS;
-  private _coreUserData?: FrontendSystemData['core'];
-  private _userFrontendData: Record<string, any> = {};
-  private _unsubCoreData?: Promise<UnsubscribeFunc>;
+
   private _mouseEnterBinded: (event: MouseEvent) => void;
   private _mouseLeaveBinded: () => void;
+
   private _debugLog(
     topic: string,
     metadata?: unknown,
@@ -227,36 +199,6 @@ export class SidebarOrganizer {
     }
   }
 
-  private _subscribeUserDefaultPanel(): void {
-    this._unsubCoreData = subscribeFrontendUserData(this.hass.connection, 'core', ({ value }) => {
-      if (value !== null) {
-        const defaultPanel = value.default_panel;
-        if (defaultPanel && defaultPanel !== this._baseOrder[0]) {
-          console.log(
-            '%cMAIN:',
-            'color: #bada55;',
-            'Default Panel Changed to:',
-            defaultPanel,
-            'from:',
-            this._baseOrder[0]
-          );
-          const newDefaultPanel = getPanelTitleFromUrlPath(this.hass, defaultPanel) || defaultPanel;
-          const toastParams = {
-            id: 'sidebar-organizer-default-panel-changed',
-            message: `${NAMESPACE.toUpperCase()}: Default panel changed to ${newDefaultPanel}. Reload page to apply changes.`,
-            action: {
-              text: 'Reload',
-              action: () => this._handleDefaultPanelChange(defaultPanel),
-            },
-            duration: -1,
-            dismissable: false,
-          };
-          showToast(this.ha!, toastParams);
-        }
-      }
-    });
-  }
-
   private async _watchEditLegacySidebar(): Promise<void> {
     if (!this._hasSidebarConfig) return;
 
@@ -277,91 +219,6 @@ export class SidebarOrganizer {
     });
     // console.log('Successfully blocked sidebar edit mode');
     this._blockEditModeChange = true;
-  }
-
-  private async _addLegacyEditWarning() {
-    console.log('Adding legacy edit sidebar warning');
-    const confirmToContinue = await showConfirmDialog(
-      this.ha!,
-      ALERT_MSG.LEGACY_EDIT_WARNING,
-      'Open Sidebar Organizer Dialog'
-    );
-    if (!confirmToContinue) return;
-
-    return this._addConfigDialog();
-  }
-
-  private async _watchEditSidebar() {
-    const dialog = await this._waitForSidebarDialog();
-    if (!dialog) return;
-
-    dialog._open = false;
-
-    const shouldShowConfirm = !this._userHasSidebarSettings && this._hasSidebarConfig;
-
-    if (shouldShowConfirm) {
-      const confirmed = await showConfirmDialog(
-        this._haDrawer,
-        ALERT_MSG.HAS_SIDEBAR_CONFIG_WARNING,
-        'Edit with Sidebar Organizer',
-        'Continue'
-      );
-
-      if (confirmed) {
-        dialog.remove();
-        return this._addConfigDialog();
-      }
-
-      console.log('User chose to continue with the default sidebar editor');
-    } else {
-      console.log('User has sidebar settings, adding switch button');
-    }
-
-    dialog._open = true;
-    this._injectSwitchButton(dialog);
-  }
-
-  private async _waitForSidebarDialog(): Promise<any> {
-    let dialog = null;
-    for (let i = 0; i < 10 && !dialog; i++) {
-      dialog = await getSiderbarEditDialog(this.ha!);
-      if (!dialog) {
-        console.log('Waiting for dialog-edit-sidebar to be available...');
-        await new Promise((r) => setTimeout(r, 100));
-      }
-    }
-    return dialog;
-  }
-
-  private _injectSwitchButton(dialog: any) {
-    setTimeout(() => {
-      const switchBtn = this._createHaButton(dialog);
-      const actions =
-        dialog.shadowRoot?.querySelector(SELECTOR.ACTION_SLOT) ??
-        dialog.shadowRoot?.querySelector(SELECTOR.HA_DIALOG_FOOTER).shadowRoot?.querySelector(SELECTOR.FOOTER);
-      if (actions && !actions.querySelector('ha-button')) {
-        console.log('Actions Element:', actions);
-        actions.prepend(switchBtn);
-      }
-    }, 100);
-  }
-
-  private _createHaButton(dialog: any): HTMLElement {
-    const button = document.createElement('ha-button');
-    button.slot = 'actions';
-    button.innerText = 'Switch to Sidebar Organizer';
-    button.addEventListener('click', () => {
-      console.log('Switching to Sidebar Organizer');
-      dialog.closeDialog();
-      dialog.remove();
-      if (this._userHasSidebarSettings) {
-        // If user has sidebar settings, remove legacy data
-        this._addDiaglogRemoveLegacyUserData();
-        return;
-      }
-      this._addConfigDialog();
-    });
-    return button;
   }
 
   private _watchPathChanges() {
@@ -409,68 +266,16 @@ export class SidebarOrganizer {
       console.log('User has sidebar settings or base order is empty, skipping dashboard change check');
       return;
     }
-    let changed = false;
-
-    const initDefaultPanel = this._initDefaultPanel;
-    const initDashboards = this._initDashboards;
-    const baseOrder = this._baseOrder;
-
-    const newDefaultPanel = getDefaultPanel(this.hass);
-    const defaultPanelChanged = !shallowEqual(initDefaultPanel, newDefaultPanel);
-
-    const { currentItems, added, removed } = await compareDashboardItems(this.hass, baseOrder);
-    const currentItemsLength = Object.values(currentItems).flat().length;
-    const addedOrItemChanged = Boolean(
-      added.length > 0 || initDashboards.length !== currentItemsLength || initDashboards.length < currentItemsLength
-    );
-
-    if (defaultPanelChanged || removed.length > 0) {
-      const itemToRemove = [...removed, initDefaultPanel?.url_path || ''];
-      const config = { ...this._config };
-      const configToUpdate = pick(config, [
-        PANEL_TYPE.CUSTOM,
-        PANEL_TYPE.BOTTOM,
-        PANEL_TYPE.HIDDEN,
-      ]) as SidebardPanelConfig;
-      const updatedPanels = cleanItemsFromConfig(configToUpdate, itemToRemove);
-      const configHasChanged = !shallowEqual(configToUpdate, updatedPanels);
-      if (configHasChanged) {
-        const newConfig: SidebarConfig = {
-          ...config,
-          ...updatedPanels,
-        };
-        setStorage(STORAGE.UI_CONFIG, newConfig);
-        changed = true;
-        console.log(
-          '%cMAIN:',
-          'color: #bada55;',
-          'Default Panel Changed or Removed Items:',
-          itemToRemove,
-          'Updated Config:',
-          newConfig
-        );
-      } else {
-        console.log('%cMAIN:', 'color: #bada55;', 'No config changes needed for removed items or default panel');
-      }
-    } else if (addedOrItemChanged) {
-      console.log('%cMAIN:', 'color: #bada55;', 'Added New Items or Items Changed:', added, currentItems);
-      changed = true;
-    }
+    const changed = await this._store._handleDashboardUpdate();
 
     if (changed) {
       // Reload the window to apply changes
       console.log('%cMAIN:', 'color: #bada55;', 'Changes detected, reloading window');
       this._reloadWindow();
     } else {
-      this._resetPropsAfterNoChange();
+      this._store.resetDashboardState();
       this._addBottomItems();
     }
-  }
-
-  private _resetPropsAfterNoChange(): void {
-    this._initDashboards = [];
-    this._initDefaultPanel = undefined;
-    this._unsubCoreData = undefined;
   }
 
   private async _panelLoaded(): Promise<void> {
@@ -485,48 +290,23 @@ export class SidebarOrganizer {
         if (this._diffCheck && this.firstSetUpDone && this.setupConfigDone) {
           // console.log('Diff Check and first setup done');
           onPanelLoaded(pathName, paperListBox);
-          this._getData(pathName);
+          // this._getData(pathName);
+          if (pathName === PATH.LOVELACE_DASHBOARD) {
+            this._store._subscribeDashboardData();
+          }
         }
       }, 100);
     }
   }
 
-  private async _getData(pathName: string): Promise<void> {
-    if (pathName === PATH.LOVELACE_DASHBOARD) {
-      this._initDashboards = await fetchDashboards(this.hass);
-      this._initDefaultPanel = getDefaultPanel(this.hass);
-      let initCoreData: CoreFrontendUserData | undefined;
-      this._unsubCoreData = subscribeFrontendSystemData(this.hass.connection, 'core', ({ value }) => {
-        console.log('%cMAIN:', 'color: #bada55;', 'Core Frontend System Data Changed:', value);
-        if (value !== null) {
-          this._coreUserData = value;
-          if (!initCoreData) {
-            initCoreData = this._coreUserData;
-            return;
-          }
-          if (!shallowEqual(initCoreData, this._coreUserData)) {
-            console.log('%cMAIN:', 'color: #bada55;', 'Core Data Changed', {
-              initCoreData,
-              newCoreData: this._coreUserData,
-            });
-          }
-        }
-      });
-    }
-  }
   private async _checkHacsTagMismatch(): Promise<void> {
-    const { loadedTagMatch, configTagMatch } = await compareHacsTags();
-    if (loadedTagMatch && configTagMatch && loadedTagMatch !== configTagMatch) {
-      this._pluginHacstag = loadedTagMatch;
-      const alertMsg = `${NAMESPACE}: HACS tag mismatch detected.\n\nPlease update the extra_module_url path in your configuration file to match the loaded script.\nYou can update the URL with ?hacstag=${loadedTagMatch} and restart Home Assistant to resolve this issue.\n\n`;
-      throw Error(alertMsg);
-    }
+    compareHacsTagDiff(this.hass);
   }
 
   private async _checkUserSidebarSettings() {
     const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
     this._userHasSidebarSettings = (userData?.panelOrder && userData.panelOrder.length > 0) || false;
-    this._subscribeUserDefaultPanel();
+    this._store._subscribeUserDefaultPanel();
   }
 
   private async _setupConfigBtn(): Promise<void> {
@@ -537,20 +317,19 @@ export class SidebarOrganizer {
     if (!profileEl) return;
     if (this._userHasSidebarSettings) {
       console.log('User has sidebar settings, adding remove legacy data action');
-      addAction(profileEl, this._addDiaglogRemoveLegacyUserData.bind(this));
+      addAction(profileEl, this._dialogManager._addDialogUserDataClear.bind(this._dialogManager));
+      // addAction(profileEl, this._addDiaglogRemoveLegacyUserData.bind(this));
       return;
     } else {
       // console.log('User does not have sidebar settings, adding config dialog action');
-      addAction(profileEl, this._addConfigDialog.bind(this));
+      addAction(profileEl, this._dialogManager._showConfigDialogEditor.bind(this._dialogManager));
+      // addAction(profileEl, this._addConfigDialog.bind(this));
     }
     // Load translations for dialog later
     await this.hass.loadFragmentTranslation('lovelace');
   }
 
-  private async _getDataDashboards(): Promise<void> {
-    // this._initDashboards = await fetchDashboards(this.hass);
-    // console.log('Initial Dashboards:', this._initDashboards);
-    // this._builInPanels = await this._getAutoGeneratedPanels();
+  private async _getDataDashboards() {
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
     await getBuiltInPanels(this.hass.panels, defaultPanel).then((panels) => {
       this._addBuiltInPanelsToSidebar(panels);
@@ -562,23 +341,25 @@ export class SidebarOrganizer {
       console.log('No config found, skipping processing');
       return;
     }
+
     this._getElements().then((elements) => {
-      const notificationMap = new Map(Object.entries(this._config.notification || {}));
       const [sidebarItemsContainer, scrollbarItems, spacer] = elements;
       this._sidebarItems = Array.from(scrollbarItems) as SidebarPanelItem[];
 
+      const { notification } = this._config;
+      const notificationMap = new Map(Object.entries(notification || {}));
+
       for (const item of Array.from(scrollbarItems) as SidebarPanelItem[]) {
-        const isNewItem = item.hasAttribute('newitem');
-        const isConfigOrDevTools = SHOW_AFTER_BOTTOM.includes(item.href);
-        if (isNewItem || isConfigOrDevTools) continue; // Skip processing for these items
-        item.setAttribute('data-panel', item.href.replace('/', ''));
+        const isNewItem = item.hasAttribute(ATTRIBUTE.NEW_ITEM);
+        if (isNewItem) continue; // Skip processing for these items
+        // const isConfigOrDevTools = SHOW_AFTER_BOTTOM.includes(item.href);
+        // if (isNewItem || isConfigOrDevTools) continue; // Skip processing for these items
+        item.setAttribute(ATTRIBUTE.DATA_PANEL, item.href.replace('/', ''));
       }
 
       if (this._hiddenPanels && this._hiddenPanels.length > 0) {
         this._hiddenPanels.forEach((panelId) => {
-          const itemToHide = Array.from(scrollbarItems).find((el) => {
-            return el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId;
-          });
+          const itemToHide = this._sidebarItems.find((item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
           if (itemToHide) {
             itemToHide.style.display = 'none';
           }
@@ -586,14 +367,15 @@ export class SidebarOrganizer {
         console.log('%cMAIN:', 'color: #bada55;', 'Hidden Panels Applied:', this._hiddenPanels);
       }
 
-      const initOrder = Array.from(scrollbarItems)
-        .filter((item) => !SHOW_AFTER_BOTTOM.includes(item.href))
-        .map((item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', ''));
+      const initOrder = Array.from(scrollbarItems).map(
+        (item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '')
+      );
 
       const combinedOrder = this._computePanels(initOrder);
       this._baseOrder = combinedOrder;
-      setStorage(STORAGE.PANEL_ORDER, [...this._baseOrder]);
       // console.log('%cMAIN:', 'color: #bada55;', 'Computed Combined Panel Order:', combinedOrder);
+
+      // window.localStorage.setItem('sidebarPanelOrder', JSON.stringify(combinedOrder));
 
       // raarnge items based on the combined order, item not found in the combined order will be placed at the end
       const orderedItems = this._sidebarItems.sort((a, b) => {
@@ -613,35 +395,44 @@ export class SidebarOrganizer {
           (el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item.getAttribute(ATTRIBUTE.DATA_PANEL)
         );
 
-        if (itemToMove && SHOW_AFTER_BOTTOM.indexOf(itemToMove.href) === -1) {
+        if (itemToMove) {
           // Move the item to the new position
           sidebarItemsContainer.insertBefore(itemToMove, spacer);
         }
+
         if (itemsNotificationValue !== undefined) {
           this._subscribeNotification(item, itemsNotificationValue);
         }
         // Handle custom groups
 
-        if (itemsGroup && itemsGroup !== 'bottom_items') {
+        if (itemsGroup && itemsGroup !== PANEL_TYPE.BOTTOM && itemsGroup !== PANEL_TYPE.BOTTOM_GRID) {
           const isCollapsed = this.collapsedItems.has(itemsGroup);
           const isFirstInGroup = this._configPanelMap.get(itemsGroup)?.[0] === itemPanelId;
 
-          item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
-          item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
           if (isFirstInGroup) {
             // Handle collapsed state toggle
             const groupDivider = this._createDividerWithGroup(itemsGroup, isCollapsed);
             sidebarItemsContainer.insertBefore(groupDivider, item);
           }
+          item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
+          item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
         }
       });
+
+      // this._handleItemsGroup(custom_groups || {});
+
       // Handle bottom items
       this._addBottomItems();
 
       // Reorder grouped items
       this._reorderGroupedSidebar();
 
+      // Handle grid items
+      // this._handleGridItems();
+
+      // Handle sidebar header
       this._handleSidebarHeader();
+
       this.setupConfigDone = true;
 
       this._panelLoaded();
@@ -700,7 +491,7 @@ export class SidebarOrganizer {
       case HA_EVENT.HASS_EDIT_SIDEBAR:
         console.log('HASS Edit Sidebar Event:', detail);
         if (detail.editMode === true && (!this._hasSidebarConfig || this._blockEditModeChange)) {
-          this._addLegacyEditWarning();
+          this._dialogManager._addLegacyEditWarning();
         }
         break;
 
@@ -713,13 +504,13 @@ export class SidebarOrganizer {
         }, 100);
         break;
       case HA_EVENT.DEFAULT_PANEL:
-        this._handleDefaultPanelChange(detail.defaultPanel);
+        this._store._handleDefaultPanelChange(detail.defaultPanel);
         break;
 
       case HA_EVENT.SHOW_DIALOG:
         if (detail.dialogTag === ELEMENT.DIALOG_EDIT_SIDEBAR) {
           console.log('Show Dialog Event:', ELEMENT.DIALOG_EDIT_SIDEBAR, detail);
-          this._watchEditSidebar();
+          this._dialogManager._handleEditModeAttempt();
         }
         break;
       case HA_EVENT.SIDEBAR_CONFIG_SAVED:
@@ -727,30 +518,6 @@ export class SidebarOrganizer {
         this._handleNewConfig(detail.config, detail.useConfigFile);
         break;
     }
-  }
-
-  private _addConfigDialog() {
-    this._haDrawer.open!! = false;
-    this.HaSidebar.editMode = false;
-    this._setInitPanelOrder();
-
-    showDialogSidebarOrganizer(this.ha!, { config: this._config });
-  }
-
-  private _handleDefaultPanelChange(defaultDashboard: string) {
-    const config = { ...(this._config || {}) };
-    const configToUpdate = pick(config, [
-      PANEL_TYPE.CUSTOM,
-      PANEL_TYPE.BOTTOM,
-      PANEL_TYPE.HIDDEN,
-    ]) as SidebardPanelConfig;
-    const cleanedConfig = cleanItemsFromConfig(configToUpdate, [defaultDashboard]);
-    this._config = {
-      ...this._config,
-      ...cleanedConfig,
-    };
-    setStorage(STORAGE.UI_CONFIG, this._config);
-    this._reloadWindow();
   }
 
   private async _getConfig() {
@@ -767,82 +534,26 @@ export class SidebarOrganizer {
     }
   }
 
-  private _setInitPanelOrder(): void {
-    const isEmptyOrder = isStoragePanelEmpty();
-    console.log('Is Storage Panel Order Empty:', isEmptyOrder);
-    if (!isEmptyOrder) return;
-    const baseOrder = this._baseOrder;
-    if (baseOrder.length > 0) {
-      console.log('Setting initial panel order from base order');
-      setStorage(STORAGE.PANEL_ORDER, baseOrder);
-      return;
-    }
-
-    console.log('No initial panel order found, setting default');
-    const { beforeSpacer, builtInhidden } = this._getInitialPanelItems();
-    setStorage(STORAGE.PANEL_ORDER, [...beforeSpacer]);
-    setStorage(STORAGE.HIDDEN_PANELS, [...builtInhidden]);
-    console.log('Initial Panel Order Set:', beforeSpacer, builtInhidden);
-  }
-
   private _setupInitialConfig() {
     console.log('%cMAIN:', 'color: #bada55;', 'Setting up initial config');
 
-    const { new_items, default_collapsed, custom_groups, hidden_items, color_config, bottom_items } = this._config;
+    const { new_items, default_collapsed, custom_groups, hidden_items, color_config, bottom_items, bottom_grid_items } =
+      this._config;
     this._configPanelMap = new Map(Object.entries(custom_groups || {}));
     if (!isEmpty(bottom_items)) {
-      this._configPanelMap.set('bottom_items', bottom_items!);
+      this._configPanelMap.set(PANEL_TYPE.BOTTOM, bottom_items!);
     }
+    if (!isEmpty(bottom_grid_items)) {
+      this._configPanelMap.set(PANEL_TYPE.BOTTOM_GRID, bottom_grid_items!);
+    }
+
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
     this._handleHidden(hidden_items || []);
     // Add new items
     this._addNewItems(new_items || []);
+
     // Add additional styles
     this._addAdditionalStyles(color_config);
-  }
-
-  private async _addDiaglogRemoveLegacyUserData(): Promise<void> {
-    console.log('Adding dialog to remove legacy user data');
-    const confirmed = await showConfirmDialog(this._haDrawer, ALERT_MSG.CLEAN_USER_DATA, 'Clear', 'Cancel');
-    if (!confirmed) {
-      console.log('User data clearing cancelled');
-      return;
-    }
-
-    try {
-      const currentUserData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
-      await saveFrontendUserData(this.hass.connection, 'sidebar', {
-        panelOrder: [],
-        hiddenPanels: [],
-      });
-
-      console.log('User data cleared successfully');
-      this._checkUserSidebarSettings();
-      await this._updateUserDataToStorage(currentUserData!);
-      await showAlertDialog(
-        this._haDrawer,
-        'User data cleared and migrated to storage successfully.',
-        'Show Organizer Dialog'
-      );
-      if (this._hasSidebarConfig) {
-        this._addConfigDialog();
-      } else {
-        this._config = {
-          hidden_items: currentUserData?.hiddenPanels || [],
-        };
-        setStorage(STORAGE.UI_CONFIG, this._config);
-        this._addConfigDialog();
-      }
-    } catch (err: any) {
-      console.error('Error clearing user data:', err);
-      await showAlertDialog(this._haDrawer, `Error clearing user data: ${err.message}`);
-    }
-  }
-
-  private async _updateUserDataToStorage(currentUserData: SidebarFrontendUserData) {
-    setStorage(STORAGE.PANEL_ORDER, currentUserData.panelOrder || []);
-    // setStorage(STORAGE.HIDDEN_PANELS, currentUserData.hiddenPanels || []);
-    console.log('User data migrated to storage successfully');
   }
 
   private _handleSidebarHeader(): void {
@@ -869,14 +580,14 @@ export class SidebarOrganizer {
     collapseEl.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
 
     const handleToggle = (ev: Event) => {
-      ev.preventDefault();
+      ev.stopPropagation();
       this.collapsedItems.size === groupKeys.length
         ? this.collapsedItems.clear()
         : (this.collapsedItems = new Set([...groupKeys]));
       this._handleCollapsed(this.collapsedItems);
     };
-    ['touchstart', 'mousedown'].forEach((eventType) => {
-      collapseEl.addEventListener(eventType, handleToggle);
+    ['mousedown', 'touchstart'].forEach((eventType) => {
+      collapseEl.addEventListener(eventType, handleToggle, { passive: true });
     });
 
     titleEl.appendChild(collapseEl);
@@ -890,9 +601,6 @@ export class SidebarOrganizer {
     const isAllCollapsed = collapsedSize === groupsLength;
     toggleIcon.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
     toggleIcon.setAttribute('icon', isAllCollapsed ? MDI.PLUS : MDI.MINUS);
-    // const isCollapsed = collapsedSize > 0;
-    // toggleIcon?.classList.toggle(CLASS.ACTIVE, isCollapsed);
-    // toggleIcon?.setAttribute('icon', isCollapsed ? MDI.PLUS : MDI.MINUS);
   }
 
   private _handleHidden(hiddenItems: string[]): void {
@@ -916,10 +624,17 @@ export class SidebarOrganizer {
 
   private _addBuiltInPanelsToSidebar(panels: PanelInfo[]): void {
     if (!panels || panels.length === 0) return;
+    const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
     const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
 
     panels.map((panel) => {
-      const builtInItem = this._createBuiltInPanelItem(panel);
+      const existingPanel = scrollbarItems.find((el) => {
+        const panelId = el.getAttribute(ATTRIBUTE.DATA_PANEL) || el.href.replace('/', '');
+        return panelId === panel.url_path;
+      });
+      if (existingPanel) return; // Skip if panel already exists
+      // const builtInItem = this._createBuiltInPanelItem(panel);
+      const builtInItem = this._createNewItem(panel, true);
       if (builtInItem) {
         this._scrollbar.insertBefore(builtInItem, spacer);
       }
@@ -974,32 +689,61 @@ export class SidebarOrganizer {
   };
 
   private _addBottomItems(): void {
-    if (!this._configPanelMap.get('bottom_items')) return;
+    if (!this._configPanelMap.get(PANEL_TYPE.BOTTOM) && !this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID)) {
+      return;
+    }
 
-    const value = this._configPanelMap.get('bottom_items')!;
-    const scrollbarItems = this._sidebarItems;
+    const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
     const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
-    value.forEach((item, index) => {
-      const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
-      if (!panel) return;
 
-      panel.setAttribute(ATTRIBUTE.MOVED, '');
-      // Insert spacer before first bottom item
-      if (index === 0) {
-        this._scrollbar.insertBefore(spacer, panel);
+    if (this._configPanelMap.get(PANEL_TYPE.BOTTOM)) {
+      const value = this._configPanelMap.get(PANEL_TYPE.BOTTOM)!;
+      value.forEach((item, index) => {
+        const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
+        if (!panel) return;
+        panel.setAttribute(ATTRIBUTE.MOVED, '');
+        if (index === 0) {
+          this._scrollbar.insertBefore(spacer, panel);
+        }
+        this._scrollbar.insertBefore(panel, panel.nextElementSibling);
+      });
+    }
+
+    if (this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID)) {
+      const emptyExistingGridContainer = this._scrollbar.querySelectorAll('.grid-container');
+      const dividerExisting = this._scrollbar.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`);
+      if (emptyExistingGridContainer.length > 0 || dividerExisting.length > 0) {
+        emptyExistingGridContainer.forEach((el) => el.remove());
+        dividerExisting.forEach((el) => el.remove());
       }
 
-      // Always insert panel (even if already in DOM it repositions)
-      this._scrollbar.insertBefore(panel, panel.nextSibling);
+      const gridContainer = document.createElement('div') as HTMLElement;
+      gridContainer.classList.add('grid-container');
+      const value = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID)!;
+      value.forEach((item) => {
+        const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
+        if (!panel) return;
 
-      // Insert divider after the last bottom item
-      if (index === value.length - 1) {
-        const divider = this._createDivider(ATTRIBUTE.BOTTOM);
-        this._scrollbar.insertBefore(divider, panel.nextSibling);
+        panel.setAttribute(ATTRIBUTE.GRID_ITEM, '');
+        panel.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
+        panel.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
+        gridContainer.appendChild(panel);
+      });
+      if (gridContainer.children.length > 0) {
+        const lastBottomItem = scrollbarItems.findLast((item) => item.hasAttribute(ATTRIBUTE.MOVED));
+        if (lastBottomItem) {
+          const referenceNode = lastBottomItem.nextElementSibling;
+          const divider = this._createDivider(ATTRIBUTE.BOTTOM);
+          this._scrollbar.insertBefore(divider, referenceNode);
+          this._scrollbar.insertBefore(gridContainer, referenceNode);
+        } else {
+          const spacerNext = spacer.nextElementSibling;
+          const divider = this._createDivider(ATTRIBUTE.BOTTOM);
+          this._scrollbar.insertBefore(divider, spacerNext);
+          this._scrollbar.insertBefore(gridContainer, spacerNext);
+        }
       }
-
-      // console.log('Adding Bottom Item:', item, 'Panel:', panel, 'Index:', index);
-    });
+    }
   }
 
   private _handleNewConfig(config: SidebarConfig, useConfigFile: boolean) {
@@ -1097,39 +841,11 @@ export class SidebarOrganizer {
     );
   }
 
-  private _handleItemsGroup(customGroups: CustomGroups) {
-    if (!customGroups || Object.keys(customGroups).length === 0) return;
-    const collapsedItems = this.collapsedItems || new Set<string>();
-    const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
-
-    // Loop through each group, create a divider with group name and place it before the first item of the group
-    Object.entries(customGroups).forEach(([group, panels]) => {
-      const isGroupCollapsed = collapsedItems.has(group!);
-      // Create a divider for the group
-      const divider = this._createDividerWithGroup(group, isGroupCollapsed);
-      // Find the first item of the group
-      const firstItem = scrollbarItems.find((item) => panels.includes(item.getAttribute('data-panel')!));
-      if (firstItem) {
-        // Insert the divider before the first item of the group
-        // divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
-        // divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
-        this._scrollbar.insertBefore(divider, firstItem);
-
-        // Set the group attribute on all items of the group
-        scrollbarItems
-          .filter((item) => panels.includes(item.getAttribute('data-panel')!))
-          .forEach((item) => {
-            item.setAttribute('group', group);
-            item.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
-          });
-      }
-    });
-  }
-
-  private _computePanels(currentPanel: string[]) {
-    const defaultPanel = getDefaultPanel(this.hass).url_path;
-    const bottomMovedItems = this._config.bottom_items || [];
+  private _computePanels(currentPanel: string[]): string[] {
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const customGroups = this._config.custom_groups || {};
+    const bottomMovedItems = this._config.bottom_items || [];
+    const bottomGridItems = this._config.bottom_grid_items || [];
 
     // Get grouped items
     const groupedItems = Object.values(customGroups)
@@ -1138,7 +854,7 @@ export class SidebarOrganizer {
 
     // Filter default items that are not in grouped or bottom items
     const defaultItems = currentPanel.filter(
-      (item) => !groupedItems.includes(item) && !bottomMovedItems.includes(item)
+      (item) => !groupedItems.includes(item) && !bottomMovedItems.includes(item) && !bottomGridItems.includes(item)
     );
 
     // Move default panel item to the front
@@ -1149,22 +865,17 @@ export class SidebarOrganizer {
     }
 
     // Combine grouped, default, and bottom items
-    return [...groupedItems, ...defaultItems, ...bottomMovedItems];
+    return [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems];
   }
 
   private _reorderGroupedSidebar() {
     const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
     const lastGroupedItem = scrollbarItems.findLast((item) => item.hasAttribute('group'));
-    // const lastGroupedItem = scrollbarItems.find(
-    //   (item) => item.hasAttribute('group') && !item.nextElementSibling?.hasAttribute('group')
-    // );
     if (lastGroupedItem) {
       const divider = this._createDivider(ATTRIBUTE.UNGROUPED);
       // divider.setAttribute('ungrouped', '');
       this._scrollbar.insertBefore(divider, lastGroupedItem.nextSibling);
     }
-
-    // console.log('adding ungrouped divider after last grouped item:', lastGroupedItem);
 
     // Check differences after a delay
     setTimeout(() => this._checkDiffs(), 100);
@@ -1173,7 +884,7 @@ export class SidebarOrganizer {
   private _checkDiffs = () => {
     console.log('%cMAIN:', 'color: #bada55;', 'Checking for sidebar order differences...');
 
-    const baseOrder = this._baseOrder;
+    const baseOrder = [...this._baseOrder];
     const scrollbarItems = Array.from(this._scrollbarItems).slice(0, baseOrder.length) as HTMLElement[];
 
     const itemsNamed = scrollbarItems.map((item) => item.getAttribute(ATTRIBUTE.DATA_PANEL));
@@ -1192,26 +903,40 @@ export class SidebarOrganizer {
       console.log('Diff Check:', logs);
       LOGGER.warn('Changes detected:', logs);
 
+      this._store._needReloadToast();
       // window.location.reload();
 
       // this._refreshSidebar();
     } else {
       // this._handleNotification();
+      setStorage(STORAGE.PANEL_ORDER, baseOrder);
       this._diffCheck = true;
     }
   };
 
-  private _createBuiltInPanelItem(panelConfig: PanelInfo): SidebarPanelItem {
-    const title = getPanelTitle(this.hass, panelConfig);
-    const urlPath = panelConfig.url_path;
-    const icon = panelConfig.icon;
+  private _createNewItem(itemConfig: NewItemConfig, builtIn: boolean = false): SidebarPanelItem {
+    let title = itemConfig.title;
+    let icon = itemConfig.icon;
+    let urlPath = itemConfig.url_path;
+
+    if (builtIn) {
+      itemConfig = itemConfig as PanelInfo;
+      title = getPanelTitle(this.hass, itemConfig) || title;
+      icon = itemConfig.icon;
+      urlPath = `/${itemConfig.url_path}`;
+    }
+
+    const hasAction = ACTION_TYPES.some((action) => itemConfig[action] !== undefined);
+    const hasNotification = itemConfig.notification !== undefined;
 
     const item = document.createElement(ELEMENT.ITEM) as SidebarPanelItem;
     item.setAttribute(ATTRIBUTE.TYPE, 'link');
-    item.href = `/${urlPath}`;
-    item.target = '';
-    item.setAttribute('newItem', 'true');
-    item.setAttribute('data-panel', urlPath!);
+
+    item.href = hasAction ? '#' : (urlPath ?? '#');
+    item.target = itemConfig.target ?? '';
+    item.setAttribute(ATTRIBUTE.DATA_PANEL, builtIn ? itemConfig.url_path! : title!);
+    item.setAttribute(ATTRIBUTE.NEW_ITEM, '');
+    item.setAttribute('has-action', hasAction.toString());
     item.tabIndex = -1;
 
     const span = document.createElement('span');
@@ -1224,37 +949,6 @@ export class SidebarOrganizer {
     const haIcon = document.createElement(ELEMENT.HA_ICON) as any;
     haIcon.setAttribute(ATTRIBUTE.SLOT, 'start');
     haIcon.icon = icon!;
-
-    item.prepend(haIcon);
-    item.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
-    item.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
-    return item;
-  }
-
-  private _createNewItem(itemConfig: NewItemConfig): SidebarPanelItem {
-    const hasAction = ACTION_TYPES.some((action) => itemConfig[action] !== undefined);
-    const hasNotification = itemConfig.notification !== undefined;
-    const item = document.createElement(ELEMENT.ITEM) as SidebarPanelItem;
-    item.setAttribute(ATTRIBUTE.TYPE, 'link');
-
-    item.href = hasAction ? '#' : (itemConfig.url_path ?? '#');
-    item.target = itemConfig.target ?? '_self';
-    item.setAttribute('data-panel', itemConfig.title!);
-    item.setAttribute('has-action', hasAction.toString());
-    item.setAttribute('is-new-item', 'true');
-    item.setAttribute('newItem', 'true');
-    item.tabIndex = -1;
-
-    const span = document.createElement('span');
-    span.classList.add('item-text');
-    span.setAttribute('slot', 'headline');
-    span.innerText = itemConfig.title!;
-
-    item.appendChild(span);
-
-    const haIcon = document.createElement(ELEMENT.HA_ICON) as any;
-    haIcon.setAttribute(ATTRIBUTE.SLOT, 'start');
-    haIcon.icon = itemConfig.icon!;
 
     item.prepend(haIcon);
     if (hasAction) {
@@ -1270,7 +964,11 @@ export class SidebarOrganizer {
 
   private async _mouseEnter(event: MouseEvent) {
     const sidebarElement = (await this._sidebar.element) as Sidebar;
-    if (sidebarElement.alwaysExpand) return;
+    const target = event.currentTarget as HTMLElement;
+    const targetIsGridItem = target.hasAttribute('grid-item');
+    if (sidebarElement.alwaysExpand && !targetIsGridItem) {
+      return;
+    }
     if (sidebarElement._mouseLeaveTimeout) {
       clearTimeout(sidebarElement._mouseLeaveTimeout);
       sidebarElement._mouseLeaveTimeout = undefined;
@@ -1395,19 +1093,6 @@ export class SidebarOrganizer {
     this._handleCollapsedChange();
   }
 
-  private _getItemInConfig(id: string): string | undefined {
-    const { custom_groups = {}, bottom_items = [], hidden_items = [] } = this._config;
-    const groupName = Object.keys(custom_groups).find((group) => custom_groups[group].includes(id));
-    if (groupName) {
-      return groupName;
-    } else if (bottom_items.includes(id)) {
-      return 'bottom_items';
-    } else if (hidden_items.includes(id)) {
-      return 'hidden_items';
-    }
-    return undefined;
-  }
-
   private _getInitialPanelItems(): { beforeSpacer: string[]; builtInhidden: string[] } {
     const hass = this.hass;
     const defaultPanel = getDefaultPanelUrlPath(hass);
@@ -1418,27 +1103,12 @@ export class SidebarOrganizer {
     return { beforeSpacer, builtInhidden };
   }
 
-  private _reloadWindow() {
-    showToast(this.ha!, {
-      message: 'Sidebar Organizer: Reloading window to apply changes...',
-      duration: 1000,
-    });
+  public _reloadWindow() {
+    this._store._showToast('Reloading window to apply changes...');
     console.log('Reloading window...');
     setTimeout(() => {
       window.location.reload();
     }, 1000);
-  }
-
-  async _getAutoGeneratedPanels(): Promise<Record<string, PanelInfo>> {
-    const panels = Object.entries(this.hass.panels);
-    const defaultPanel = getDefaultPanel(this.hass).url_path;
-    const autoGeneratedPanels = panels
-      .filter(([, panel]) => panel.default_visible === false && panel.url_path !== defaultPanel)
-      .reduce((acc, [key, panel]) => {
-        acc[key] = panel;
-        return acc;
-      }, {} as Panels);
-    return autoGeneratedPanels;
   }
 
   public _getGroupOfPanel = (panel: string): string | null => {
@@ -1448,6 +1118,10 @@ export class SidebarOrganizer {
 
   _removeSidebarConfigFromStorage() {
     return clearSidebarOrganizerStorage();
+  }
+
+  _removeUserSidebarData() {
+    return clearSidebarUserData(this.hass.connection);
   }
 }
 
@@ -1464,4 +1138,5 @@ if (!window.SidebarOrganizer) {
   const debugMode = params.has('so_debug');
 
   window.SidebarOrganizer = new SidebarOrganizer(debugMode);
+  console.log('%cMAIN:', 'color: #bada55;', 'Sidebar Organizer initialized');
 }

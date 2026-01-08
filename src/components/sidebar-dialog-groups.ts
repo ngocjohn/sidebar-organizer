@@ -1,6 +1,6 @@
 import { ALERT_MSG } from '@constants';
 import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
-import { SidebarConfig, HaExtened } from '@types';
+import { SidebarConfig, HaExtened, PANEL_TYPE } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
 import { isIcon } from '@utilities/is-icon';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
@@ -12,12 +12,34 @@ import { repeat } from 'lit/directives/repeat.js';
 
 import { dialogStyles } from './dialog-css';
 import { SidebarConfigDialog } from './sidebar-dialog';
-// type PANEL_TABS = 'bottomPanel' | 'customGroups' | 'hiddenItems';
+
+const MainTabPanelKeys = ['bottomPanel', 'customGroup', 'hiddenItems', 'notification'] as const;
+type MainTabPanel = (typeof MainTabPanelKeys)[number];
+
+const BottomTabPanelKeys = ['bottom_items', 'bottom_grid_items'] as const;
+export type BottomTabPanel = (typeof BottomTabPanelKeys)[number];
+
+type TabPanelsKey = MainTabPanel | BottomTabPanel;
+
+const TAB_LABELS: Record<TabPanelsKey, string> = {
+  bottomPanel: 'Bottom Panels',
+  customGroup: 'Custom Groups',
+  hiddenItems: 'Hidden Items',
+  notification: 'Notification',
+  bottom_items: 'Bottom Items',
+  bottom_grid_items: 'Bottom Grid Items',
+};
+
 enum PANEL {
   BOTTOM_PANEL = 'bottomPanel',
   CUSTOM_GROUP = 'customGroup',
   HIDDEN_ITEMS = 'hiddenItems',
   NOTIFICATION = 'notification',
+}
+
+enum SECTION_BOTTOM {
+  BOTTOM = 'bottom_items',
+  BOTTOM_GRID = 'bottom_grid_items',
 }
 
 @customElement('sidebar-dialog-groups')
@@ -27,6 +49,7 @@ export class SidebarDialogGroups extends LitElement {
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
   @state() private _selectedTab: PANEL = PANEL.BOTTOM_PANEL;
+  @state() public _selectedBottom: SECTION_BOTTOM = SECTION_BOTTOM.BOTTOM;
   @state() public _selectedGroup: string | null = null;
   @state() private _selectedNotification: string | null = null;
   @state() private _reloadItems = false;
@@ -34,10 +57,15 @@ export class SidebarDialogGroups extends LitElement {
 
   protected updated(_changedProperties: PropertyValues) {
     if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
-      this._dialog._dialogPreview._toggleBottomPanel(this._selectedTab === PANEL.BOTTOM_PANEL);
-      if (this._selectedTab !== PANEL.CUSTOM_GROUP) {
+      const selectedTab = this._selectedTab;
+      if (selectedTab !== PANEL.CUSTOM_GROUP) {
         this._selectedGroup = null;
       }
+    }
+
+    if (_changedProperties.has('_selectedBottom') && this._selectedBottom !== undefined) {
+      const bottomSectionActive = this._selectedBottom as BottomTabPanel;
+      this._dialog._dialogPreview._toggleBottomPanel(bottomSectionActive);
     }
 
     if (_changedProperties.has('_selectedGroup')) {
@@ -64,12 +92,7 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   protected render() {
-    const tabOpts = [
-      { value: 'bottomPanel', label: 'Bottom Panel' },
-      { value: 'customGroup', label: 'Group Panel' },
-      { value: 'hiddenItems', label: 'Hidden Items' },
-      { value: 'notification', label: 'Notification' },
-    ];
+    const tabOpts = MainTabPanelKeys.map((key) => ({ value: key, label: TAB_LABELS[key] }));
 
     const tabSelector = html` <ha-control-select
       .value=${this._selectedTab}
@@ -422,23 +445,18 @@ export class SidebarDialogGroups extends LitElement {
     // console.log('group action', action, key);
 
     const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
-    const updateConfig = (updates: any) => {
+    const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
+
+    const updateSidebarConfig = (updates: Partial<SidebarConfig>) => {
       this._sidebarConfig = {
         ...this._sidebarConfig,
-        custom_groups: updates,
+        ...updates,
       };
       this._dispatchConfig(this._sidebarConfig);
       this.requestUpdate();
     };
 
-    const updateDefaultCollapsed = (updates: string[]) => {
-      this._sidebarConfig = {
-        ...this._sidebarConfig,
-        default_collapsed: updates,
-      };
-      this._dispatchConfig(this._sidebarConfig);
-      this.requestUpdate();
-    };
+    const updates: Partial<SidebarConfig> = {};
 
     switch (action) {
       case 'edit-items':
@@ -453,42 +471,35 @@ export class SidebarDialogGroups extends LitElement {
         );
         if (newName === null || newName === '') return;
         newName = newName.trim().replace(/\s/g, '_').toLowerCase();
-        const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
+
         if (Object.keys(customGroups).includes(newName)) {
           await showAlertDialog(this, `${ALERT_MSG.NAME_EXISTS}`);
           return;
         }
-        const inCollapsed = defaultCollapsed.includes(key) ?? false;
-        if (inCollapsed) {
-          defaultCollapsed.splice(defaultCollapsed.indexOf(key), 1);
-          defaultCollapsed.push(newName);
-          updateDefaultCollapsed(defaultCollapsed);
-          console.log('item in collapsed, add renamed group to default collapsed', key, newName, defaultCollapsed);
+
+        if (defaultCollapsed.includes(key)) {
+          const updatedCollapsed = defaultCollapsed.filter((item) => item !== key);
+          updatedCollapsed.push(newName);
+          updates.default_collapsed = updatedCollapsed;
+          console.log('item in collapsed, add renamed group to default collapsed', key, newName, updatedCollapsed);
         }
-        const groupItems = customGroups[key];
-        const indexOfKey = Object.keys(customGroups).indexOf(key);
-        delete customGroups[key];
-        customGroups[newName] = groupItems;
-        if (indexOfKey) {
-          const newOrder = Object.keys(customGroups);
-          newOrder.splice(indexOfKey, 0, newName);
-          const reorderedGroups = newOrder.reduce((acc: { [key: string]: string[] }, key) => {
-            acc[key] = customGroups[key];
-            return acc;
-          }, {});
-          updateConfig(reorderedGroups);
-        } else {
-          updateConfig(customGroups);
-        }
+        const renameGroups = Object.fromEntries(
+          Object.entries(customGroups).map(([groupKey, groupItems]) => [
+            groupKey === key ? newName : groupKey,
+            groupItems,
+          ])
+        );
+        updates.custom_groups = renameGroups;
+        updateSidebarConfig(updates);
+
         break;
       case 'collapsed-group':
-        const isCollapsed = defaultCollapsed.indexOf(key) !== -1;
-        if (isCollapsed) {
-          defaultCollapsed.splice(defaultCollapsed.indexOf(key), 1);
+        if (defaultCollapsed.includes(key)) {
+          updates.default_collapsed = defaultCollapsed.filter((item) => item !== key);
         } else {
-          defaultCollapsed.push(key);
+          updates.default_collapsed = [...defaultCollapsed, key];
         }
-        updateDefaultCollapsed(defaultCollapsed);
+        updateSidebarConfig(updates);
         console.log('item is collapsed', this._sidebarConfig?.default_collapsed);
         break;
       case 'delete':
@@ -498,15 +509,12 @@ export class SidebarDialogGroups extends LitElement {
           'Delete'
         );
         if (!confirmDelete) return;
-        const deletedInCollapsed = defaultCollapsed.indexOf(key) !== -1;
-        if (deletedInCollapsed) {
-          defaultCollapsed.splice(defaultCollapsed.indexOf(key), 1);
-          updateDefaultCollapsed(defaultCollapsed);
-          console.log('item in collapsed, remove group from default collapsed', key, defaultCollapsed);
+        if (defaultCollapsed.includes(key)) {
+          updates.default_collapsed = defaultCollapsed.filter((item) => item !== key);
         }
-        const currentGroups = { ...(this._sidebarConfig.custom_groups || {}) };
-        delete currentGroups[key];
-        updateConfig(currentGroups);
+        delete customGroups[key];
+        updates.custom_groups = customGroups;
+        updateSidebarConfig(updates);
         break;
       case 'preview':
         this._dialog._dialogPreview._toggleGroup(key, 'show');
@@ -537,10 +545,25 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderBottomItems() {
-    if (this._selectedTab !== 'bottomPanel') return nothing;
-    const selectorList = this._renderPanelSelector('bottom_items');
+    if (this._selectedTab !== PANEL.BOTTOM_PANEL) return nothing;
+    const bottomSections = BottomTabPanelKeys.map((key) => ({ value: key, label: TAB_LABELS[key] }));
 
-    return html` ${selectorList} `;
+    const sectionSelector = html` <ha-control-select
+      .value=${this._selectedBottom}
+      .options=${bottomSections}
+      @value-changed=${(ev: CustomEvent) => {
+        this._selectedBottom = ev.detail.value;
+      }}
+    ></ha-control-select>`;
+
+    const sectionMap = {
+      [SECTION_BOTTOM.BOTTOM]: this._renderPanelSelector(PANEL_TYPE.BOTTOM),
+      [SECTION_BOTTOM.BOTTOM_GRID]: this._renderPanelSelector(PANEL_TYPE.BOTTOM_GRID),
+    };
+    return html`
+      ${sectionSelector}
+      <div class="config-content">${sectionMap[this._selectedBottom]}</div>
+    `;
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
@@ -550,11 +573,11 @@ export class SidebarDialogGroups extends LitElement {
       (item) => !hiddenItems.includes(item) && item !== defaultPanel
     );
     const pickedItems = this._dialog.pickedItems;
-    const selectedType = customGroup ? customGroup : 'bottom_items';
+    const selectedType = customGroup ? customGroup : configValue;
 
     const configItems = customGroup
       ? this._sidebarConfig.custom_groups![customGroup] || []
-      : this._sidebarConfig.bottom_items || [];
+      : this._sidebarConfig[configValue as keyof SidebarConfig] || [];
 
     const selectedItems = Object.entries(configItems).map(([, item]) => item);
 
@@ -576,6 +599,7 @@ export class SidebarDialogGroups extends LitElement {
               .hass=${this.hass}
               .selector=${selector}
               .value=${selectedItems}
+              .label=${'Add item'}
               .configValue=${configValue}
               .customGroup=${customGroup}
               .required=${false}
@@ -586,7 +610,9 @@ export class SidebarDialogGroups extends LitElement {
           </div>
           ${this._renderSpacer()}
         </div>
-        <div class="preview-container" ?hidden=${!selectedItems.length}>${renderItems}</div>
+        <div class="preview-container" ?grid=${configValue === PANEL_TYPE.BOTTOM_GRID} ?hidden=${!selectedItems.length}>
+          ${renderItems}
+        </div>
       </div>
     `;
   }
@@ -612,13 +638,13 @@ export class SidebarDialogGroups extends LitElement {
     const renderItem = (item: { key: string; title: string; icon: string }, index: number) => {
       return html`
         <a data-panel=${item.key} data-index=${index}>
-          <div class="icon-item handle">
+          <div class="icon-item handle" ?grid-item=${selectedType === PANEL_TYPE.BOTTOM_GRID}>
             <ha-icon .icon=${item.icon}></ha-icon><span class="item-text">${item.title}</span>
           </div>
         </a>
       `;
     };
-    const typeTitle = selectedType === 'bottom_items' ? 'BOTTOM' : selectedType.replace(/_/g, ' ').toUpperCase();
+    const typeTitle = selectedType.replace(/_/g, ' ').toUpperCase();
     return html`
       <div class="header-row flex-icon">
         <span>GROUP: ${typeTitle} - ORDER </span>
@@ -629,7 +655,7 @@ export class SidebarDialogGroups extends LitElement {
       ${this._reloadPanelItems
         ? html`<ha-spinner .size=${'small'}></ha-spinner> `
         : html` <ha-sortable handle-selector=".handle" @item-moved=${this._itemMoved}>
-            <div class="selected-items-preview" id="selected-items">
+            <div class="selected-items-preview" id="selected-items" ?grid=${selectedType === PANEL_TYPE.BOTTOM_GRID}>
               ${repeat(
                 selectedItemsArrayWithTitles,
                 (item) => item.key,
@@ -656,11 +682,12 @@ export class SidebarDialogGroups extends LitElement {
 
     switch (this._selectedTab) {
       case PANEL.BOTTOM_PANEL:
-        const bottomItems = [...(this._sidebarConfig.bottom_items || [])].concat();
-        console.log('Bottom items before move:', bottomItems);
+        const bottomSection = this._selectedBottom;
+        const bottomItems = [...(this._sidebarConfig[bottomSection] || [])].concat();
+        console.log(bottomSection, bottomItems);
         bottomItems.splice(newIndex, 0, bottomItems.splice(oldIndex, 1)[0]);
         console.log('Bottom items after move:', bottomItems);
-        updateConfig({ bottom_items: bottomItems });
+        updateConfig({ [bottomSection]: bottomItems });
         break;
       case PANEL.CUSTOM_GROUP:
         const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
@@ -684,9 +711,12 @@ export class SidebarDialogGroups extends LitElement {
   private _sortItems(type: string) {
     const hassPanels = this.hass?.panels;
     const selectedItems =
-      type !== 'bottom_items' ? this._sidebarConfig.custom_groups![type] || [] : this._sidebarConfig.bottom_items || [];
+      type === PANEL_TYPE.BOTTOM || type === PANEL_TYPE.BOTTOM_GRID
+        ? this._sidebarConfig[type as PANEL_TYPE.BOTTOM | PANEL_TYPE.BOTTOM_GRID] || []
+        : this._sidebarConfig.custom_groups?.[type] || [];
+
     // Create a list of items with their titles
-    const itemsWithTitles = selectedItems.map((item) => ({
+    const itemsWithTitles = selectedItems.map((item: string) => ({
       key: item,
       title:
         this.hass.localize(`panel.${hassPanels[item]?.title}`) ||
@@ -722,10 +752,11 @@ export class SidebarDialogGroups extends LitElement {
 
     const updates: Partial<SidebarConfig> = {};
     // Update the config with the new sorted keys
-    if (type === 'bottom_items') {
-      let bottomItems = [...(this._sidebarConfig.bottom_items || [])];
+    if (type === PANEL_TYPE.BOTTOM || type === PANEL_TYPE.BOTTOM_GRID) {
+      const bottomKey = type as PANEL_TYPE.BOTTOM | PANEL_TYPE.BOTTOM_GRID;
+      let bottomItems = [...(this._sidebarConfig[bottomKey] || [])];
       bottomItems = sortedItemKeys;
-      updates.bottom_items = bottomItems;
+      updates[bottomKey] = bottomItems;
     } else {
       let customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
       let group = [...(customGroups[type] || [])];
@@ -745,9 +776,11 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _createSelectorOptions(items: string[], mode: string = 'list') {
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const options = items.map((panel) => {
+      const isDefault = panel === defaultPanel;
       const panelName = getPanelTitleFromUrlPath(this.hass, panel) || panel;
-      return { value: panel, label: panelName };
+      return { value: panel, label: panelName + (isDefault ? ' (default)' : '') };
     });
 
     // options.sort((a, b) => a.label.localeCompare(b.label));
@@ -793,10 +826,11 @@ export class SidebarDialogGroups extends LitElement {
     // console.log('configValue', configValue, 'value', value);
 
     const updates: Partial<SidebarConfig> = {};
-    if (configValue === 'bottom_items') {
-      let bottomPanels = [...(this._sidebarConfig.bottom_items || [])];
+    if ([PANEL_TYPE.BOTTOM, PANEL_TYPE.BOTTOM_GRID].includes(configValue)) {
+      const bottom = configValue as PANEL_TYPE.BOTTOM | PANEL_TYPE.BOTTOM_GRID;
+      let bottomPanels = [...(this._sidebarConfig[bottom] || [])];
       bottomPanels = value;
-      updates.bottom_items = bottomPanels;
+      updates[bottom] = bottomPanels;
     } else if (configValue === 'customGroup') {
       const key = customGroup;
       let customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
@@ -814,6 +848,7 @@ export class SidebarDialogGroups extends LitElement {
       console.log('updates', updates);
     }
     this._dispatchConfig(this._sidebarConfig);
+    this.requestUpdate();
   }
 
   private _handleHiddenItemsChange(ev: any) {
@@ -821,7 +856,7 @@ export class SidebarDialogGroups extends LitElement {
     const value = ev.detail.value;
     console.log('new value', value);
     this._updatePanels(value);
-    const newConfig = validateConfig(this._sidebarConfig, [...value]);
+    const newConfig = validateConfig(this._sidebarConfig, value);
     // const newConfig = removeHiddenItems(this._sidebarConfig, value);
 
     this._sidebarConfig = {
@@ -848,9 +883,14 @@ export class SidebarDialogGroups extends LitElement {
   public clickedPanelInPreview(panel: string, group?: string | null): void {
     console.log('Clicked panel in preview:', panel, group);
     if (group) {
-      const selectedTab = group === 'bottom_items' ? PANEL.BOTTOM_PANEL : PANEL.CUSTOM_GROUP;
-      this._selectedTab = selectedTab;
-      this._selectedGroup = group === 'bottom_items' ? null : group;
+      if (group === PANEL_TYPE.BOTTOM_GRID || group === PANEL_TYPE.BOTTOM) {
+        this._selectedTab = PANEL.BOTTOM_PANEL;
+        this._selectedGroup = null;
+        this._selectedBottom = group === PANEL_TYPE.BOTTOM_GRID ? SECTION_BOTTOM.BOTTOM_GRID : SECTION_BOTTOM.BOTTOM;
+      } else {
+        this._selectedTab = PANEL.CUSTOM_GROUP;
+        this._selectedGroup = group;
+      }
     }
   }
 
@@ -866,6 +906,19 @@ export class SidebarDialogGroups extends LitElement {
           scrollbar-color: var(--scrollbar-thumb-color) transparent;
           scrollbar-width: thin;
         }
+        .selected-items-preview[grid] {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, 25%);
+          /* gap: 8px; */
+          align-items: center;
+          /* justify-content: center; */
+          /* align-content: center; */
+          overflow: hidden;
+        }
+        .selected-items-preview[grid] a {
+          width: inherit;
+        }
+
         a {
           text-decoration: none;
           color: var(--sidebar-text-color);
@@ -900,6 +953,32 @@ export class SidebarDialogGroups extends LitElement {
         .icon-item span.item-text {
           display: block;
           max-width: calc(100% - 56px);
+        }
+        .icon-item[grid-item] {
+          /* text-align: center; */
+          display: flex;
+          width: 100%;
+          margin: 8px auto;
+          padding: 0;
+          max-height: 80px;
+          flex-direction: column;
+        }
+        .icon-item[grid-item] ha-icon {
+          /* width: 40px; */
+          height: 40px;
+          /* margin-bottom: 4px; */
+          flex: 0 1 auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .icon-item[grid-item] span.item-text {
+          display: block;
+          white-space: nowrap;
+          flex: 1 1 auto;
+          text-overflow: ellipsis;
+          overflow: clip;
+          max-width: 100%;
         }
       `,
       dialogStyles,
