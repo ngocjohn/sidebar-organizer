@@ -804,6 +804,7 @@ export class SidebarOrganizer {
     const colorConfig = color_config?.[mode] || {};
     const borderRadius = color_config?.border_radius ? `${color_config.border_radius}px` : undefined;
     const marginRadius = borderRadius ? '4px 4px' : '1px 4px 0px';
+    const textTransform = this._config?.text_transformation || 'capitalize';
 
     // Custom Styles
     const customStyles = colorConfig.custom_styles || [];
@@ -829,6 +830,7 @@ export class SidebarOrganizer {
       '--divider-border-radius': borderRadius,
       '--divider-margin-radius': marginRadius,
       '--sidebar-text-color': getColor('divider_text_color'),
+      '--sidebar-text-transform': textTransform,
     };
 
     const CUSTOM_COLOR_CONFIG = `:host {${Object.entries(colorCssConfig)

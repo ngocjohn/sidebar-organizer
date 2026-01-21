@@ -22,7 +22,13 @@ enum THEME_STATE {
   ERROR = 3,
 }
 
-const APPEARANCE_KEYS = ['header_title', 'hide_header_toggle', 'animation_off', 'animation_delay'] as const;
+const APPEARANCE_KEYS = [
+  'header_title',
+  'hide_header_toggle',
+  'animation_off',
+  'animation_delay',
+  'text_transformation',
+] as const;
 
 @customElement('sidebar-dialog-colors')
 export class SidebarDialogColors extends LitElement {

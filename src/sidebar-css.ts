@@ -127,7 +127,7 @@ export const DIVIDER_ADDED_STYLE = css`
     padding-left: 12px;
     padding-inline-end: initial;
     min-height: 40px;
-    text-transform: capitalize;
+    text-transform: var(--sidebar-text-transform, 'capitalize');
     &:hover {
       color: var(--primary-color);
       background-color: rgb(from var(--primary-color) r g b / 0.1);

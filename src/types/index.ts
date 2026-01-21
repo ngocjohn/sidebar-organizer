@@ -100,11 +100,14 @@ export interface NewItemConfig extends PanelInfo {
   group?: string;
 }
 
+export const TextTransformations = ['none', 'capitalize', 'uppercase', 'lowercase'] as const;
+export type TextTransformation = (typeof TextTransformations)[number];
 export interface SidebarAppearanceConfig {
   header_title?: string;
   hide_header_toggle?: boolean;
   animation_off?: boolean;
   animation_delay?: number;
+  text_transformation?: TextTransformation;
 }
 
 export interface SidebarColorConfig {
