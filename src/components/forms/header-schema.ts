@@ -1,4 +1,4 @@
-import { SidebarAppearanceConfig } from '@types';
+import { SidebarAppearanceConfig, TextTransformations } from '@types';
 import memoizeOne from 'memoize-one';
 
 export const headerSchema = (delayDisabled = false) =>
@@ -96,6 +96,22 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
               disabled: delayDisabled,
               valueMin: 0,
               valueMax: 100,
+            },
+            {
+              name: 'text_transformation',
+              label: 'Text Transformation',
+              default: 'capitalize',
+              selector: {
+                select: {
+                  mode: 'dropdown',
+                  options: [
+                    ...TextTransformations.map((mode) => ({
+                      value: mode,
+                      label: mode.charAt(0).toUpperCase() + mode.slice(1),
+                    })),
+                  ],
+                },
+              },
             },
           ] as const,
         },

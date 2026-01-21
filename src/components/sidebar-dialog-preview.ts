@@ -524,6 +524,7 @@ export class SidebarDialogPreview extends LitElement {
     );
   }
   private _computePreviewStyle() {
+    const textTransform = this._sidebarConfig?.text_transformation || 'capitalize';
     const colorMode = this._colorConfigMode;
     const color_config = this._sidebarConfig?.color_config || {};
     const borderRadius = color_config?.border_radius || 0;
@@ -546,6 +547,7 @@ export class SidebarDialogPreview extends LitElement {
       '--divider-border-radius': `${borderRadius}px`,
       '--sidebar-text-color': getColor('divider_text_color'),
       '--sidebar-icon-color': getColor('sidebar_icon_color'),
+      '--sidebar-text-transform': textTransform,
       ...convertedStyles,
     };
 
@@ -658,7 +660,7 @@ export class SidebarDialogPreview extends LitElement {
           padding-left: 12px;
           padding-inline-end: initial;
           min-height: 40px;
-          text-transform: capitalize;
+          text-transform: var(--sidebar-text-transform, capitalize);
           &:hover {
             color: var(--primary-color);
             background-color: rgb(from var(--primary-color) r g b / 0.1);

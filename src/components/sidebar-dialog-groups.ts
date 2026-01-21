@@ -807,7 +807,7 @@ export class SidebarDialogGroups extends LitElement {
       await showAlertDialog(this, 'Group name already exists. Please choose a different one.');
       return;
     }
-    customGroups[newName] = [];
+    customGroups[groupName] = [];
     this._sidebarConfig = {
       ...this._sidebarConfig,
       custom_groups: customGroups,
