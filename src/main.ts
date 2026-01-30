@@ -1,4 +1,16 @@
-import { ATTRIBUTE, CLASS, ELEMENT, EVENT, HA_EVENT, MDI, NAMESPACE, PATH, SELECTOR, STORAGE } from '@constants';
+import {
+  ALERT_MSG,
+  ATTRIBUTE,
+  CLASS,
+  ELEMENT,
+  EVENT,
+  HA_EVENT,
+  MDI,
+  NAMESPACE,
+  PATH,
+  SELECTOR,
+  STORAGE,
+} from '@constants';
 import {
   DividerColorSettings,
   HaDrawer,
@@ -151,8 +163,12 @@ export class SidebarOrganizer {
   }
 
   public async run() {
-    if (!atLeastVersion(this.hass.config.version, 2025, 6)) {
+    if (!atLeastVersion(this.hass.config.version, 2026, 2)) {
       this._notCompatible = true;
+      const msg = `${ALERT_MSG.NOT_COMPATIBLE}: ${this.hass.config.version}.\nPlease upgrade Home Assistant to 2026.2 or later.`;
+      this._store._showToast(msg, 10 * 1000);
+
+      LOGGER.warn(msg);
       return;
     }
     await this._checkHacsTagMismatch();
@@ -338,7 +354,13 @@ export class SidebarOrganizer {
             itemToHide.style.display = 'none';
           }
         });
-        console.log('%cMAIN:', 'color: #bada55;', 'Hidden Panels Applied:', this._hiddenPanels);
+
+        console.log(
+          '%cMAIN:%c ✅ Hidden panels applied:',
+          'color: #bada55;',
+          'color: #40c057; font-weight: 600;',
+          this._hiddenPanels
+        );
       }
 
       const initOrder = Array.from(scrollbarItems).map(
