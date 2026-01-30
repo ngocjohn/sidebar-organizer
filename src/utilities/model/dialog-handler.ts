@@ -1,5 +1,5 @@
-import type { HaExtened, HaDrawer } from 'types';
-import type { HomeAssistant } from 'types/ha';
+import type { HomeAssistant } from '../../types/ha';
+import type { HaExtened, HaDrawer } from '@types';
 
 import { ALERT_MSG, SELECTOR, STORAGE } from '@constants';
 import { getPanelItems } from '@utilities/compute-panels';
@@ -8,7 +8,8 @@ import { clearSidebarUserData } from '@utilities/frontend';
 import { DialogBoxParams, DialogType, showDialogBox } from '@utilities/show-dialog-box';
 import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
 import { isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
-import { SidebarOrganizer } from 'main';
+
+import { SidebarOrganizer } from '../../sidebar-organizer';
 
 export default class DialogHandler {
   readonly haElement: HaExtened;
