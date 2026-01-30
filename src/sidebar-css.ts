@@ -6,6 +6,9 @@ export const DIVIDER_ADDED_STYLE = css`
   :host .divider {
     padding: 10px 0;
   }
+  :host .divider[ungrouped] {
+    padding: 0;
+  }
 
   :host .divider::before {
     content: ' ';
@@ -191,7 +194,9 @@ export const DIVIDER_ADDED_STYLE = css`
   :host ha-md-list-item:has([group]) {
     transition: all;
   }
-
+  :host ha-md-list-item.selected[grid-item]::before {
+    margin-block: 2px;
+  }
   :host ha-md-list-item.collapsed {
     max-height: 0px !important;
     overflow: hidden;
