@@ -1,9 +1,6 @@
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
-import postcss from 'rollup-plugin-postcss';
-import postcssPresetEnv from 'postcss-preset-env';
-import postcssLit from 'rollup-plugin-postcss-lit';
 
 import { description, repository } from './package.json';
 
@@ -71,20 +68,9 @@ export function logCardInfo(version) {
 }
 
 export const defaultPlugins = [
-  nodeResolve({}),
+  nodeResolve({
+    preferBuiltins: false,
+  }),
   commonjs(),
   json(),
-  postcss({
-    plugins: [
-      postcssPresetEnv({
-        stage: 1,
-        features: {
-          'nesting-rules': true,
-        },
-      }),
-    ],
-    extract: false,
-    inject: false,
-  }),
-  postcssLit(),
 ];
