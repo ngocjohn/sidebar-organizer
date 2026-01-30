@@ -377,22 +377,14 @@ export class SidebarDialogGroups extends LitElement {
                           style="color: var(--disabled-color)"
                           @click=${() => this._handleGroupAction('collapsed-group', key)}
                         ></ha-icon>
-                        <ha-button-menu
-                          .corner=${'TOP_LEFT'}
-                          .fixed=${true}
-                          .menuCorner=${'END'}
-                          .activatable=${true}
-                          .naturalMenuWidth=${true}
-                          @closed=${(ev: Event) => ev.stopPropagation()}
-                          ><ha-icon-button slot="trigger" .path=${mdiDotsVertical}></ha-icon-button>
+                        <ha-dropdown slot="actionItems" placement="top-end" @wa-select=${this._handleSubItemAction}>
+                          <ha-icon-button slot="trigger" .path=${mdiDotsVertical} hide-title></ha-icon-button>
                           ${actionMap.map((action) => {
-                            return html`<mwc-list-item
-                              .graphic=${'icon'}
-                              @click=${() => this._handleGroupAction(action.action, key)}
-                              ><ha-icon slot="graphic" icon=${action.icon}></ha-icon> ${action.title}</mwc-list-item
+                            return html`<ha-dropdown-item .value=${key} .data=${action}
+                              ><ha-icon slot="icon" icon=${action.icon}></ha-icon> ${action.title}</ha-dropdown-item
                             >`;
                           })}
-                        </ha-button-menu>
+                        </ha-dropdown>
                       </div>
                     </div>`;
                   }
@@ -405,6 +397,12 @@ export class SidebarDialogGroups extends LitElement {
     `;
   }
 
+  private _handleSubItemAction(ev: CustomEvent) {
+    ev.stopPropagation();
+    const subItem = (ev.detail?.item as any)?.data as any;
+    const key = (ev.detail?.item as any)?.value as string;
+    this._handleGroupAction(subItem.action, key);
+  }
   private _groupMoved = (ev: CustomEvent): void => {
     ev.stopPropagation();
     console.log('Group to be moved:', Object.keys(this._sidebarConfig.custom_groups || {}));
