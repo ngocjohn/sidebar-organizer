@@ -1,5 +1,9 @@
 import type { HomeAssistant } from '../types/ha';
-import type { PanelInfo } from '@types';
+import type { NewItemConfig, PanelInfo, SidebarPanelItem } from '@types';
+
+import { ATTRIBUTE, CLASS, ELEMENT } from '@constants';
+
+import { ACTION_TYPES, addHandlerActions } from './tap-action';
 
 /** Panel to show when no panel is picked. */
 export const DEFAULT_PANEL = 'lovelace';
@@ -68,3 +72,65 @@ export const SHOW_AFTER_SPACER_PANELS = ['developer-tools'];
 export const BUILT_IN_PANELS = ['home', 'light', 'climate', 'security', 'lovelace'];
 
 export const isBuiltInPanel = (urlPath: string): boolean => BUILT_IN_PANELS.includes(urlPath);
+
+export const computeNewItem = (
+  hass: HomeAssistant,
+  itemConfig: NewItemConfig,
+  builtIn: boolean = false
+): SidebarPanelItem => {
+  let title = itemConfig.title;
+  let icon = itemConfig.icon;
+  let urlPath = itemConfig.url_path;
+
+  if (builtIn) {
+    itemConfig = itemConfig as PanelInfo;
+    title = getPanelTitle(hass, itemConfig) || title;
+    icon = itemConfig.icon;
+    urlPath = `/${itemConfig.url_path}`;
+  }
+
+  const hasAction = ACTION_TYPES.some((action) => itemConfig[action] !== undefined);
+
+  const item = document.createElement(ELEMENT.ITEM) as SidebarPanelItem;
+  item.setAttribute(ATTRIBUTE.TYPE, 'link');
+
+  item.href = hasAction ? '#' : (urlPath ?? '#');
+  item.target = itemConfig.target ?? '';
+  item.setAttribute(ATTRIBUTE.DATA_PANEL, builtIn ? itemConfig.url_path! : title!);
+  item.setAttribute(ATTRIBUTE.NEW_ITEM, '');
+  item.setAttribute('has-action', hasAction.toString());
+  item.tabIndex = -1;
+
+  const span = document.createElement('span');
+  span.classList.add('item-text');
+  span.setAttribute('slot', 'headline');
+  span.innerText = title!;
+
+  item.appendChild(span);
+
+  const haIcon = document.createElement(ELEMENT.HA_ICON) as any;
+  haIcon.setAttribute(ATTRIBUTE.SLOT, 'start');
+  haIcon.icon = icon!;
+
+  item.prepend(haIcon);
+  if (hasAction) {
+    addHandlerActions(item, itemConfig);
+  }
+  return item;
+};
+
+export const computeBadge = (): HTMLElement => {
+  const badge = document.createElement('span');
+  badge.classList.add(CLASS.BADGE);
+  badge.classList.add(CLASS.NO_VISIBLE); // Start hidden
+  badge.setAttribute(ATTRIBUTE.SLOT, 'end');
+  return badge;
+};
+
+export const computeNotifyIcon = (): HTMLElement => {
+  const notifyIcon = document.createElement('ha-icon');
+  notifyIcon.classList.add(CLASS.BADGE);
+  notifyIcon.classList.add(CLASS.NO_VISIBLE); // Start hidden
+  notifyIcon.setAttribute(ATTRIBUTE.SLOT, 'end');
+  return notifyIcon;
+};

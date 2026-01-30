@@ -3,6 +3,19 @@ export const DIVIDER_ADDED_STYLE = css`
   :host .ha-scrollbar {
     padding: 0;
   }
+  :host .divider {
+    padding: 10px 0;
+  }
+
+  :host .divider::before {
+    content: ' ';
+    display: block;
+    height: 1px;
+    background-color: var(--divider-color);
+  }
+  :host .divider[bottom] {
+    padding: 0;
+  }
 
   :host .collapse-toggle {
     color: var(--primary-color);

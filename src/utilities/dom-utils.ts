@@ -1,4 +1,4 @@
-import { CLASS, ELEMENT, PATH, SELECTOR } from '@constants';
+import { CLASS, ELEMENT, SELECTOR } from '@constants';
 import { HaExtened, SidebarPanelItem } from '@types';
 import { getPromisableResult } from 'get-promisable-result';
 import { html, TemplateResult } from 'lit';
@@ -119,9 +119,9 @@ export const resetBottomItems = (paperListBox: HTMLElement): void => {
 };
 
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
-  if (path === PATH.LOVELACE_DASHBOARD) {
-    resetBottomItems(paperListbox);
-  }
+  // if (path === PATH.LOVELACE_DASHBOARD) {
+  //   resetBottomItems(paperListbox);
+  // }
 
   const items = Array.from<SidebarPanelItem>(paperListbox?.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM));
 

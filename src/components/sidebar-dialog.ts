@@ -606,7 +606,11 @@ export class SidebarConfigDialog extends LitElement {
     // Filter out defaultPanel and 'lovelace' from the current panel order
     const _sidebarItems = ARRAY_UTILS.uniq(currentPanelOrder);
     // const _sidebarItems = Array.from(new Set(currentPanelOrder.filter((item: string) => item !== defaultPanel)));
+    console.groupCollapsed('%cSIDEBAR-DIALOG:', 'color: #37b24d;', 'Initial sidebar items fetched:');
     console.log('Initial sidebar items:', _sidebarItems);
+    console.groupEnd();
+
+    // Initialize new items
     const configNewItems = this._sidebarConfig?.new_items || [];
     this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
     // Initialize panel combinations
