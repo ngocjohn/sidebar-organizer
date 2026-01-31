@@ -314,10 +314,7 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderCustomGroupList(): TemplateResult {
-    const customGroupList = Object.keys(this._sidebarConfig.custom_groups || []).map((key) => ({
-      key,
-      label: key.replace(/_/g, ' ').toUpperCase(),
-    }));
+    const customGroupList = Object.keys(this._sidebarConfig.custom_groups || {});
     const addBtn = html`
       <ha-button appearance="plain" size="small" @click=${this._togglePromptNewGroup}>Add New Group</ha-button>
     `;
@@ -325,26 +322,18 @@ export class SidebarDialogGroups extends LitElement {
       return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
     };
 
-    const _createActionMap = (key: string) => {
-      const actions = [
-        { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
-        { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
-        { title: 'Show in preview', action: 'preview-item', icon: 'mdi:information-outline' },
-        // Default 'collapsed-group' action
-        {
-          title: isCollapsed(key) ? 'Remove from collapsed by default' : 'Add to collapsed by default',
-          action: 'collapsed-group',
-          icon: isCollapsed(key) ? 'mdi:eye-minus' : 'mdi:eye-plus',
-        },
-        { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
-      ];
-      return actions;
-    };
+    const actions = [
+      { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
+      { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
+      { title: 'Show in preview', action: 'preview-item', icon: 'mdi:information-outline' },
+      { title: 'Collapse by default', action: 'collapsed-group' },
+      { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
+    ];
     const loading =
       customGroupList.length === 0
         ? html`<div>No custom groups found</div>`
         : html`<ha-spinner .size=${'small'}></ha-spinner>`;
-
+    const textTransform = this._sidebarConfig?.text_transformation ?? 'capitalize';
     return html`
       ${!customGroupList.length || this._reloadItems
         ? loading
@@ -353,11 +342,11 @@ export class SidebarDialogGroups extends LitElement {
               <div class="group-list" id="group-list">
                 ${repeat(
                   customGroupList || [],
-                  (group) => group.key,
+                  (group) => group,
                   (group, index) => {
-                    const key = group.key;
-                    const groupName = group.label;
-                    let actionMap = _createActionMap(key);
+                    const key = group;
+                    const groupName = group.replace(/_/g, ' ');
+                    let defaultCollapsed = isCollapsed(key);
                     const itemCount = this._sidebarConfig.custom_groups![key].length;
                     return html` <div class="group-item-row" data-group=${key} data-index=${index}>
                       <div class="handle">
@@ -365,7 +354,7 @@ export class SidebarDialogGroups extends LitElement {
                       </div>
                       <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key)}>
                         <ha-icon icon=${`mdi:numeric-${index + 1}-box`}></ha-icon>
-                        <div class="group-name-items">
+                        <div class="group-name-items" style="text-transform: ${textTransform}">
                           ${groupName}
                           <span>${itemCount} ${itemCount > 1 ? 'items' : 'item'}</span>
                         </div>
@@ -377,12 +366,20 @@ export class SidebarDialogGroups extends LitElement {
                           style="color: var(--disabled-color)"
                           @click=${() => this._handleGroupAction('collapsed-group', key)}
                         ></ha-icon>
-                        <ha-dropdown slot="actionItems" placement="top-end" @wa-select=${this._handleSubItemAction}>
+                        <ha-dropdown @wa-select=${this._handleSubItemAction}>
                           <ha-icon-button slot="trigger" .path=${mdiDotsVertical} hide-title></ha-icon-button>
-                          ${actionMap.map((action) => {
-                            return html`<ha-dropdown-item .value=${key} .data=${action}
-                              ><ha-icon slot="icon" icon=${action.icon}></ha-icon> ${action.title}</ha-dropdown-item
-                            >`;
+                          ${actions.map((action) => {
+                            return html` ${['delete'].includes(action.action)
+                                ? html`<wa-divider></wa-divider>`
+                                : nothing}
+                              <ha-dropdown-item
+                                .value=${key}
+                                .data=${action}
+                                .type=${action.action === 'collapsed-group' ? 'checkbox' : undefined}
+                                .checked=${action.action === 'collapsed-group' ? defaultCollapsed : undefined}
+                                .variant=${action.action === 'delete' ? 'danger' : undefined}
+                                ><ha-icon slot="icon" icon=${action.icon}></ha-icon> ${action.title}</ha-dropdown-item
+                              >`;
                           })}
                         </ha-dropdown>
                       </div>
