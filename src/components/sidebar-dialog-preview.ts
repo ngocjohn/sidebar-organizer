@@ -46,6 +46,7 @@ export class SidebarDialogPreview extends LitElement {
 
   protected firstUpdated(): void {
     // console.log('colorMode', colorMode);
+
     if (this._sidebarConfig) {
       this._collapsedGroups = new Set(this._sidebarConfig.default_collapsed || []);
 
@@ -70,7 +71,6 @@ export class SidebarDialogPreview extends LitElement {
     super.updated(_changedProperties);
     if (_changedProperties.has('_previewPanels') && this._previewPanels) {
       this._ready = true;
-      console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #40c057;', 'Preview panels updated:');
     }
 
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
@@ -328,23 +328,32 @@ export class SidebarDialogPreview extends LitElement {
       return this._renderPanel(defaultDash);
     };
 
-    return html` <div id="theme-container"></div>
+    return html`
+      <div id="theme-container"></div>
       <div class="divider-preview" style=${this._computePreviewStyle()}>
         ${this._renderHeader()}
         <div class="groups-container">
           ${lovelacePanel()} ${this._renderCustomGroups()} ${this._renderUngroupedPanels()}
           <div class="spacer"></div>
-          ${isEmpty(this._previewPanels?.bottom_items)
-            ? nothing
-            : html` <div class="bottom-panel">${this._renderBottomPanels()}</div> `}
-          ${isEmpty(this._previewPanels?.bottom_grid_items)
-            ? nothing
-            : html`
-                <div class="divider"></div>
-                <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
-              `}
+          ${
+            isEmpty(this._previewPanels?.bottom_items)
+              ? nothing
+              : html`
+                  <div class="divider"></div>
+                  <div class="bottom-panel">${this._renderBottomPanels()}</div>
+                `
+          }
+          ${
+            isEmpty(this._previewPanels?.bottom_grid_items)
+              ? nothing
+              : html`
+                  <div class="divider"></div>
+                  <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
+                `
+          }
         </div>
-      </div>`;
+      </div>
+    </div>`;
   }
 
   private _renderCustomGroups(): TemplateResult[] {
@@ -593,6 +602,19 @@ export class SidebarDialogPreview extends LitElement {
         :host ha-spinner {
           display: flex;
           place-self: center;
+        }
+
+        .panels-list {
+          display: flex;
+          flex-direction: column;
+          height: calc(100% - var(--header-height) - var(--safe-area-inset-top, 0px));
+        }
+        .wrapper {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          flex: 1;
         }
 
         .preview-container {
