@@ -3,8 +3,8 @@ import type { NewItemConfig, PanelInfo, SidebarPanelItem } from '@types';
 
 import { ATTRIBUTE, CLASS, ELEMENT } from '@constants';
 
-import { NavigateActionConfig, UrlActionConfig } from './action';
-import { ACTION_TYPES, addHandlerActions } from './tap-action';
+import { hasItemAction, NavigateActionConfig, UrlActionConfig } from './action';
+import { ACTION_TYPES, addHandlerActions, getActionConfig } from './tap-action';
 
 /** Panel to show when no panel is picked. */
 export const DEFAULT_PANEL = 'lovelace';
@@ -92,15 +92,18 @@ export const computeNewItem = (
   let title = itemConfig.title;
   let icon = itemConfig.icon;
   let urlPath = itemConfig.url_path;
-  const hasAction = ACTION_TYPES.some((action) => itemConfig[action] !== undefined);
+
+  const itemActionConfig = getActionConfig(itemConfig);
+  const hasAction = hasItemAction(itemActionConfig);
 
   const actionNeedConvert = ACTION_TYPES.find(
     (action) =>
-      itemConfig[action]?.action === 'url' && isLocationPath((itemConfig[action] as UrlActionConfig).url_path ?? '')
+      itemActionConfig[action]?.action === 'url' &&
+      isLocationPath((itemActionConfig[action] as UrlActionConfig).url_path ?? '')
   );
 
   if (hasAction && actionNeedConvert) {
-    itemConfig[actionNeedConvert] = convertUrlActionToNavigateAction(itemConfig[actionNeedConvert]);
+    itemActionConfig[actionNeedConvert] = convertUrlActionToNavigateAction(itemActionConfig[actionNeedConvert]);
   }
 
   if (builtIn) {
@@ -135,7 +138,7 @@ export const computeNewItem = (
   item.prepend(haIcon);
 
   if (hasAction) {
-    addHandlerActions(item, itemConfig);
+    addHandlerActions(item, itemActionConfig);
   }
   return item;
 };
