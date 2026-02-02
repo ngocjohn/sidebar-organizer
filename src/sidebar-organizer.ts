@@ -374,13 +374,14 @@ export class SidebarOrganizer {
       // window.localStorage.setItem('sidebarPanelOrder', JSON.stringify(combinedOrder));
 
       // raarnge items based on the combined order, item not found in the combined order will be placed at the end
-      const orderedItems = this._sidebarItems.sort((a, b) => {
+
+      this._sidebarItems = this._sidebarItems.sort((a, b) => {
         const aIndex = combinedOrder.indexOf(a.getAttribute(ATTRIBUTE.DATA_PANEL) || a.href.replace('/', ''));
         const bIndex = combinedOrder.indexOf(b.getAttribute(ATTRIBUTE.DATA_PANEL) || b.href.replace('/', ''));
         return aIndex - bIndex;
       });
 
-      this._sidebarItems = orderedItems;
+      // this._sidebarItems = orderedItems;
 
       const firstChildNextSibling = sidebarItemsContainer.firstChild?.nextSibling || null;
       // rearrange the items in the sidebar by their new order

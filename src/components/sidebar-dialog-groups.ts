@@ -326,7 +326,7 @@ export class SidebarDialogGroups extends LitElement {
       { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
       { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
       { title: 'Show in preview', action: 'preview-item', icon: 'mdi:information-outline' },
-      { title: 'Collapse by default', action: 'collapsed-group' },
+      { title: 'Collapse by default', action: 'collapsed-group', icon: 'mdi:eye-minus-outline' },
       { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
     ];
     const loading =

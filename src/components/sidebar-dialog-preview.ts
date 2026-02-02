@@ -328,32 +328,26 @@ export class SidebarDialogPreview extends LitElement {
       return this._renderPanel(defaultDash);
     };
 
-    return html`
-      <div id="theme-container"></div>
+    return html` <div id="theme-container"></div>
       <div class="divider-preview" style=${this._computePreviewStyle()}>
         ${this._renderHeader()}
         <div class="groups-container">
           ${lovelacePanel()} ${this._renderCustomGroups()} ${this._renderUngroupedPanels()}
           <div class="spacer"></div>
-          ${
-            isEmpty(this._previewPanels?.bottom_items)
-              ? nothing
-              : html`
-                  <div class="divider"></div>
-                  <div class="bottom-panel">${this._renderBottomPanels()}</div>
-                `
-          }
-          ${
-            isEmpty(this._previewPanels?.bottom_grid_items)
-              ? nothing
-              : html`
-                  <div class="divider"></div>
-                  <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
-                `
-          }
+          ${isEmpty(this._previewPanels?.bottom_items)
+            ? nothing
+            : html`
+                <div class="divider"></div>
+                <div class="bottom-panel">${this._renderBottomPanels()}</div>
+              `}
+          ${isEmpty(this._previewPanels?.bottom_grid_items)
+            ? nothing
+            : html`
+                <div class="divider"></div>
+                <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
+              `}
         </div>
-      </div>
-    </div>`;
+      </div>`;
   }
 
   private _renderCustomGroups(): TemplateResult[] {
