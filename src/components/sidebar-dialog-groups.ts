@@ -394,12 +394,13 @@ export class SidebarDialogGroups extends LitElement {
     `;
   }
 
-  private _handleSubItemAction(ev: CustomEvent) {
+  private _handleSubItemAction = (ev: CustomEvent): void => {
     ev.stopPropagation();
     const subItem = (ev.detail?.item as any)?.data as any;
     const key = (ev.detail?.item as any)?.value as string;
     this._handleGroupAction(subItem.action, key);
-  }
+  };
+
   private _groupMoved = (ev: CustomEvent): void => {
     ev.stopPropagation();
     console.log('Group to be moved:', Object.keys(this._sidebarConfig.custom_groups || {}));
