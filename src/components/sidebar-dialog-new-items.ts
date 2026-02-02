@@ -1,9 +1,7 @@
 import { mdiChevronLeft, mdiGestureTap, mdiMessageBadgeOutline } from '@mdi/js';
 import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
-import { isIcon } from '@utilities/is-icon';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
-import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { capitalize, findKey, pick } from 'es-toolkit/compat';
 import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -29,20 +27,8 @@ export class SidebarDialogNewItems extends LitElement {
   @state() _selectedItem: NewItemConfig | null = null;
   @state() _yamlMode: boolean = false;
 
-  @state() _notificationExpanded: boolean = false;
-
-  protected update(changedProperties: PropertyValues): void {
-    super.update(changedProperties);
-    if (changedProperties.has('_selectedItemIndex') && this._selectedItemIndex !== null) {
-      setTimeout(() => {
-        this._observeExpansion();
-      }, 100); // Delay to ensure the DOM is updated
-    }
-  }
-
   protected firstUpdated(changedProperties: PropertyValues): void {
     super.firstUpdated(changedProperties);
-    this._selectedItem = null;
   }
 
   protected updated(changedProperties: PropertyValues): void {
@@ -56,31 +42,6 @@ export class SidebarDialogNewItems extends LitElement {
         this._yamlMode = false;
       }
     }
-  }
-
-  private _observeExpansion() {
-    const notificationForm = this.shadowRoot?.getElementById('notification-form');
-    const expandable = notificationForm?.shadowRoot?.querySelector('ha-form-expandable');
-    const panel = expandable?.shadowRoot?.querySelector('ha-expansion-panel');
-    if (!panel) return;
-
-    this._notificationExpanded = panel.hasAttribute('expanded');
-    // Ensure the panel has the 'expanded' attribute
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'expanded') {
-          const isExpanded = panel.hasAttribute('expanded');
-          console.log('Panel expanded changed:', isExpanded);
-          // You can call some method here
-          this._notificationExpanded = isExpanded;
-        }
-      }
-    });
-
-    observer.observe(panel, {
-      attributes: true,
-      attributeFilter: ['expanded'],
-    });
   }
 
   private get groupKeys(): { value: string; label?: string }[] {
@@ -267,7 +228,6 @@ export class SidebarDialogNewItems extends LitElement {
               ${this._createHaForm(dataWithoutActions, baseSchema, 'base')}
               ${this._createHaForm(actionData, actionSchema, 'actions')}
               ${this._createHaForm(notificationData, notificationSchema, 'notification', 'notification-form')}
-              ${this._notificationExpanded ? this._renderNotifyResult() : html``}
             `
           : html`
               <ha-yaml-editor
@@ -296,53 +256,6 @@ export class SidebarDialogNewItems extends LitElement {
         </div>
       </div>
     `;
-  }
-
-  private _renderNotifyResult(): TemplateResult {
-    if (!this._selectedItem || !this._selectedItem.notification) {
-      return html``;
-    }
-
-    const notifyConfigValue = this._selectedItem.notification || '';
-
-    this._subscribeTemplate(notifyConfigValue, (result) => {
-      const templatePreview = this.shadowRoot?.getElementById('template-preview-content') as HTMLElement;
-      if (templatePreview) {
-        let _result: string = result;
-        if (isIcon(result)) {
-          _result = `<ha-icon icon="${result}"></ha-icon>`;
-        }
-        templatePreview.innerHTML = _result;
-      }
-    });
-    return html`
-      <div id="template-preview">
-        <span>Template result:</span>
-        <pre id="template-preview-content" class="rendered"></pre>
-      </div>
-    `;
-  }
-
-  private _subscribeTemplate(configValue: string, callback: (result: string) => void): void {
-    if (!this.hass || !hasTemplate(configValue)) {
-      console.log('Not a template', hasTemplate(configValue), configValue);
-      return;
-    }
-
-    subscribeRenderTemplate(
-      this.hass.connection,
-      (result) => {
-        callback(result.result);
-      },
-      {
-        template: configValue ?? '',
-        variables: {
-          config: configValue,
-          user: this.hass.user!.name,
-        },
-        strict: true,
-      }
-    );
   }
 
   private getGroupKey(item: string): string | undefined {

@@ -2,7 +2,6 @@ import { ALERT_MSG } from '@constants';
 import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
 import { SidebarConfig, HaExtened, PANEL_TYPE } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
-import { isIcon } from '@utilities/is-icon';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
@@ -195,6 +194,7 @@ export class SidebarDialogGroups extends LitElement {
                   <ha-icon-button .label=${'Edit item'} @click=${() => (this._selectedNotification = item.value)}
                     ><ha-icon icon="mdi:pencil"></ha-icon
                   ></ha-icon-button>
+                  <wa-divider orientation="vertical"></wa-divider>
                   <ha-icon-button
                     .label=${'Delete item'}
                     @click=${async () => {
@@ -258,16 +258,7 @@ export class SidebarDialogGroups extends LitElement {
         >Done</ha-button
       >
     </div>`;
-    this._subscribeTemplate(notifyConfigValue, (result) => {
-      const templatePreview = this.shadowRoot?.getElementById('template-preview-content') as HTMLElement;
-      if (templatePreview) {
-        let _result: string = result;
-        if (isIcon(result)) {
-          _result = `<ha-icon icon="${result}"></ha-icon>`;
-        }
-        templatePreview.innerHTML = _result;
-      }
-    });
+
     return html`
       ${headerBack}
       <ha-selector
@@ -281,13 +272,6 @@ export class SidebarDialogGroups extends LitElement {
         .required=${false}
         @value-changed=${this._handleNotifyConfigChange}
       ></ha-selector>
-
-      <div class="config-content">
-        <div id="template-preview">
-          <span>Template result:</span>
-          <pre id="template-preview-content" class="rendered"></pre>
-        </div>
-      </div>
     `;
   }
 
