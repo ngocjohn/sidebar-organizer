@@ -3,6 +3,7 @@ import type { NewItemConfig, PanelInfo, SidebarPanelItem } from '@types';
 
 import { ATTRIBUTE, CLASS, ELEMENT } from '@constants';
 
+import { NavigateActionConfig, UrlActionConfig } from './action';
 import { ACTION_TYPES, addHandlerActions } from './tap-action';
 
 /** Panel to show when no panel is picked. */
@@ -73,6 +74,16 @@ export const BUILT_IN_PANELS = ['home', 'light', 'climate', 'security', 'lovelac
 
 export const isBuiltInPanel = (urlPath: string): boolean => BUILT_IN_PANELS.includes(urlPath);
 
+const isLocationPath = (urlPath: string): boolean => {
+  return urlPath.startsWith('/');
+};
+const convertUrlActionToNavigateAction = (action: UrlActionConfig): NavigateActionConfig => {
+  return {
+    action: 'navigate',
+    navigation_path: action.url_path,
+  };
+};
+
 export const computeNewItem = (
   hass: HomeAssistant,
   itemConfig: NewItemConfig,
@@ -81,6 +92,16 @@ export const computeNewItem = (
   let title = itemConfig.title;
   let icon = itemConfig.icon;
   let urlPath = itemConfig.url_path;
+  const hasAction = ACTION_TYPES.some((action) => itemConfig[action] !== undefined);
+
+  const actionNeedConvert = ACTION_TYPES.find(
+    (action) =>
+      itemConfig[action]?.action === 'url' && isLocationPath((itemConfig[action] as UrlActionConfig).url_path ?? '')
+  );
+
+  if (hasAction && actionNeedConvert) {
+    itemConfig[actionNeedConvert] = convertUrlActionToNavigateAction(itemConfig[actionNeedConvert]);
+  }
 
   if (builtIn) {
     itemConfig = itemConfig as PanelInfo;
@@ -89,12 +110,11 @@ export const computeNewItem = (
     urlPath = `/${itemConfig.url_path}`;
   }
 
-  const hasAction = ACTION_TYPES.some((action) => itemConfig[action] !== undefined);
-
   const item = document.createElement(ELEMENT.ITEM) as SidebarPanelItem;
   item.setAttribute(ATTRIBUTE.TYPE, 'link');
 
   item.href = hasAction ? '#' : (urlPath ?? '#');
+
   item.target = itemConfig.target ?? '';
   item.setAttribute(ATTRIBUTE.DATA_PANEL, builtIn ? itemConfig.url_path! : title!);
   item.setAttribute(ATTRIBUTE.NEW_ITEM, '');
@@ -113,6 +133,7 @@ export const computeNewItem = (
   haIcon.icon = icon!;
 
   item.prepend(haIcon);
+
   if (hasAction) {
     addHandlerActions(item, itemConfig);
   }

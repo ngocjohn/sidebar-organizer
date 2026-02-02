@@ -778,15 +778,22 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _togglePromptNewGroup = async () => {
+    const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
+    const alreadyExist = (nameCompare: string) => {
+      nameCompare = nameCompare.trim().toLowerCase();
+      return Object.keys(customGroups)
+        .map((e) => e.trim().toLowerCase())
+        .includes(nameCompare);
+    };
     // const groupName = prompt('Enter new group name', 'Some Group Name');
     const groupName = await showPromptDialog(this, 'Enter new group name', 'Some Group Name', 'Create');
     if (groupName === null) return;
-    let newName = groupName.trim().replace(/\s/g, '_').toLowerCase();
-    const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
-    if (Object.keys(customGroups).includes(newName)) {
+
+    if (alreadyExist(groupName)) {
       await showAlertDialog(this, 'Group name already exists. Please choose a different one.');
       return;
     }
+
     customGroups[groupName] = [];
     this._sidebarConfig = {
       ...this._sidebarConfig,
