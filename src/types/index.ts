@@ -108,6 +108,7 @@ export interface SidebarAppearanceConfig {
   animation_off?: boolean;
   animation_delay?: number;
   text_transformation?: TextTransformation;
+  move_settings_from_fixed?: boolean;
 }
 
 export interface SidebarColorConfig {

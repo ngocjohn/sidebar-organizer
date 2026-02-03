@@ -24,6 +24,7 @@ export enum SELECTOR {
   BEFORE_SPACER = '.before-spacer',
   AFTER_SPACER = 'ha-md-list.after-spacer',
   GRID_CONTAINER = '.grid-container',
+  SETTINGS_ITEM = '.panels-list > ha-md-list > ha-md-list-item.configuration',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',

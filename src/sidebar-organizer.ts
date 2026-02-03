@@ -524,8 +524,17 @@ export class SidebarOrganizer {
     // info
     console.log('%cMAIN:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
 
-    const { new_items, default_collapsed, custom_groups, hidden_items, color_config, bottom_items, bottom_grid_items } =
-      this._config;
+    const {
+      new_items,
+      default_collapsed,
+      custom_groups,
+      hidden_items,
+      color_config,
+      bottom_items,
+      bottom_grid_items,
+      move_settings_from_fixed,
+    } = this._config;
+    this._moveSettingsFromFixed(move_settings_from_fixed || false);
     this._configPanelMap = new Map(Object.entries(custom_groups || {}));
     this._configPanelMap.set(PANEL_TYPE.BOTTOM, bottom_items || []);
     this._configPanelMap.set(PANEL_TYPE.BOTTOM_GRID, bottom_grid_items || []);
@@ -640,6 +649,27 @@ export class SidebarOrganizer {
       );
   }
 
+  private _moveSettingsFromFixed(move: boolean = false): void {
+    if (!move) return;
+    const settingsItem = this.sideBarRoot?.querySelector(SELECTOR.SETTINGS_ITEM) as SidebarPanelItem;
+    if (!settingsItem) {
+      // error
+      console.log(
+        '%cSIDEBAR-ORGANIZER:%c ❌ Settings item not found',
+        'color: #999999;',
+        'color: #fa5252; font-weight: 600;'
+      );
+      return;
+    }
+    const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
+    this._scrollbar.insertBefore(settingsItem, spacer);
+    // success
+    console.log(
+      '%cSIDEBAR-ORGANIZER:%c ✅ Setting moved from fixed',
+      'color: #999999;',
+      'color: #40c057; font-weight: 600;'
+    );
+  }
   private _subscribeTemplate(value: string, callback: (result: string) => void): void {
     if (!this.hass || !hasTemplate(value)) {
       console.log('Not a template:', this.hass, value);
@@ -846,7 +876,7 @@ export class SidebarOrganizer {
     const customGroups = this._config.custom_groups || {};
     const bottomMovedItems = this._config.bottom_items || [];
     const bottomGridItems = this._config.bottom_grid_items || [];
-
+    const settingsNotMoved = this._config.move_settings_from_fixed !== true;
     // Get grouped items
     const groupedItems = Object.values(customGroups)
       .flat()
@@ -865,7 +895,13 @@ export class SidebarOrganizer {
     }
 
     // Combine grouped, default, and bottom items
-    return [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems];
+    const reorderedPanels = [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems];
+    if (settingsNotMoved && reorderedPanels.includes('config')) {
+      // delete config from panels
+      reorderedPanels.splice(reorderedPanels.indexOf('config'), 1);
+    }
+
+    return reorderedPanels;
   }
 
   private _reorderGroupedSidebar() {
