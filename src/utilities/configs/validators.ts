@@ -60,7 +60,7 @@ export const isDefaultIncluded = (
 export type INVALID_CONFIG = {
   valid: boolean;
   config: SidebarConfig;
-  duplikatedItems: string[];
+  duplicateItems: string[];
   invalidItems: string[];
   noTitleItems: string[];
   hasDefaultInGroupsOrBottom?: boolean;
@@ -79,7 +79,7 @@ export const isItemsValid = (
   ];
   // console.log('allItems to validate', allItems);
   if (allItems.length === 0) {
-    return log ? { valid: true, config, duplikatedItems: [], invalidItems: [], noTitleItems: [] } : true;
+    return log ? { valid: true, config, duplicateItems: [], invalidItems: [], noTitleItems: [] } : true;
   }
   const newConfigItems = Array.from(config.new_items || []).map((item) => item.title!);
   allItems = allItems.filter((item) => !newConfigItems.includes(item));
@@ -127,7 +127,7 @@ export const isItemsValid = (
   }
 
   if (log) {
-    return { valid, config, duplikatedItems: duplicateItems, invalidItems, noTitleItems, hasDefaultInGroupsOrBottom };
+    return { valid, config, duplicateItems, invalidItems, noTitleItems, hasDefaultInGroupsOrBottom };
   }
 
   return valid;

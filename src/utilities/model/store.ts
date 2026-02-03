@@ -11,8 +11,9 @@ import { showToast } from '@utilities/toast-notify';
 import { fetchUsers } from '@utilities/user';
 import { pick } from 'es-toolkit/compat';
 import { UnsubscribeFunc } from 'home-assistant-js-websocket';
-import { SidebarOrganizer } from 'main';
-import { HomeAssistant } from 'types/ha';
+
+import { SidebarOrganizer } from '../../sidebar-organizer';
+import { HomeAssistant } from '../../types/ha';
 
 interface DashboardState {
   defaultPanel?: PanelInfo;

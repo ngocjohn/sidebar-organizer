@@ -1,6 +1,6 @@
 import { PANEL_ICONS } from '@constants';
-import { SidebarConfigDialog } from 'components/sidebar-dialog';
 
+import { SidebarConfigDialog } from '../components/sidebar-dialog';
 import { HaExtened, SidebarConfig, PanelInfo, Panels, NewItemConfig } from '../types';
 import { getDefaultPanel, getPanelTitle } from './panel';
 

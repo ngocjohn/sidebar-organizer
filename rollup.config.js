@@ -29,7 +29,7 @@ const plugins = [dev && serve(serveopts), !dev && terser(terserOpt)];
 
 export default [
   {
-    input: 'src/sidebar-organizer.ts',
+    input: 'src/index.ts',
     output: [
       {
         file: fileOutput,
@@ -39,7 +39,14 @@ export default [
         banner: custombanner,
       },
     ],
-    plugins: [typescript({ declaration: false, outDir: dev ? 'dist' : 'build' }), ...defaultPlugins, ...plugins],
+    plugins: [
+      typescript({
+        tsconfig: './tsconfig.json',
+        outDir: dev ? './dist' : './build',
+      }),
+      ...defaultPlugins,
+      ...plugins,
+    ],
     moduleContext: (id) => {
       const thisAsWindowForModules = [
         'node_modules/@formatjs/intl-utils/lib/src/diff.js',
@@ -51,8 +58,6 @@ export default [
     },
     watch: {
       exclude: 'node_modules/**',
-      buildDelay: 1000,
-      include: 'src/**/*',
     },
   },
 ];

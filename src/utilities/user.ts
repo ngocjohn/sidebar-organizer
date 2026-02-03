@@ -1,4 +1,4 @@
-import type { HomeAssistant } from 'types/ha';
+import type { HomeAssistant } from '../types/ha';
 
 type Credential = {
   type: string;

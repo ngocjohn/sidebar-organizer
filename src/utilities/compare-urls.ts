@@ -1,8 +1,8 @@
 import { NAMESPACE } from '@constants';
 import { getPromisableResult } from 'get-promisable-result';
-import { HomeAssistant } from 'types/ha';
 
 import pjson from '../../package.json';
+import { HomeAssistant } from '../types/ha';
 import { getConfigUrl } from './dom-utils';
 import { generateHash } from './generate-hash';
 

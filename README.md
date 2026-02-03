@@ -4,11 +4,11 @@
 
 # 🗄️ Sidebar Organizer
 
-> ⚠️ **Important Notice**
+> ⚠️ **Important Notice** ⚠️
 >
-> Sidebar Organizer **v2.0.0 and above** is compatible with **Home Assistant 2025.5.0 and newer**.
+> Sidebar Organizer **v3.0.0 and above** is compatible with **Home Assistant 2026.2.0 and newer**.
 >
-> For older Home Assistant versions, use **Sidebar Organizer up to v1.4.0**.
+> For older Home Assistant versions, use **Sidebar Organizer up to v2.3.0**.
 >
 > 🔒 If you rely on Sidebar Organizer, make sure you install the version that matches your Home Assistant release.
 
@@ -273,6 +273,7 @@ In this section, you can organize the layout of the sidebar panels by customizin
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!--Badges-->
+
 [forum-url]: https://community.home-assistant.io/t/sidebar-organizer
 [forum-badge]: https://img.shields.io/badge/forum-community?style=flat&logo=homeassistant&label=community&color=blue
 [hacs-validate]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yml/badge.svg

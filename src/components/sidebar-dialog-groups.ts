@@ -2,7 +2,6 @@ import { ALERT_MSG } from '@constants';
 import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
 import { SidebarConfig, HaExtened, PANEL_TYPE } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
-import { isIcon } from '@utilities/is-icon';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
@@ -195,6 +194,7 @@ export class SidebarDialogGroups extends LitElement {
                   <ha-icon-button .label=${'Edit item'} @click=${() => (this._selectedNotification = item.value)}
                     ><ha-icon icon="mdi:pencil"></ha-icon
                   ></ha-icon-button>
+                  <wa-divider orientation="vertical"></wa-divider>
                   <ha-icon-button
                     .label=${'Delete item'}
                     @click=${async () => {
@@ -258,16 +258,7 @@ export class SidebarDialogGroups extends LitElement {
         >Done</ha-button
       >
     </div>`;
-    this._subscribeTemplate(notifyConfigValue, (result) => {
-      const templatePreview = this.shadowRoot?.getElementById('template-preview-content') as HTMLElement;
-      if (templatePreview) {
-        let _result: string = result;
-        if (isIcon(result)) {
-          _result = `<ha-icon icon="${result}"></ha-icon>`;
-        }
-        templatePreview.innerHTML = _result;
-      }
-    });
+
     return html`
       ${headerBack}
       <ha-selector
@@ -281,13 +272,6 @@ export class SidebarDialogGroups extends LitElement {
         .required=${false}
         @value-changed=${this._handleNotifyConfigChange}
       ></ha-selector>
-
-      <div class="config-content">
-        <div id="template-preview">
-          <span>Template result:</span>
-          <pre id="template-preview-content" class="rendered"></pre>
-        </div>
-      </div>
     `;
   }
 
@@ -314,10 +298,7 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _renderCustomGroupList(): TemplateResult {
-    const customGroupList = Object.keys(this._sidebarConfig.custom_groups || []).map((key) => ({
-      key,
-      label: key.replace(/_/g, ' ').toUpperCase(),
-    }));
+    const customGroupList = Object.keys(this._sidebarConfig.custom_groups || {});
     const addBtn = html`
       <ha-button appearance="plain" size="small" @click=${this._togglePromptNewGroup}>Add New Group</ha-button>
     `;
@@ -325,26 +306,18 @@ export class SidebarDialogGroups extends LitElement {
       return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
     };
 
-    const _createActionMap = (key: string) => {
-      const actions = [
-        { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
-        { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
-        { title: 'Show in preview', action: 'preview-item', icon: 'mdi:information-outline' },
-        // Default 'collapsed-group' action
-        {
-          title: isCollapsed(key) ? 'Remove from collapsed by default' : 'Add to collapsed by default',
-          action: 'collapsed-group',
-          icon: isCollapsed(key) ? 'mdi:eye-minus' : 'mdi:eye-plus',
-        },
-        { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
-      ];
-      return actions;
-    };
+    const actions = [
+      { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
+      { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
+      { title: 'Show in preview', action: 'preview-item', icon: 'mdi:information-outline' },
+      { title: 'Collapse by default', action: 'collapsed-group', icon: 'mdi:eye-minus-outline' },
+      { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
+    ];
     const loading =
       customGroupList.length === 0
         ? html`<div>No custom groups found</div>`
         : html`<ha-spinner .size=${'small'}></ha-spinner>`;
-
+    const textTransform = this._sidebarConfig?.text_transformation ?? 'capitalize';
     return html`
       ${!customGroupList.length || this._reloadItems
         ? loading
@@ -353,11 +326,11 @@ export class SidebarDialogGroups extends LitElement {
               <div class="group-list" id="group-list">
                 ${repeat(
                   customGroupList || [],
-                  (group) => group.key,
+                  (group) => group,
                   (group, index) => {
-                    const key = group.key;
-                    const groupName = group.label;
-                    let actionMap = _createActionMap(key);
+                    const key = group;
+                    const groupName = group.replace(/_/g, ' ');
+                    let defaultCollapsed = isCollapsed(key);
                     const itemCount = this._sidebarConfig.custom_groups![key].length;
                     return html` <div class="group-item-row" data-group=${key} data-index=${index}>
                       <div class="handle">
@@ -365,7 +338,7 @@ export class SidebarDialogGroups extends LitElement {
                       </div>
                       <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key)}>
                         <ha-icon icon=${`mdi:numeric-${index + 1}-box`}></ha-icon>
-                        <div class="group-name-items">
+                        <div class="group-name-items" style="text-transform: ${textTransform}">
                           ${groupName}
                           <span>${itemCount} ${itemCount > 1 ? 'items' : 'item'}</span>
                         </div>
@@ -377,22 +350,22 @@ export class SidebarDialogGroups extends LitElement {
                           style="color: var(--disabled-color)"
                           @click=${() => this._handleGroupAction('collapsed-group', key)}
                         ></ha-icon>
-                        <ha-button-menu
-                          .corner=${'TOP_LEFT'}
-                          .fixed=${true}
-                          .menuCorner=${'END'}
-                          .activatable=${true}
-                          .naturalMenuWidth=${true}
-                          @closed=${(ev: Event) => ev.stopPropagation()}
-                          ><ha-icon-button slot="trigger" .path=${mdiDotsVertical}></ha-icon-button>
-                          ${actionMap.map((action) => {
-                            return html`<mwc-list-item
-                              .graphic=${'icon'}
-                              @click=${() => this._handleGroupAction(action.action, key)}
-                              ><ha-icon slot="graphic" icon=${action.icon}></ha-icon> ${action.title}</mwc-list-item
-                            >`;
+                        <ha-dropdown @wa-select=${this._handleSubItemAction}>
+                          <ha-icon-button slot="trigger" .path=${mdiDotsVertical} hide-title></ha-icon-button>
+                          ${actions.map((action) => {
+                            return html` ${['delete'].includes(action.action)
+                                ? html`<wa-divider></wa-divider>`
+                                : nothing}
+                              <ha-dropdown-item
+                                .value=${key}
+                                .data=${action}
+                                .type=${action.action === 'collapsed-group' ? 'checkbox' : undefined}
+                                .checked=${action.action === 'collapsed-group' ? defaultCollapsed : undefined}
+                                .variant=${action.action === 'delete' ? 'danger' : undefined}
+                                ><ha-icon slot="icon" icon=${action.icon}></ha-icon> ${action.title}</ha-dropdown-item
+                              >`;
                           })}
-                        </ha-button-menu>
+                        </ha-dropdown>
                       </div>
                     </div>`;
                   }
@@ -404,6 +377,13 @@ export class SidebarDialogGroups extends LitElement {
       <div class="header-row flex-end">${addBtn}</div>
     `;
   }
+
+  private _handleSubItemAction = (ev: CustomEvent): void => {
+    ev.stopPropagation();
+    const subItem = (ev.detail?.item as any)?.data as any;
+    const key = (ev.detail?.item as any)?.value as string;
+    this._handleGroupAction(subItem.action, key);
+  };
 
   private _groupMoved = (ev: CustomEvent): void => {
     ev.stopPropagation();
@@ -798,15 +778,22 @@ export class SidebarDialogGroups extends LitElement {
   }
 
   private _togglePromptNewGroup = async () => {
+    const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
+    const alreadyExist = (nameCompare: string) => {
+      nameCompare = nameCompare.trim().toLowerCase();
+      return Object.keys(customGroups)
+        .map((e) => e.trim().toLowerCase())
+        .includes(nameCompare);
+    };
     // const groupName = prompt('Enter new group name', 'Some Group Name');
     const groupName = await showPromptDialog(this, 'Enter new group name', 'Some Group Name', 'Create');
     if (groupName === null) return;
-    let newName = groupName.trim().replace(/\s/g, '_').toLowerCase();
-    const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
-    if (Object.keys(customGroups).includes(newName)) {
+
+    if (alreadyExist(groupName)) {
       await showAlertDialog(this, 'Group name already exists. Please choose a different one.');
       return;
     }
+
     customGroups[groupName] = [];
     this._sidebarConfig = {
       ...this._sidebarConfig,

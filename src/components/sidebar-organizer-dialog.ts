@@ -10,8 +10,8 @@ import { showToast } from '@utilities/toast-notify';
 import { cloneDeep } from 'es-toolkit/compat';
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { DIALOG_STYLE } from 'sidebar-css';
 
+import { DIALOG_STYLE } from '../sidebar-css';
 import { HA, SidebarConfig } from '../types';
 import { HassDialog } from '../types/dialog-manager';
 import { fireEvent } from '../utilities/fire_event';

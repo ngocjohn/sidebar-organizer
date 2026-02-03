@@ -113,6 +113,13 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
                 },
               },
             },
+            {
+              name: 'move_settings_from_fixed',
+              label: 'Move Settings item from Fixed',
+              type: 'boolean',
+              helper: 'Move the Settings item from the fixed panels to be user-configurable',
+              default: false,
+            },
           ] as const,
         },
       ],

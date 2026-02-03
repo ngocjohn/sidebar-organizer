@@ -1,9 +1,15 @@
+import { pick } from 'es-toolkit/compat';
+
 import { NewItemConfig } from '../types';
+import { ActionsSharedConfig } from './action';
 type ActionType = 'double_tap' | 'hold' | 'tap';
 
 export const ACTION_TYPES = ['tap_action', 'hold_action', 'double_tap_action'];
 
-export function addHandlerActions(element: HTMLElement, config: NewItemConfig) {
+export const getActionConfig = (config: NewItemConfig): ActionsSharedConfig =>
+  pick(config, ['entity', ...ACTION_TYPES]) as ActionsSharedConfig;
+
+export function addHandlerActions(element: HTMLElement, config: ActionsSharedConfig) {
   const handler = new ActionHandler(element, config, sendAction);
   element.addEventListener('pointerdown', handler.handleStart.bind(handler));
   element.addEventListener('pointerup', handler.handleEnd.bind(handler));
@@ -26,19 +32,7 @@ export function addHandlerActions(element: HTMLElement, config: NewItemConfig) {
   element.style.cursor = 'pointer';
 }
 
-function sendAction(element: HTMLElement, config: NewItemConfig, actionType: ActionType) {
-  const getAction = (action: string) => {
-    const actionConfig = config?.[action] || { action: 'none' };
-    return actionConfig;
-  };
-
-  const actionConfig = {
-    tap_action: getAction('tap_action'),
-    hold_action: getAction('hold_action'),
-    double_tap_action: getAction('double_tap_action'),
-    entity: config?.entity || null,
-  } as NewItemConfig;
-
+function sendAction(element: HTMLElement, config: ActionsSharedConfig, actionType: ActionType) {
   // if (!config.entity || config.entity === null) {
   //   console.warn('No entity found for action');
   //   return;
@@ -48,7 +42,7 @@ function sendAction(element: HTMLElement, config: NewItemConfig, actionType: Act
     const event = new CustomEvent('hass-action', {
       detail: {
         action: actionType,
-        config: actionConfig,
+        config: config,
       },
       bubbles: true,
       composed: true,
@@ -60,8 +54,8 @@ function sendAction(element: HTMLElement, config: NewItemConfig, actionType: Act
 class ActionHandler {
   constructor(
     element: HTMLElement,
-    config: NewItemConfig,
-    sendAction: (element: HTMLElement, config: NewItemConfig, actionType: ActionType) => void
+    config: ActionsSharedConfig,
+    sendAction: (element: HTMLElement, config: ActionsSharedConfig, actionType: ActionType) => void
   ) {
     this.element = element;
     this.config = config;
@@ -72,8 +66,8 @@ class ActionHandler {
     this.isSwiping = false;
   }
   private element: HTMLElement;
-  private config: NewItemConfig;
-  private sendAction: (element: HTMLElement, config: NewItemConfig, actionType: ActionType) => void;
+  private config: ActionsSharedConfig;
+  private sendAction: (element: HTMLElement, config: ActionsSharedConfig, actionType: ActionType) => void;
   private tapTimeout: number | null;
   private lastTap: number;
   private startTime: number | null;

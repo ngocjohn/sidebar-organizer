@@ -28,6 +28,7 @@ const APPEARANCE_KEYS = [
   'animation_off',
   'animation_delay',
   'text_transformation',
+  'move_settings_from_fixed',
 ] as const;
 
 @customElement('sidebar-dialog-colors')
@@ -128,20 +129,8 @@ export class SidebarDialogColors extends LitElement {
             } else {
               this._colorConfigMode = newTheme.mode || (this.hass.themes.darkMode ? 'dark' : 'light');
             }
-            // console.log('Supported modes:', supportedModes, 'Selected mode:', this._colorConfigMode);
           }
         } else {
-          // const themeName = newTheme?.theme || this.hass.themes.theme;
-          // const supportsMode = this._supportsMode(themeName);
-          // if (!supportsMode) {
-          //   this._colorConfigMode = this.hass.themes.darkMode ? 'dark' : 'light';
-          //   this._supportedModes = [];
-          //   console.log('Theme does not support modes, set to', this._colorConfigMode);
-          // } else {
-          //   this._supportedModes = this._getSupportedModes(themeName);
-          //   this._colorConfigMode = newTheme?.mode || (this.hass.themes.darkMode ? 'dark' : 'light');
-          //   console.log('Theme supports modes, set to', this._colorConfigMode);
-          // }
         }
       }
       if (oldTheme && newTheme && oldTheme.mode !== newTheme.mode) {
@@ -574,68 +563,6 @@ export class SidebarDialogColors extends LitElement {
         >
       </div>
     `;
-  }
-
-  // private _renderCustomStylesField(): TemplateResult {
-  //   if (!this._sidebarConfig || !this._colorConfigMode) return html``;
-  //   if (this._state === THEME_STATE.LOADING) {
-  //     return html`<ha-fade-in .delay=${500}><ha-spinner size="large"></ha-spinner></ha-fade-in>`;
-  //   }
-  //   const currentMode = this._colorConfigMode as 'light' | 'dark';
-  //   const modeCustomStyles = this._sidebarConfig?.color_config?.[currentMode]?.custom_styles;
-  //   const hasCustomStyles = !isEmpty(modeCustomStyles);
-  //   // console.log('Rendering custom styles field, hasCustomStyles:', hasCustomStyles);
-  //   // const hasCustomStyles = this._sidebarConfig?.color_config?.[currentMode]?.custom_styles !== undefined;
-  //   const currentStyleConfig = {...this._initCustomStyles};
-  //   return html`
-  //     <div class="color-item" id="custom_styles">
-  //         <ha-yaml-editor
-  //           .hass=${this.hass}
-  //           .defaultValue=${currentStyleConfig}
-  //           .copyClipboard=${true}
-  //           .configValue=${'custom_styles'}
-  //           .hasExtraActions=${true}
-  //           .label=${'Custom Styles'}
-  //           .required=${false}
-  //           @value-changed=${this._handleYamlChange}
-  //           style="flex: 1; overflow: auto;"
-  //         >
-  //           <ha-button appearance="plain" size="small" slot="extra-actions" .disabled=${!hasCustomStyles} style="float: inline-end;"  @click=${() => this._resetColorConfig('custom_styles')}>Reset</ha-button>
-  //         </ha-yaml-editor>
-  //       </div>
-  //     </div>
-  //   `;
-  // }
-
-  private _handleYamlChange(ev: CustomEvent): void {
-    ev.stopPropagation();
-    const detail = ev.detail;
-    const { isValid, value } = detail;
-    const isArray = Array.isArray(value);
-    if (!isValid) {
-      console.error('Invalid custom styles:', value);
-      return;
-    }
-    const currentColorMode = this._colorConfigMode as 'light' | 'dark';
-
-    const colorConfig = { ...(this._sidebarConfig.color_config || {}) };
-    let currentModeConfig = { ...(colorConfig[currentColorMode] || {}) };
-    if (isArray) {
-      console.error('Value is not object:', value);
-      currentModeConfig.custom_styles = {};
-    } else {
-      currentModeConfig.custom_styles = value;
-    }
-    colorConfig[currentColorMode] = currentModeConfig;
-
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      color_config: {
-        ...colorConfig,
-      },
-    };
-    console.log('Updated custom styles:', this._sidebarConfig?.color_config![currentColorMode]!.custom_styles);
-    fireEvent(this, 'sidebar-config-changed', { config: this._sidebarConfig });
   }
 
   private _toggleColorPicker(configValue: string) {

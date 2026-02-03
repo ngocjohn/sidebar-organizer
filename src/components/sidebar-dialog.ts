@@ -1,5 +1,5 @@
 import { ALERT_MSG, STORAGE, TAB_STATE } from '@constants';
-import { SidebarConfig, HaExtened, NewItemConfig, SidebardPanelConfig } from '@types';
+import { SidebarConfig, HaExtened, NewItemConfig, SidebardPanelConfig, PANEL_TYPE } from '@types';
 import { ARRAY_UTILS } from '@utilities/array';
 
 import './sidebar-dialog-colors';
@@ -25,6 +25,7 @@ import {
   sidebarUseConfigFile,
   removeStorage,
 } from '@utilities/storage-utils';
+import { pick } from 'es-toolkit/compat';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import YAML from 'yaml';
@@ -71,6 +72,7 @@ export class SidebarConfigDialog extends LitElement {
   @state() public _newItemMap = new Map<string, NewItemConfig>();
   @state() private _newItems: string[] = [];
   @state() private _panelConfigMap = new Map<string, string[]>();
+  @state() private _settingItemMoved = false;
 
   @state() private _uploading = false;
   @state() _invalidConfig?: INVALID_CONFIG;
@@ -130,6 +132,25 @@ export class SidebarConfigDialog extends LitElement {
       this._mainDialog._configValid = isValid;
       this.requestUpdate();
     }
+    if (_changedProperties.has('_settingItemMoved')) {
+      if (this._settingItemMoved && !this._initCombiPanels.includes('config')) {
+        this._initCombiPanels.push('config');
+      } else if (!this._settingItemMoved) {
+        const config = { ...this._sidebarConfig };
+        const configToUpdate = pick(config, [
+          PANEL_TYPE.CUSTOM,
+          PANEL_TYPE.BOTTOM,
+          PANEL_TYPE.HIDDEN,
+          PANEL_TYPE.BOTTOM_GRID,
+        ]) as SidebardPanelConfig;
+        const updatedPanels = cleanItemsFromConfig(configToUpdate, ['config']);
+        this._sidebarConfig = {
+          ...config,
+          ...updatedPanels,
+        };
+        this._initCombiPanels = this._initCombiPanels.filter((item) => item !== 'config');
+      }
+    }
   }
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
@@ -160,7 +181,10 @@ export class SidebarConfigDialog extends LitElement {
           // console.log('New item map:', this._newItemMap);
           // compare the new items with initCombiPanels if is new added or removed
         }
+
+        this._settingItemMoved = newConfig.move_settings_from_fixed === true;
       }
+
       const curentNewItems = [...this._newItems];
       // console.log('Current new items:', curentNewItems);
 
@@ -177,6 +201,7 @@ export class SidebarConfigDialog extends LitElement {
         this._initCombiPanels = [...this._initCombiPanels, ...Array.from(this._newItems)];
         console.log('Init combi panels updated:', this._initCombiPanels);
       }
+
       // Update panel config map
       const panelConfig = {
         ...(newConfig.custom_groups || {}),
@@ -606,7 +631,11 @@ export class SidebarConfigDialog extends LitElement {
     // Filter out defaultPanel and 'lovelace' from the current panel order
     const _sidebarItems = ARRAY_UTILS.uniq(currentPanelOrder);
     // const _sidebarItems = Array.from(new Set(currentPanelOrder.filter((item: string) => item !== defaultPanel)));
+    console.groupCollapsed('%cSIDEBAR-DIALOG:', 'color: #37b24d;', 'Initial sidebar items fetched:');
     console.log('Initial sidebar items:', _sidebarItems);
+    console.groupEnd();
+
+    // Initialize new items
     const configNewItems = this._sidebarConfig?.new_items || [];
     this._newItems = configNewItems.map((item: NewItemConfig) => item.title!);
     // Initialize panel combinations
