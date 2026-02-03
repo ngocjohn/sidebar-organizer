@@ -127,13 +127,13 @@ export const computeNewItem = (
   const span = document.createElement('span');
   span.classList.add('item-text');
   span.setAttribute('slot', 'headline');
-  span.innerText = title!;
+  span.innerText = title ?? 'unknown';
 
   item.appendChild(span);
 
   const haIcon = document.createElement(ELEMENT.HA_ICON) as any;
   haIcon.setAttribute(ATTRIBUTE.SLOT, 'start');
-  haIcon.icon = icon!;
+  haIcon.icon = icon ?? 'mdi:bookmark-outline';
 
   item.prepend(haIcon);
 

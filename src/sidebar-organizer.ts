@@ -709,7 +709,7 @@ export class SidebarOrganizer {
     const contentDiv = document.createElement('div');
     contentDiv.classList.add(CLASS.ADDED_CONTENT);
     contentDiv.setAttribute(ATTRIBUTE.GROUP, group);
-    contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.replace(/_/g, ' ')}</span>`;
+    contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.trim()}</span>`;
     contentDiv.classList.toggle(CLASS.COLLAPSED, isCollapsed);
     divider.appendChild(contentDiv);
     divider.addEventListener('click', this._toggleGroup.bind(this));
