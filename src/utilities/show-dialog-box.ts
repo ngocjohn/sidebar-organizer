@@ -51,16 +51,26 @@ export const showConfirmDialog = async (
   confirmText: string,
   cancelText?: string
 ): Promise<boolean> => {
-  const helpers = await (window as any).loadCardHelpers();
-  const result = await helpers.showConfirmationDialog(element, {
-    title: NAMESPACE_TITLE,
-    text: message,
-    confirmText,
-    dismissText: cancelText ? cancelText : 'Cancel',
-  });
+  // Check if loadCardHelpers is available (older HA versions)
+  if (typeof (window as any).loadCardHelpers === 'function') {
+    const helpers = await (window as any).loadCardHelpers();
+    const result = await helpers.showConfirmationDialog(element, {
+      title: NAMESPACE_TITLE,
+      text: message,
+      confirmText,
+      dismissText: cancelText ? cancelText : 'Cancel',
+    });
 
-  console.log('showConfirmDialog', result);
-  return result;
+    console.log('showConfirmDialog', result);
+    return result;
+  }
+
+  // Fallback for HA 2026.2+ where loadCardHelpers is not available
+  // Use the native confirm dialog
+  return new Promise<boolean>((resolve) => {
+    const confirmed = window.confirm(`${NAMESPACE_TITLE}\n\n${message}`);
+    resolve(confirmed);
+  });
 };
 
 export const showPromptDialog = async (
@@ -70,28 +80,49 @@ export const showPromptDialog = async (
   confirmText: string,
   cancelText?: string
 ): Promise<string | null> => {
-  const helpers = await (window as any).loadCardHelpers();
-  const result = await helpers.showPromptDialog(element, {
-    title: NAMESPACE_TITLE,
-    text,
-    placeholder,
-    confirmText,
-    inputType: 'string',
-    defaultValue: '',
-    cancelText: cancelText ? cancelText : 'Cancel',
-    confirmation: true,
-  });
+  // Check if loadCardHelpers is available (older HA versions)
+  if (typeof (window as any).loadCardHelpers === 'function') {
+    const helpers = await (window as any).loadCardHelpers();
+    const result = await helpers.showPromptDialog(element, {
+      title: NAMESPACE_TITLE,
+      text,
+      placeholder,
+      confirmText,
+      inputType: 'string',
+      defaultValue: '',
+      cancelText: cancelText ? cancelText : 'Cancel',
+      confirmation: true,
+    });
 
-  console.log('showPromptDialog', result);
-  return result;
+    console.log('showPromptDialog', result);
+    return result;
+  }
+
+  // Fallback for HA 2026.2+ where loadCardHelpers is not available
+  // Use the native prompt dialog
+  return new Promise<string | null>((resolve) => {
+    const result = window.prompt(`${NAMESPACE_TITLE}\n\n${text}`, placeholder);
+    resolve(result);
+  });
 };
 
 export const showAlertDialog = async (element: HTMLElement, message: string, confirmText?: string): Promise<void> => {
-  const helpers = await (window as any).loadCardHelpers();
-  await helpers.showAlertDialog(element, {
-    title: NAMESPACE_TITLE,
-    text: message,
-    confirmText,
+  // Check if loadCardHelpers is available (older HA versions)
+  if (typeof (window as any).loadCardHelpers === 'function') {
+    const helpers = await (window as any).loadCardHelpers();
+    await helpers.showAlertDialog(element, {
+      title: NAMESPACE_TITLE,
+      text: message,
+      confirmText,
+    });
+    return;
+  }
+
+  // Fallback for HA 2026.2+ where loadCardHelpers is not available
+  // Use the native alert dialog
+  return new Promise<void>((resolve) => {
+    window.alert(`${NAMESPACE_TITLE}\n\n${message}`);
+    resolve();
   });
 };
 
@@ -115,13 +146,30 @@ export const showDialogBox = async <T extends DialogType>(
   type: T,
   params: CreateDialogBoxTypes[T]
 ): Promise<void | string | boolean> => {
-  const helpers = await (window as any).loadCardHelpers();
+  // Check if loadCardHelpers is available (older HA versions)
+  if (typeof (window as any).loadCardHelpers === 'function') {
+    const helpers = await (window as any).loadCardHelpers();
+    switch (type) {
+      case 'confirm':
+        return await helpers.showConfirmationDialog(element, createDialogBox(type, params as ConfirmationDialogParams));
+      case 'prompt':
+        return await helpers.showPromptDialog(element, createDialogBox(type, params as PromptDialogParams));
+      case 'alert':
+        return await helpers.showAlertDialog(element, createDialogBox(type, params as AlertDialogParams));
+    }
+  }
+
+  // Fallback for HA 2026.2+ where loadCardHelpers is not available
+  const dialogParams = createDialogBox(type, params);
   switch (type) {
     case 'confirm':
-      return await helpers.showConfirmationDialog(element, createDialogBox(type, params as ConfirmationDialogParams));
+      return window.confirm(`${dialogParams.title}\n\n${dialogParams.text}`);
     case 'prompt':
-      return await helpers.showPromptDialog(element, createDialogBox(type, params as PromptDialogParams));
+      const promptParams = dialogParams as any;
+      const result = window.prompt(`${dialogParams.title}\n\n${dialogParams.text}`, promptParams.placeholder || promptParams.defaultValue || '');
+      return result !== null ? result : '';
     case 'alert':
-      return await helpers.showAlertDialog(element, createDialogBox(type, params as AlertDialogParams));
+      window.alert(`${dialogParams.title}\n\n${dialogParams.text}`);
+      return;
   }
 };
