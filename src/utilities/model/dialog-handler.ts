@@ -207,7 +207,7 @@ export default class DialogHandler {
   public _showConfigDialogEditor = async (): Promise<void> => {
     this._haDrawer.open!! = false;
     this._organizer.HaSidebar.editMode = false;
-    this._checkStorageOrder();
+    await this._checkStorageOrder();
 
     showDialogSidebarOrganizer(this.haElement, { config: this._organizer._config });
   };

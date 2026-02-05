@@ -131,9 +131,7 @@ export const computeInitialPanelOrder = (
   const beforeSpacer: PanelInfo[] = [];
   const builtInDefaultNotVisible: PanelInfo[] = [];
 
-  const allPanels = Object.values(panels).filter(
-    (panel) => ![...FIXED_PANELS, SHOW_AFTER_SPACER_PANELS].includes(panel.url_path)
-  );
+  const allPanels = Object.values(panels).filter((panel) => ![...FIXED_PANELS].includes(panel.url_path));
 
   allPanels.forEach((panel) => {
     const isDefaultPanel = panel.url_path === defaultPanel;

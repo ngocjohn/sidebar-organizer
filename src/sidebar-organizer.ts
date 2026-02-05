@@ -177,7 +177,7 @@ export class SidebarOrganizer {
     await this._watchEditLegacySidebar();
 
     this._setupConfigBtn();
-    if (!this.firstSetUpDone) {
+    if (!this.firstSetUpDone && this._hasSidebarConfig) {
       // await this._getInitDashboards();
       await this._getDataDashboards();
       this.firstSetUpDone = true;

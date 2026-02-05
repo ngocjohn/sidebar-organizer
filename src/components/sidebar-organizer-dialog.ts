@@ -86,20 +86,6 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
     return JSON.stringify(this._initConfig) !== JSON.stringify(this._configDialog._sidebarConfig);
   }
 
-  private async _handleSaveToStorage() {
-    if (!this._configValid) {
-      console.warn('Cannot save config, it is not valid.');
-      showToast(this, {
-        message: 'Cannot save config, it is not valid.',
-        duration: 5000,
-      });
-      return;
-    } else if (this._configValid) {
-      // If config is valid, save to storage
-      this._configDialog._handleInvalidConfig('save');
-      this._handleSaveConfig();
-    }
-  }
 
   private async _handleClose() {
     const confirmSaveChange = await showConfirmDialog(this, ALERT_MSG.CONFIG_CHANGED, 'SAVE', 'DISCARD');
@@ -117,7 +103,7 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
     });
   }
 
-  private _handleSaveConfig(): void {
+  private async _handleSaveConfig(): Promise<void> {
     if (!this._canSaveConfig) {
       console.warn('Cannot save config, it is not valid or has unsaved changes.');
       showToast(this, {
@@ -127,9 +113,10 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
       return;
     } else if (this._configDialog._useConfigFile && this._configValid) {
       // If using config file, we save the config to the file
-      this._configDialog._handleInvalidConfig('save');
+      await this._configDialog._handleInvalidConfig('save');
       this._showSuccessToast();
-      this._handleSaveConfig();
+      // After saving to storage, _useConfigFile will be set to false by _handleInvalidConfig
+      // Continue with the rest of the save logic below
     }
     const config = this._configDialog!._sidebarConfig;
     const useConfigFile = this._configDialog!._useConfigFile;
