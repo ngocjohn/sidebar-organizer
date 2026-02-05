@@ -43,15 +43,7 @@ export interface ConfigChangedEvent {
   config: SidebarConfig;
 }
 
-declare global {
-  interface HASSDomEvents {
-    'sidebar-config-changed': ConfigChangedEvent;
-    'config-has-changed': boolean;
-  }
-  interface HTMLElementEventMap {
-    'sidebar-config-changed': ConfigChangedEvent;
-  }
-}
+
 
 @customElement('sidebar-organizer-config-dialog')
 export class SidebarConfigDialog extends LitElement {
@@ -855,4 +847,12 @@ declare global {
   interface Window {
     sidebarDialog: SidebarConfigDialog;
   }
+    interface HASSDomEvents {
+      'sidebar-config-changed': ConfigChangedEvent;
+      'config-has-changed': boolean;
+    }
+    interface HTMLElementEventMap {
+      'sidebar-config-changed': ConfigChangedEvent;
+    }
 }
+

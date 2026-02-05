@@ -5,3 +5,4 @@ export * from './sidebar-dialog-preview';
 export * from './sidebar-dialog-code-editor';
 export * from './sidebar-organizer-dialog';
 export * from './sidebar-organizer-tab';
+export * from './sidebar-dialog';
