@@ -7,15 +7,24 @@ import { hasItemAction, NavigateActionConfig, UrlActionConfig } from './action';
 import { ACTION_TYPES, addHandlerActions, getActionConfig } from './tap-action';
 
 /** Panel to show when no panel is picked. */
-export const DEFAULT_PANEL = 'lovelace';
+export const DEFAULT_PANEL = 'home';
+
+export const hasLegacyOverviewPanel = (hass: HomeAssistant): boolean => Boolean(hass.panels.lovelace?.config);
 
 export const getLegacyDefaultPanelUrlPath = (): string | null => {
   const defaultPanel = window.localStorage.getItem('defaultPanel');
   return defaultPanel ? JSON.parse(defaultPanel) : null;
 };
 
-export const getDefaultPanelUrlPath = (hass: HomeAssistant): string =>
-  hass.userData?.default_panel || hass.systemData?.default_panel || getLegacyDefaultPanelUrlPath() || DEFAULT_PANEL;
+export const getDefaultPanelUrlPath = (hass: HomeAssistant): string => {
+  const defaultPanel =
+    hass.userData?.default_panel || hass.systemData?.default_panel || getLegacyDefaultPanelUrlPath() || DEFAULT_PANEL;
+  // If default panel is lovelace and no old overview exists, fall back to home
+  if (defaultPanel === 'lovelace' && !hasLegacyOverviewPanel(hass)) {
+    return DEFAULT_PANEL;
+  }
+  return defaultPanel;
+};
 
 export const getDefaultPanel = (hass: HomeAssistant): PanelInfo => {
   const panel = getDefaultPanelUrlPath(hass);
@@ -24,10 +33,6 @@ export const getDefaultPanel = (hass: HomeAssistant): PanelInfo => {
 };
 
 export const getPanelNameTranslationKey = (panel: PanelInfo) => {
-  if (panel.url_path === 'lovelace') {
-    return 'panel.states' as const;
-  }
-
   if (panel.url_path === 'profile') {
     return 'panel.profile' as const;
   }
@@ -70,7 +75,7 @@ export const getPanelIcon = (panel: PanelInfo): string | undefined => {
 
 export const FIXED_PANELS = ['profile', 'config'];
 export const SHOW_AFTER_SPACER_PANELS = ['developer-tools'];
-export const BUILT_IN_PANELS = ['home', 'light', 'climate', 'security', 'lovelace'];
+export const BUILT_IN_PANELS = ['home', 'light', 'climate', 'security'];
 
 export const isBuiltInPanel = (urlPath: string): boolean => BUILT_IN_PANELS.includes(urlPath);
 

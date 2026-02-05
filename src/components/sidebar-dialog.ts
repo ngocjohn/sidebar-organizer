@@ -110,7 +110,13 @@ export class SidebarConfigDialog extends LitElement {
 
   protected willUpdate(_changedProperties: PropertyValues): void {
     if (_changedProperties.has('_connected') && this._connected) {
-      console.log('SidebarConfigDialog connected, setting up initial config');
+      //info
+      console.log(
+        '%cSIDEBAR-DIALOG:%c ℹ️ Sidebar dialog connected, setting up initial config...',
+        'color: #40c057;',
+        'color: #228be6; font-weight: 600;'
+      );
+
       this._setupInitConfig();
     }
     if (_changedProperties.has('_useConfigFile')) {
@@ -509,9 +515,7 @@ export class SidebarConfigDialog extends LitElement {
   private _validateStoragePanels = async (): Promise<void> => {
     if (this._useConfigFile) return;
     const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
-    if (!currentPanelOrder || currentPanelOrder.length === 0) {
-      console.log('no initial panel order found, fetching from storage');
-    }
+
     const hiddenItems = getHiddenPanels();
     const allPanels = ARRAY_UTILS.union(currentPanelOrder, hiddenItems);
     // console.log('Validating storage panels with current order and hidden items', allPanels);
@@ -522,8 +526,12 @@ export class SidebarConfigDialog extends LitElement {
       window.location.reload();
       return;
     } else {
-      // If there are no changes, update the sidebar items
-      console.log('Sidebar panels are up to date');
+      //success
+      console.log(
+        '%cSIDEBAR-DIALOG:%c ✅ Panel order is up to date.. ',
+        'color: #40c057;',
+        'color: #40c057; font-weight: 600;'
+      );
       this._sidebarConfig = getStorageConfig() || {};
       removeStorage(STORAGE.HIDDEN_PANELS);
       this._updateSidebarItems(currentPanelOrder, hiddenItems);
