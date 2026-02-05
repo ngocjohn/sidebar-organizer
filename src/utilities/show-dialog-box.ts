@@ -145,7 +145,7 @@ export const showDialogBox = async <T extends DialogType>(
   element: HTMLElement,
   type: T,
   params: CreateDialogBoxTypes[T]
-): Promise<void | string | boolean> => {
+): Promise<void | string | boolean | null> => {
   // Check if loadCardHelpers is available (older HA versions)
   if (typeof (window as any).loadCardHelpers === 'function') {
     const helpers = await (window as any).loadCardHelpers();
@@ -165,9 +165,10 @@ export const showDialogBox = async <T extends DialogType>(
     case 'confirm':
       return window.confirm(`${dialogParams.title}\n\n${dialogParams.text}`);
     case 'prompt':
-      const promptParams = dialogParams as any;
+      const promptParams = params as PromptDialogParams;
       const result = window.prompt(`${dialogParams.title}\n\n${dialogParams.text}`, promptParams.placeholder || promptParams.defaultValue || '');
-      return result !== null ? result : '';
+      // Return null when cancelled to maintain consistent behavior with the original implementation
+      return result;
     case 'alert':
       window.alert(`${dialogParams.title}\n\n${dialogParams.text}`);
       return;
