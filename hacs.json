@@ -2,6 +2,6 @@
     "name": "Sidebar Organizer",
     "render_readme": true,
     "filename": "sidebar-organizer.js",
-    "homeassistant": "2025.5",
+		"homeassistant": "2026.2.0",
     "content_in_root": false
 }
