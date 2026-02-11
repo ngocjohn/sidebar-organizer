@@ -23,6 +23,9 @@
       "@utilities/*": ["utilities/*"]
     }
   },
+  "watchOptions": {
+    "excludeDirectories": ["**/node_modules", "_build", "temp/*"]
+  },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "lib", "dist", "temp"]
 }
