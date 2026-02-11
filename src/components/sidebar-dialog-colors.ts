@@ -61,17 +61,10 @@ export class SidebarDialogColors extends LitElement {
     const darkMode = _getDarkConfigMode(this._sidebarConfig.color_config, this.hass);
 
     this._colorConfigMode = darkMode ? 'dark' : 'light';
-    console.log('First updated color config mode:', this._colorConfigMode);
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
-    // if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
-    //   console.log('Sidebar config changed');
-    //   return true;
-    // }
-
     if (_changedProperties.has('_colorConfigMode') && this._colorConfigMode !== undefined) {
-      console.log('Color config mode changed to', this._colorConfigMode);
       this._setTheme(this._colorConfigMode);
       this._state = THEME_STATE.LOADING;
       this._initCustomStyles = { ...(this._sidebarConfig.color_config?.[this._colorConfigMode]?.custom_styles || {}) };

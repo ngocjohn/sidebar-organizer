@@ -307,16 +307,18 @@ export class SidebarOrganizer {
     }
     if (!profileEl) return;
     if (this._userHasSidebarSettings) {
-      console.log('User has sidebar settings, adding remove legacy data action');
+      //info
+      console.log(
+        '%cSIDEBAR-ORGANIZER:%c ℹ️ User has sidebar settings, inject dialog prompt to clear data',
+        'color: #999999;',
+        'color: #228be6; font-weight: 600;'
+      );
+
       addAction(profileEl, this._dialogManager._addDialogUserDataClear.bind(this._dialogManager));
-      // addAction(profileEl, this._addDiaglogRemoveLegacyUserData.bind(this));
       return;
     } else {
-      // console.log('User does not have sidebar settings, adding config dialog action');
       addAction(profileEl, this._dialogManager._showConfigDialogEditor.bind(this._dialogManager));
-      // addAction(profileEl, this._addConfigDialog.bind(this));
     }
-    // Load translations for dialog later
     await this.hass.loadFragmentTranslation('lovelace');
   }
 

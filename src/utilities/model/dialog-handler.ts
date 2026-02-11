@@ -63,29 +63,35 @@ export default class DialogHandler {
     if (!isStoragePanelEmpty()) {
       return;
     }
-    console.log('%cDIALOG-HANDLER:', 'color: #4dabf7;', 'Storage order is empty, initializing ...');
+    //warning
+    console.log(
+      '%cDIALOG-HANDLER:%c ⚠️ Storage panel order empty, setting up for dialog...',
+      'color: #4dabf7;',
+      'color: #fab005; font-weight: 600;'
+    );
     if (this._organizer._baseOrder.length > 0) {
+      //success
       console.log(
-        '%cDIALOG-HANDLER:',
+        '%cDIALOG-HANDLER:%c ✅ Using order from _baseOrder',
         'color: #4dabf7;',
-        'Setting storage order to base order',
-        this._organizer._baseOrder
+        'color: #40c057; font-weight: 600;',
+        { order: this._organizer._baseOrder }
       );
+
       setStorage(STORAGE.PANEL_ORDER, [...this._organizer._baseOrder]);
       return;
     }
-    console.log('%cDIALOG-HANDLER:', 'color: #4dabf7;', 'No base order found, computing from current sidebar items');
     const { order, hidden } = await getPanelItems(this.hass);
     setStorage(STORAGE.PANEL_ORDER, [...order]);
     setStorage(STORAGE.HIDDEN_PANELS, [...hidden]);
+    //info
     console.log(
-      '%cDIALOG-HANDLER:',
+      '%cDIALOG-HANDLER:%c ℹ️ Using computed order from sidebar items',
       'color: #4dabf7;',
-      'Computed and set storage order:',
-      order,
-      'hidden panels:',
-      hidden
+      'color: #228be6; font-weight: 600;',
+      { order, hidden }
     );
+
     return;
   };
 

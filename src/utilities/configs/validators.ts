@@ -26,7 +26,7 @@ export const validateConfig = (config: SidebarConfig, hidden?: string[]): Sideba
     default_collapsed: defaultCollapsed,
     hidden_items: hiddenPanels,
   };
-  console.log('%cVALIDATORS:', 'color: #bada55;', { config, hiddenPanels, validatedConfig });
+
 
   return validatedConfig;
 };
@@ -204,8 +204,13 @@ export const _changeStorageConfig = (config: SidebarConfig): void => {
   const currentConfig = getStorageConfig();
   const isConfigDifferent = JSON.stringify(currentConfig) !== JSON.stringify(config);
 
-  if (isConfigDifferent) {
-    console.log('changeStorageConfig', config);
+	if (isConfigDifferent) {
+    //info
+    console.log('%cVALIDATORS:%c ℹ️ Config changed.. updating to storage', 'color: #4dabf7;', 'color: #228be6;', {
+      currentConfig,
+      newConfig: config,
+    });
+
     setStorage(STORAGE.UI_CONFIG, config);
   }
 };
