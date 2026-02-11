@@ -209,7 +209,9 @@ export class SidebarConfigDialog extends LitElement {
       this._panelConfigMap = new Map(Object.entries(panelConfig));
       // Check for config changes from initial config
       const hasConfigChanged = JSON.stringify(this._initConfig) !== JSON.stringify(newConfig);
-      console.log('%cSIDEBAR-DIALOG:', 'color: #40c057;', 'Config changed:', hasConfigChanged);
+      //info
+      console.log('%cSIDEBAR-DIALOG:%c ℹ️ Has Config Changed:', 'color: #40c057;', 'color: #228be6;', hasConfigChanged);
+
       this._mainDialog._saveDisabled = !hasConfigChanged;
     }
   }
@@ -614,14 +616,13 @@ export class SidebarConfigDialog extends LitElement {
     const hasConfigChanged = JSON.stringify(this._sidebarConfig) !== JSON.stringify(configToValidate);
 
     if (hasConfigChanged) {
+      //info
       console.log(
-        '%cSIDEBAR-DIALOG:',
-        'color: #f59f00;',
-        'Sidebar config has changed after validation, updating storage.',
-        {
-          oldConfig: this._sidebarConfig,
-          newConfig: configToValidate,
-        }
+        '%cSIDEBAR-DIALOG:%c ℹ️ Config has changed:',
+        'color: #40c057;',
+        'color: #228be6;',
+        { old: this._sidebarConfig },
+        { new: configToValidate }
       );
 
       this._sidebarConfig = configToValidate;
@@ -630,10 +631,8 @@ export class SidebarConfigDialog extends LitElement {
 
     // Filter out defaultPanel and 'lovelace' from the current panel order
     const _sidebarItems = ARRAY_UTILS.uniq(currentPanelOrder);
-    // const _sidebarItems = Array.from(new Set(currentPanelOrder.filter((item: string) => item !== defaultPanel)));
-    console.groupCollapsed('%cSIDEBAR-DIALOG:', 'color: #37b24d;', 'Initial sidebar items fetched:');
-    console.log('Initial sidebar items:', _sidebarItems);
-    console.groupEnd();
+    //info
+    console.log('%cSIDEBAR-DIALOG:%c ℹ️ Initial ', 'color: #40c057;', 'color: #228be6;', { _sidebarItems });
 
     // Initialize new items
     const configNewItems = this._sidebarConfig?.new_items || [];
@@ -644,7 +643,7 @@ export class SidebarConfigDialog extends LitElement {
 
     this._initPanelOrder = [..._sidebarItems];
     this._configLoaded = true;
-  };
+  };;
 
   public get pickedItems(): string[] {
     return Array.from(this._panelConfigMap.values()).flat();
@@ -656,23 +655,6 @@ export class SidebarConfigDialog extends LitElement {
     const ungroupedItems = this._initCombiPanels.filter((item) => !assignedSet.has(item));
     return ungroupedItems;
   }
-  // public get ungroupedItems(): string[] {
-  //   const defaultPanel = getDefaultPanelUrlPath(this.hass);
-  //   const hiddenItems = this._sidebarConfig?.hidden_items || [];
-  //   const pickedItems = this.pickedItems;
-  //   const currentOrder = [...this._initCombiPanels];
-  //   const ungroupedItems = currentOrder.filter(
-  //     (item) => !pickedItems.includes(item) && !hiddenItems.includes(item) && item !== defaultPanel
-  //   );
-  //   return ungroupedItems;
-  // }
-
-  // public get pickedItems(): string[] {
-  //   const bottomItems = this._sidebarConfig?.bottom_items || [];
-  //   const customGroups = this._sidebarConfig?.custom_groups || {};
-  //   const pickedItems = [...bottomItems, ...Object.values(customGroups).flat()];
-  //   return pickedItems;
-  // }
 
   public _cleanItemsFromGroups = (groups: SidebardPanelConfig, itemToRemove: string[]): SidebardPanelConfig => {
     return cleanItemsFromConfig(groups, itemToRemove);

@@ -3,11 +3,13 @@ import { mdiArrowExpand, mdiClose, mdiInformation } from '@mdi/js';
 
 import './sidebar-dialog';
 
+import { clearSidebarOrganizerStorage } from '@utilities/configs/misc';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog } from '@utilities/show-dialog-box';
 import { SidebarConfigDialogParams } from '@utilities/show-dialog-sidebar-organizer';
+import { getStorageConfig } from '@utilities/storage-utils';
 import { showToast } from '@utilities/toast-notify';
-import { cloneDeep } from 'es-toolkit/compat';
+import { cloneDeep, isEmpty } from 'es-toolkit/compat';
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 
@@ -92,6 +94,17 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
     if (confirmSaveChange) {
       this._handleSaveConfig();
     } else {
+      if (isEmpty(this._initConfig) && getStorageConfig()) {
+        // If initial config is empty and there is no config in storage, we clear the config file
+        //info
+        console.log(
+          '%cSIDEBAR-ORGANIZER-DIALOG:%c ℹ️ Init config empty, first setup, but not saving.',
+          'color: #40c057;',
+          'color: #228be6;'
+        );
+
+        clearSidebarOrganizerStorage();
+      }
       this._dialogClosed();
     }
     return;
