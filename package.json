@@ -1,7 +1,7 @@
 {
   "name": "sidebar-organizer",
-  "version": "3.0.1-beta.1",
-	"module": "dist/sidebar-organizer.js",
+  "version": "3.0.1",
+  "module": "dist/sidebar-organizer.js",
   "author": "Viet Ngoc",
   "license": "MIT",
   "description": "Customize the sidebar in Home Assistant",
@@ -18,7 +18,7 @@
   "dependencies": {
     "@jaames/iro": "^5.5.2",
     "@mdi/js": "^7.4.47",
-		"get-promisable-result": "^1.0.1",
+    "get-promisable-result": "^1.0.1",
     "home-assistant-query-selector": "^4.3.0",
     "home-assistant-styles-manager": "^3.1.0",
     "lit": "^3.3.2",
@@ -42,7 +42,7 @@
     "eslint": "^9.39.2",
     "eslint-plugin-perfectionist": "^5.2.0",
     "eslint-plugin-unused-imports": "^4.3.0",
-		"home-assistant-js-websocket": "^9.6.0",
+    "home-assistant-js-websocket": "^9.6.0",
     "memoize-one": "^6.0.0",
     "prettier": "3.7.4",
     "rollup": "^4.54.0",
