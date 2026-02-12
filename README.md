@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-[![hacs][hacs-validate]][hacs-url] ![Github last commit][git-last-commit-badge] ![git-download-all][git-download-all-badge] ![git-download-latest][git-download-latest-badge] [![forum][forum-badge]][forum-url]
+[![hacs][hacs-default]][hacs-default-link] [![hacs][hacs-validate]][hacs-url] ![Github last commit][git-last-commit-badge] ![git-download-all][git-download-all-badge] ![git-download-latest][git-download-latest-badge] [![forum][forum-badge]][forum-url]
 
 # 🗄️ Sidebar Organizer
 
@@ -66,17 +66,8 @@ If you have not disabled the [My Home Assistant], just click on the button to go
 
 [![open-hacs-repo-badge]][hacs-repo-custom-url]
 
-1. Go to HACS page on your Home Assistant instance
-1. Add this repository via HACS Custom repositories [How to add Custom Repositories][hacs-docs]
-
-```
-https://github.com/ngocjohn/sidebar-organizer
-```
-
-3. Select type `Dashboard`
-
 ### Install the plugin
-
+1. Go to HACS page on your Home Assistant instance
 1. Search for `Sidebar Organizer`
 1. Select Sidebar Organizer repo and install
 1. When the plugin is already downloaded, add the url of the plugin as an extra_module_url in your configuration.yaml.
@@ -273,7 +264,8 @@ In this section, you can organize the layout of the sidebar panels by customizin
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!--Badges-->
-
+[hacs-default]: https://img.shields.io/badge/HACS-Default-blue?style=flat&logo=homeassistantcommunitystore&logoSize=auto
+[hacs-default-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=ngocjohn&repository=sidebar-organizer&category=plugin
 [forum-url]: https://community.home-assistant.io/t/sidebar-organizer
 [forum-badge]: https://img.shields.io/badge/forum-community?style=flat&logo=homeassistant&label=community&color=blue
 [hacs-validate]: https://github.com/ngocjohn/sidebar-organizer/actions/workflows/validate.yml/badge.svg
