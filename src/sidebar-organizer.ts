@@ -993,7 +993,7 @@ export class SidebarOrganizer {
         this._sidebarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
         
         // Check if order has diverged
-        const currentOrder = Array.from(this._sidebarItems).map((e) => e.dataset.panel) as string[];
+        const currentOrder = Array.from(this._sidebarItems).map((item) => item.dataset.panel) as string[];
         const orderDiff = !shallowEqual(currentOrder, this._baseOrder);
 
         if (orderDiff) {
@@ -1064,7 +1064,7 @@ export class SidebarOrganizer {
     const notificationMap = new Map(Object.entries(notification || {}));
 
     // Rearrange items in DOM
-    const firstChildNextSibling = sidebarItemsContainer.firstChild?.nextSibling || null;
+    const referenceNode = sidebarItemsContainer.firstChild?.nextSibling || null;
     this._sidebarItems.forEach((item) => {
       const itemPanelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
       const itemsGroup = this._getGroupOfPanel(itemPanelId);
@@ -1075,7 +1075,7 @@ export class SidebarOrganizer {
       );
 
       if (itemToMove) {
-        sidebarItemsContainer.insertBefore(itemToMove, firstChildNextSibling);
+        sidebarItemsContainer.insertBefore(itemToMove, referenceNode);
       }
 
       if (itemsNotificationValue !== undefined && !item.hasAttribute(ATTRIBUTE.DATA_NOTIFICATION)) {
