@@ -136,6 +136,8 @@ export class SidebarOrganizer {
 
   private _mouseEnterBinded: (event: MouseEvent) => void;
   private _mouseLeaveBinded: () => void;
+  private _domObserver: MutationObserver | null = null;
+  private _domCheckTimeout: number | null = null;
 
   get hass(): HaExtened['hass'] {
     return this.ha!.hass;
@@ -432,6 +434,9 @@ export class SidebarOrganizer {
       this._handleSidebarHeader();
 
       this.setupConfigDone = true;
+
+      // Setup DOM observer to watch for changes
+      this._setupDomObserver();
 
       this._panelLoaded();
     });
@@ -945,6 +950,167 @@ export class SidebarOrganizer {
       console.log('%cMAIN:%c ✅ Order checked!', 'color: #bada55;', 'color: #40c057; font-weight: 600;');
     }
   };
+
+  private _setupDomObserver(): void {
+    // Disconnect existing observer if any
+    if (this._domObserver) {
+      this._domObserver.disconnect();
+    }
+
+    // Don't setup observer if user has sidebar settings or no config
+    if (this._userHasSidebarSettings || !this._config || Object.keys(this._config).length === 0) {
+      return;
+    }
+
+    this._domObserver = new MutationObserver((mutations) => {
+      // Filter mutations to only react to meaningful changes
+      const hasSignificantChange = mutations.some((mutation) => {
+        // Check for added or removed nodes
+        if (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0) {
+          return true;
+        }
+        // Check for attribute changes on panel items
+        if (mutation.type === 'attributes' && mutation.target instanceof HTMLElement) {
+          const target = mutation.target as HTMLElement;
+          if (target.hasAttribute(ATTRIBUTE.DATA_PANEL)) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (!hasSignificantChange) {
+        return;
+      }
+
+      // Debounce rapid changes to avoid performance issues
+      if (this._domCheckTimeout) {
+        clearTimeout(this._domCheckTimeout);
+      }
+
+      this._domCheckTimeout = window.setTimeout(() => {
+        // Update the _sidebarItems reference to current state
+        this._sidebarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
+        
+        // Check if order has diverged
+        const currentOrder = Array.from(this._sidebarItems).map((e) => e.dataset.panel) as string[];
+        const orderDiff = !shallowEqual(currentOrder, this._baseOrder);
+
+        if (orderDiff) {
+          console.log(
+            '%cMAIN:%c 🔄 DOM change detected, re-applying configuration...',
+            'color: #bada55;',
+            'color: #228be6; font-weight: 600;'
+          );
+          
+          // Re-apply the configuration to restore order
+          this._reapplyConfiguration();
+        }
+      }, 500); // 500ms debounce delay
+    });
+
+    // Observe the scrollbar container for changes
+    this._domObserver.observe(this._scrollbar, {
+      childList: true, // Watch for added/removed children
+      subtree: true, // Watch all descendants
+      attributes: true, // Watch for attribute changes
+      attributeFilter: [ATTRIBUTE.DATA_PANEL, 'style', 'class'], // Only specific attributes
+    });
+
+    console.log('%cMAIN:%c 👁️ DOM observer setup complete', 'color: #bada55;', 'color: #40c057; font-weight: 600;');
+  }
+
+  private _reapplyConfiguration(): void {
+    // Get current elements
+    const scrollbarItems = this._scrollbarItems;
+    if (!scrollbarItems || scrollbarItems.length === 0) {
+      return;
+    }
+
+    const sidebarItemsContainer = this._scrollbar;
+    if (!sidebarItemsContainer) {
+      return;
+    }
+
+    // Update internal state
+    this._sidebarItems = Array.from(scrollbarItems) as SidebarPanelItem[];
+
+    // Re-apply data-panel attributes to ensure they're set
+    for (const item of this._sidebarItems) {
+      const isNewItem = item.hasAttribute(ATTRIBUTE.NEW_ITEM);
+      if (isNewItem) continue;
+      item.setAttribute(ATTRIBUTE.DATA_PANEL, item.href.replace('/', ''));
+    }
+
+    // Reapply hidden items
+    if (this._hiddenPanels && this._hiddenPanels.length > 0) {
+      this._hiddenPanels.forEach((panelId) => {
+        const itemToHide = this._sidebarItems.find((item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
+        if (itemToHide) {
+          itemToHide.style.display = 'none';
+        }
+      });
+    }
+
+    // Sort items based on configured order
+    this._sidebarItems = this._sidebarItems.sort((a, b) => {
+      const aIndex = this._baseOrder.indexOf(a.getAttribute(ATTRIBUTE.DATA_PANEL) || a.href.replace('/', ''));
+      const bIndex = this._baseOrder.indexOf(b.getAttribute(ATTRIBUTE.DATA_PANEL) || b.href.replace('/', ''));
+      return aIndex - bIndex;
+    });
+
+    // Get notification map
+    const { notification } = this._config;
+    const notificationMap = new Map(Object.entries(notification || {}));
+
+    // Rearrange items in DOM
+    const firstChildNextSibling = sidebarItemsContainer.firstChild?.nextSibling || null;
+    this._sidebarItems.forEach((item) => {
+      const itemPanelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
+      const itemsGroup = this._getGroupOfPanel(itemPanelId);
+      const itemsNotificationValue = notificationMap.get(itemPanelId);
+      
+      const itemToMove = Array.from(scrollbarItems).find(
+        (el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item.getAttribute(ATTRIBUTE.DATA_PANEL)
+      );
+
+      if (itemToMove) {
+        sidebarItemsContainer.insertBefore(itemToMove, firstChildNextSibling);
+      }
+
+      if (itemsNotificationValue !== undefined && !item.hasAttribute(ATTRIBUTE.DATA_NOTIFICATION)) {
+        this._subscribeNotification(item, itemsNotificationValue);
+      }
+
+      // Handle custom groups
+      if (itemsGroup && itemsGroup !== PANEL_TYPE.BOTTOM && itemsGroup !== PANEL_TYPE.BOTTOM_GRID) {
+        const isCollapsed = this.collapsedItems.has(itemsGroup);
+        const isFirstInGroup = this._configPanelMap.get(itemsGroup)?.[0] === itemPanelId;
+
+        if (isFirstInGroup) {
+          // Check if divider already exists before this item
+          const prevSibling = item.previousElementSibling;
+          const hasDivider = prevSibling?.hasAttribute('divider') && prevSibling?.getAttribute('divider') === itemsGroup;
+          
+          if (!hasDivider) {
+            const groupDivider = this._createDividerWithGroup(itemsGroup, isCollapsed);
+            sidebarItemsContainer.insertBefore(groupDivider, item);
+          }
+        }
+        item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
+        item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+      }
+    });
+
+    // Re-check diffs to update internal state
+    this._checkDiffs();
+
+    console.log(
+      '%cMAIN:%c ✅ Configuration re-applied successfully',
+      'color: #bada55;',
+      'color: #40c057; font-weight: 600;'
+    );
+  }
 
   private _createNewItem(itemConfig: NewItemConfig, builtIn: boolean = false): SidebarPanelItem {
     const item = computeNewItem(this.hass, itemConfig, builtIn);
