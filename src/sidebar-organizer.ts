@@ -919,12 +919,12 @@ export class SidebarOrganizer {
     }
 
     // Check differences after a delay
-    setTimeout(() => this._checkDiffs(), 0);
+    setTimeout(() => this._checkDiffs(), 50);
   }
 
   private _compareDatasetWithHref(element: SidebarPanelItem): boolean {
     const panelId = element.dataset.panel;
-    const hrefPanelId = element.href.replace('/', '');
+    const hrefPanelId = element.href?.replace('/', '');
     const isValid = hrefPanelId === '#' || panelId === hrefPanelId;
     return isValid;
   }
@@ -957,6 +957,9 @@ export class SidebarOrganizer {
 
   // Watch for HA sidebar updates and prevent re-render if not necessary
   private _watchHaSidebarShouldUpdate(): void {
+    if (!this.hass || !customElements.get(ELEMENT.HA_SIDEBAR)) {
+      return;
+    }
     customElements.whenDefined(ELEMENT.HA_SIDEBAR).then((sidebar: CustomElementConstructor) => {
       //info
       console.log('%cSIDEBAR-ORGANIZER:%c ℹ️ Add Sidebar Watch shouldupdate', 'color: #bada55;', 'color: #228be6;');

@@ -110,5 +110,3 @@ export enum HA_STATE {
   STOPPING = 'STOPPING',
   FINAL_WRITE = 'FINAL_WRITE',
 }
-
-export const SHOULD_UPDATE_PROPS = ['_panelOrder', '_hiddenPanels'];
