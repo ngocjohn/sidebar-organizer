@@ -1064,19 +1064,15 @@ export class SidebarOrganizer {
     const notificationMap = new Map(Object.entries(notification || {}));
 
     // Rearrange items in DOM
+    // The reference node is the second child (firstChild.nextSibling) to preserve any static first element
     const referenceNode = sidebarItemsContainer.firstChild?.nextSibling || null;
     this._sidebarItems.forEach((item) => {
       const itemPanelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
       const itemsGroup = this._getGroupOfPanel(itemPanelId);
       const itemsNotificationValue = notificationMap.get(itemPanelId);
       
-      const itemToMove = Array.from(scrollbarItems).find(
-        (el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item.getAttribute(ATTRIBUTE.DATA_PANEL)
-      );
-
-      if (itemToMove) {
-        sidebarItemsContainer.insertBefore(itemToMove, referenceNode);
-      }
+      // Move the item to maintain configured order - item is already a DOM element from _sidebarItems
+      sidebarItemsContainer.insertBefore(item, referenceNode);
 
       if (itemsNotificationValue !== undefined && !item.hasAttribute(ATTRIBUTE.DATA_NOTIFICATION)) {
         this._subscribeNotification(item, itemsNotificationValue);
