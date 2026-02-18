@@ -174,10 +174,14 @@ export class SidebarConfigDialog extends LitElement {
         const newItemsChanged = JSON.stringify(oldConfig.new_items) !== JSON.stringify(newConfig.new_items);
 
         if (newItemsChanged && newConfig.new_items) {
-          console.log('New items changed, updating new item map');
           this._newItemMap = new Map(newConfig.new_items.map((item: NewItemConfig) => [item.title!, item]));
-          // console.log('New item map:', this._newItemMap);
-          // compare the new items with initCombiPanels if is new added or removed
+          //info
+          console.log(
+            '%cSIDEBAR-DIALOG:%c ℹ️ New items updated:',
+            'color: #40c057;',
+            'color: #228be6;',
+            this._newItemMap
+          );
         }
 
         this._settingItemMoved = newConfig.move_settings_from_fixed === true;

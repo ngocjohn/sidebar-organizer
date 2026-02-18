@@ -44,6 +44,7 @@ export enum ELEMENT {
   DIALOG_EDIT_SIDEBAR = 'dialog-edit-sidebar',
   ITEMS_DISPLAY_EDITOR = 'ha-items-display-editor',
   HA_MD_LIST = 'ha-md-list',
+  HA_SIDEBAR = 'ha-sidebar',
 }
 
 export enum CLASS {
@@ -101,3 +102,13 @@ export enum MDI {
 }
 
 export const SHOW_AFTER_BOTTOM = ['/developer-tools', '/config'];
+
+export enum HA_STATE {
+  NOT_RUNNING = 'NOT_RUNNING',
+  STARTING = 'STARTING',
+  RUNNING = 'RUNNING',
+  STOPPING = 'STOPPING',
+  FINAL_WRITE = 'FINAL_WRITE',
+}
+
+export const SHOULD_UPDATE_PROPS = ['_panelOrder', '_hiddenPanels'];

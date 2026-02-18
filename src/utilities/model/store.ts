@@ -44,6 +44,7 @@ export default class Store {
     if (Boolean(this._organizer._userHasSidebarSettings || !this._organizer._hasSidebarConfig)) {
       return;
     }
+
     this.unsubData = subscribeFrontendUserData(this.hass.connection, 'core', ({ value }) => {
       if (value !== null) {
         const defaultPanel = value.default_panel;
@@ -131,6 +132,7 @@ export default class Store {
     const configToUpdate = pick(config, [
       PANEL_TYPE.CUSTOM,
       PANEL_TYPE.BOTTOM,
+      PANEL_TYPE.BOTTOM_GRID,
       PANEL_TYPE.HIDDEN,
     ]) as SidebardPanelConfig;
     const updatedPanels = cleanItemsFromConfig(configToUpdate, [defaultPanel]);
@@ -163,5 +165,19 @@ export default class Store {
       message: `${NAMESPACE.toUpperCase()}: ${message}`,
       duration,
     });
+  };
+
+  public _haNotRunningToast = (): void => {
+    const toastParams = {
+      id: 'sidebar-organizer-ha-not-running',
+      message: `${NAMESPACE.toUpperCase()}: Home Assistant is still starting up. Reload page after Home Assistant has fully started.`,
+      duration: -1,
+      dismissable: false,
+      action: {
+        text: 'Reload',
+        action: () => this._organizer._reloadWindow(),
+      },
+    };
+    showToast(this.haElement, toastParams);
   };
 }
