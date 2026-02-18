@@ -5,6 +5,7 @@ import {
   ELEMENT,
   EVENT,
   HA_EVENT,
+  HA_STATE,
   MDI,
   NAMESPACE,
   PATH,
@@ -164,6 +165,11 @@ export class SidebarOrganizer {
   }
 
   public async run() {
+    if (!this.hass || this.hass.config?.state !== HA_STATE.RUNNING) {
+      this._store._haNotRunningToast();
+      return;
+    }
+
     if (!atLeastVersion(this.hass.config.version, 2026, 2)) {
       this._notCompatible = true;
       const msg = `${ALERT_MSG.NOT_COMPATIBLE}: ${this.hass.config.version}.\nPlease upgrade Home Assistant to 2026.2 or later.`;
@@ -179,6 +185,7 @@ export class SidebarOrganizer {
     this._setupConfigBtn();
     if (!this.firstSetUpDone && this._hasSidebarConfig) {
       // await this._getInitDashboards();
+      this._watchHaSidebarShouldUpdate();
       await this._getDataDashboards();
       this.firstSetUpDone = true;
     }
@@ -425,14 +432,10 @@ export class SidebarOrganizer {
       // Reorder grouped items
       this._reorderGroupedSidebar();
 
-      // Handle grid items
-      // this._handleGridItems();
-
       // Handle sidebar header
       this._handleSidebarHeader();
 
       this.setupConfigDone = true;
-
       this._panelLoaded();
     });
   }
@@ -536,7 +539,6 @@ export class SidebarOrganizer {
       bottom_grid_items,
       move_settings_from_fixed,
     } = this._config;
-    this._moveSettingsFromFixed(move_settings_from_fixed || false);
     this._configPanelMap = new Map(Object.entries(custom_groups || {}));
     this._configPanelMap.set(PANEL_TYPE.BOTTOM, bottom_items || []);
     this._configPanelMap.set(PANEL_TYPE.BOTTOM_GRID, bottom_grid_items || []);
@@ -545,7 +547,8 @@ export class SidebarOrganizer {
     this._handleHidden(hidden_items || []);
     // Add new items
     this._addNewItems(new_items || []);
-
+    // Move settings from fixed to sidebar if specified
+    this._moveSettingsFromFixed(move_settings_from_fixed || false);
     // Add additional styles
     this._addAdditionalStyles(color_config);
   }
@@ -916,20 +919,28 @@ export class SidebarOrganizer {
     }
 
     // Check differences after a delay
-    setTimeout(() => this._checkDiffs(), 100);
+    setTimeout(() => this._checkDiffs(), 50);
+  }
+
+  private _compareDatasetWithHref(element: SidebarPanelItem): boolean {
+    const panelId = element.dataset.panel;
+    const hrefPanelId = element.href?.replace('/', '');
+    const isValid = hrefPanelId === '#' || panelId === hrefPanelId;
+    return isValid;
   }
 
   private _checkDiffs = (): void => {
     const baseOrder = this._baseOrder;
     const itemsNamed = Array.from(this._sidebarItems).map((e) => e.dataset.panel) as string[];
-    const orderDiff = !shallowEqual(itemsNamed, baseOrder);
-
-    if (orderDiff) {
+    const notValidItem = Array.from(this._sidebarItems).find((item) => !this._compareDatasetWithHref(item));
+    const orderDiff = !shallowEqual(baseOrder, itemsNamed);
+    if (orderDiff || notValidItem != undefined) {
       this._diffCheck = false;
       const logs = {
         orderDiff: orderDiff,
         baseOrder: baseOrder,
         itemsNamed: itemsNamed,
+        notValidItem: notValidItem,
       };
       // warning
       console.log('%cMAIN:%c ⚠️ DIFF DETECTED', 'color: #bada55;', 'color: #fab005; font-weight: 600;', logs);
@@ -938,13 +949,33 @@ export class SidebarOrganizer {
 
       this._store._needReloadToast();
     } else {
-      // this._handleNotification();
-      setStorage(STORAGE.PANEL_ORDER, baseOrder);
       this._diffCheck = true;
       // success
       console.log('%cMAIN:%c ✅ Order checked!', 'color: #bada55;', 'color: #40c057; font-weight: 600;');
     }
   };
+
+  // Watch for HA sidebar updates and prevent re-render if not necessary
+  private _watchHaSidebarShouldUpdate(): void {
+    if (!this.hass || !customElements.get(ELEMENT.HA_SIDEBAR)) {
+      return;
+    }
+    customElements.whenDefined(ELEMENT.HA_SIDEBAR).then((sidebar: CustomElementConstructor) => {
+      //info
+      console.log('%cSIDEBAR-ORGANIZER:%c ℹ️ Add Sidebar Watch shouldupdate', 'color: #bada55;', 'color: #228be6;');
+      const shouldUpdate = sidebar.prototype.shouldUpdate;
+      sidebar.prototype.shouldUpdate = function (changedProps: Map<string, unknown>): boolean {
+        if (this.hass.config.state !== HA_STATE.RUNNING) {
+          console.log('Sidebar should not update due to HA state or irrelevant prop change:', {
+            haState: this.hass.config.state,
+            changedProps: Array.from(changedProps.keys()),
+          });
+          return false;
+        }
+        return shouldUpdate.call(this, changedProps);
+      };
+    });
+  }
 
   private _createNewItem(itemConfig: NewItemConfig, builtIn: boolean = false): SidebarPanelItem {
     const item = computeNewItem(this.hass, itemConfig, builtIn);
