@@ -232,3 +232,14 @@ export const compareHacsTags = async (): Promise<CompareHacsTagsResult> => {
   const configTagMatch = configUrl.match(HACS_TAG_RGX)?.[1];
   return { loadedTagMatch: loadedTagMatch || null, configTagMatch: configTagMatch || null };
 };
+
+export const fileDownload = (href: string, filename = ''): void => {
+  const element = document.createElement('a');
+  element.target = '_blank';
+  element.href = href;
+  element.download = filename;
+  element.style.display = 'none';
+  document.body.appendChild(element);
+  element.dispatchEvent(new MouseEvent('click'));
+  document.body.removeChild(element);
+};

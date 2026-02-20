@@ -8,6 +8,7 @@ import { SidebarConfig, HaExtened } from '@types';
 import { SidebarConfigDialog } from './sidebar-dialog';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { TRANSLATED_LABEL } from '@utilities/localize';
+import { fileDownload } from '@utilities/index';
 
 @customElement('sidebar-dialog-code-editor')
 export class SidebarDialogCodeEditor extends LitElement {
@@ -104,12 +105,9 @@ export class SidebarDialogCodeEditor extends LitElement {
         // Create a blob from the data
         const blob = new Blob([data], { type: 'application/x-yaml' });
         const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${filename}.yaml`;
-        a.click();
-        URL.revokeObjectURL(url);
+        fileDownload(url, `${filename}.yaml`);
+        // Revoke the object URL after triggering the download to avoid memory leaks
+        setTimeout(() => URL.revokeObjectURL(url), 0);
         console.log('Downloading Config');
         break;
       case 'copy':
