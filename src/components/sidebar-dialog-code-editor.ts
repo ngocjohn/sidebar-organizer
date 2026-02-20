@@ -106,6 +106,8 @@ export class SidebarDialogCodeEditor extends LitElement {
         const blob = new Blob([data], { type: 'application/x-yaml' });
         const url = URL.createObjectURL(blob);
         fileDownload(url, `${filename}.yaml`);
+        // Revoke the object URL after triggering the download to avoid memory leaks
+        setTimeout(() => URL.revokeObjectURL(url), 0);
         console.log('Downloading Config');
         break;
       case 'copy':
