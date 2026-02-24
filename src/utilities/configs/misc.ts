@@ -1,5 +1,6 @@
 import { ALERT_MSG, STORAGE } from '@constants';
-import { SidebarConfig } from '@types';
+import { PinnedGroupsConfig, SidebarConfig } from '@types';
+import { getFallbackIcon } from '@utilities/is-icon';
 
 import { getStorage, setStorage } from '../storage-utils';
 
@@ -60,3 +61,27 @@ export function clearSidebarOrganizerStorage(): void {
     console.log('%cMISC:', 'color: #bada55;', ' Cleared Sidebar Organizer storage items.');
   });
 }
+
+interface NormalizedPinnedGroup {
+  icon?: string;
+}
+
+export const normalizePinnedGroups = (config?: PinnedGroupsConfig): Record<string, NormalizedPinnedGroup> => {
+  if (!config) return {};
+
+  const result: Record<string, NormalizedPinnedGroup> = {};
+
+  for (const [group, value] of Object.entries(config)) {
+    if (value === true) {
+      result[group] = {
+        icon: getFallbackIcon(group),
+      };
+    } else {
+      result[group] = {
+        icon: value.icon,
+      };
+    }
+  }
+
+  return result;
+};

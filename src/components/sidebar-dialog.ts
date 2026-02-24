@@ -9,7 +9,13 @@ import './sidebar-dialog-preview';
 import './sidebar-organizer-tab';
 import './sidebar-dialog-new-items';
 
-import { fetchFileConfig, isItemsValid, tryCorrectConfig, validateConfig } from '@utilities/configs';
+import {
+  fetchFileConfig,
+  isItemsValid,
+  normalizePinnedGroups,
+  tryCorrectConfig,
+  validateConfig,
+} from '@utilities/configs';
 import { INVALID_CONFIG } from '@utilities/configs';
 import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
 import { compareDashboardItems } from '@utilities/dashboard';
@@ -36,6 +42,7 @@ import { SidebarDialogGroups } from './sidebar-dialog-groups';
 import { SidebarDialogNewItems } from './sidebar-dialog-new-items';
 import { SidebarDialogPreview } from './sidebar-dialog-preview';
 import { SidebarOrganizerDialog } from './sidebar-organizer-dialog';
+
 
 const tabs = ['appearance', 'panels', 'newItems'] as const;
 
@@ -64,6 +71,7 @@ export class SidebarConfigDialog extends LitElement {
   @state() public _newItemMap = new Map<string, NewItemConfig>();
   @state() private _newItems: string[] = [];
   @state() private _panelConfigMap = new Map<string, string[]>();
+  @state() private _pinnedGroupsMap = new Map<string, { icon?: string }>();
   @state() private _settingItemMoved = false;
 
   @state() private _uploading = false;
@@ -182,6 +190,11 @@ export class SidebarConfigDialog extends LitElement {
             'color: #228be6;',
             this._newItemMap
           );
+        }
+        const pinnedGroupsChanged = JSON.stringify(oldConfig.pinned_groups) !== JSON.stringify(newConfig.pinned_groups);
+        if (pinnedGroupsChanged && newConfig.pinned_groups) {
+					this._pinnedGroupsMap = new Map(Object.entries(normalizePinnedGroups(newConfig.pinned_groups)));
+
         }
 
         this._settingItemMoved = newConfig.move_settings_from_fixed === true;
@@ -647,7 +660,7 @@ export class SidebarConfigDialog extends LitElement {
 
     this._initPanelOrder = [..._sidebarItems];
     this._configLoaded = true;
-  };;
+  };
 
   public get pickedItems(): string[] {
     return Array.from(this._panelConfigMap.values()).flat();

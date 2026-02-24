@@ -26,9 +26,16 @@ import {
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { compareHacsTagDiff } from '@utilities/compare-urls';
+
+import './components/so-group-divider';
 import { getBuiltInPanels } from '@utilities/compute-panels';
 import { fetchConfig } from '@utilities/configs';
-import { atLeastVersion, clearSidebarOrganizerStorage, getCollapsedItems } from '@utilities/configs/misc';
+import {
+  atLeastVersion,
+  clearSidebarOrganizerStorage,
+  getCollapsedItems,
+  normalizePinnedGroups,
+} from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
 import { addAction, onPanelLoaded } from '@utilities/dom-utils';
 import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
@@ -44,6 +51,7 @@ import { getPromisableResult } from 'get-promisable-result';
 import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
+import { SoGroupDivider } from './components/so-group-divider';
 import { DIVIDER_ADDED_STYLE } from './sidebar-css';
 
 export class SidebarOrganizer {
@@ -115,6 +123,7 @@ export class SidebarOrganizer {
   private _diffCheck: boolean = false;
   private _haDrawer: any;
   private _configPanelMap = new Map<string, string[]>();
+  private _pinnedGroups: Record<string, { icon?: string }> = {};
 
   private _panelResolver!: HAElement;
   private _prevPath: string | null = null;
@@ -538,10 +547,13 @@ export class SidebarOrganizer {
       bottom_items,
       bottom_grid_items,
       move_settings_from_fixed,
+      pinned_groups,
     } = this._config;
     this._configPanelMap = new Map(Object.entries(custom_groups || {}));
     this._configPanelMap.set(PANEL_TYPE.BOTTOM, bottom_items || []);
     this._configPanelMap.set(PANEL_TYPE.BOTTOM_GRID, bottom_grid_items || []);
+    // Normalize pinned groups config to ensure consistent structure
+    this._pinnedGroups = normalizePinnedGroups(pinned_groups || {});
 
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
     this._handleHidden(hidden_items || []);
@@ -549,7 +561,6 @@ export class SidebarOrganizer {
     this._addNewItems(new_items || []);
     // Move settings from fixed to sidebar if specified
     this._moveSettingsFromFixed(move_settings_from_fixed || false);
-    // Add additional styles
     this._addAdditionalStyles(color_config);
   }
 
@@ -589,7 +600,6 @@ export class SidebarOrganizer {
 
     titleEl.appendChild(collapseEl);
   }
-
   private _handleCollapsedChange(): void {
     const toggleIcon = this.sideBarRoot?.querySelector(SELECTOR.HEADER_TOGGLE_ICON) as HTMLElement;
     if (!toggleIcon) return;
@@ -711,14 +721,30 @@ export class SidebarOrganizer {
     divider.setAttribute(ATTRIBUTE.GROUP, group);
     divider.setAttribute(ATTRIBUTE.ADDED, '');
     divider.classList.toggle(CLASS.COLLAPSED, isCollapsed);
-    const contentDiv = document.createElement('div');
-    contentDiv.classList.add(CLASS.ADDED_CONTENT);
-    contentDiv.setAttribute(ATTRIBUTE.GROUP, group);
-    contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.trim()}</span>`;
-    contentDiv.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+    const contentDiv = this._createAddedGroupContent(group, isCollapsed) as HTMLElement;
     divider.appendChild(contentDiv);
     divider.addEventListener('click', this._toggleGroup.bind(this));
     return divider;
+  };
+
+  private _createAddedGroupContent = (group: string, isCollapsed: boolean = false): HTMLElement => {
+    if (this._pinnedGroups[group]) {
+      const groupDivEl = document.createElement('so-group-divider') as SoGroupDivider;
+      groupDivEl.classList.add(CLASS.ADDED_CONTENT);
+      groupDivEl.setAttribute(ATTRIBUTE.GROUP, group);
+      groupDivEl.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+      groupDivEl.customIcon = this._pinnedGroups[group].icon!!;
+      groupDivEl.haSidebar = this.HaSidebar;
+      return groupDivEl;
+    }
+
+    const contentDiv = document.createElement('div');
+    contentDiv.classList.add(CLASS.ADDED_CONTENT);
+    contentDiv.classList.add('default');
+    contentDiv.setAttribute(ATTRIBUTE.GROUP, group);
+    contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.trim()}</span>`;
+    contentDiv.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+    return contentDiv;
   };
 
   private _addBottomItems() {

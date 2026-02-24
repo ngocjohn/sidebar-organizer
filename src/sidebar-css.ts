@@ -3,7 +3,7 @@ export const DIVIDER_ADDED_STYLE = css`
   :host .ha-scrollbar {
     padding: 0;
   }
-  :host .divider {
+  :host([expanded]) .divider {
     padding: 10px 0;
   }
   :host .divider[ungrouped] {
@@ -43,7 +43,7 @@ export const DIVIDER_ADDED_STYLE = css`
     margin: 0;
   }
 
-  :host .divider[added] {
+  :host([expanded]) .divider[added] {
     padding: 0;
     box-sizing: border-box;
     margin: var(--divider-margin-radius);
@@ -154,17 +154,17 @@ export const DIVIDER_ADDED_STYLE = css`
     background-color: rgb(from var(--sidebar-selected-icon-color) r g b / 0.12);
   }
 
-  :host .divider[added] .added-content > span,
-  :host .divider[added] .added-content > ha-icon {
+  :host .divider[added] .added-content span,
+  :host .divider[added] .added-content ha-icon {
     pointer-events: none;
     transition: all 150ms ease;
   }
 
-  :host .divider[added] .added-content.collapsed > ha-icon {
+  :host .divider[added] .added-content.collapsed ha-icon:not([custom]) {
     transform: rotate(-90deg);
   }
 
-  :host .divider[added] .added-content > span {
+  :host .divider[added] .added-content span {
     transform: translateX(30px);
   }
   :host .divider[added]:hover .added-content.collapsed > span {
@@ -182,9 +182,30 @@ export const DIVIDER_ADDED_STYLE = css`
     content: '';
     display: none;
   }
+  :host(:not([expanded])) .divider[added]::before {
+    content: '';
+    opacity: 0;
+  }
 
-  :host(:not([expanded])) .divider .added-content {
+  :host(:not([expanded])) .divider .added-content.default {
     display: none;
+  }
+
+  :host(:not([expanded])) .divider[added] .added-content {
+    padding-inline-start: 2px;
+    align-items: center;
+    justify-content: center;
+    border-left: 2px groove rgb(from var(--sidebar-selected-icon-color) r g b / 0.5);
+    box-sizing: content-box;
+    &.collapsed {
+      border-left: hidden;
+    }
+  }
+
+  :host(:not([expanded])) .divider[added] .added-content > ha-icon[custom] {
+    margin: 0;
+    padding: 0;
+    color: var(--sidebar-icon-color);
   }
 
   a:not(.iron-selected):hover > paper-icon-item {
