@@ -1,5 +1,12 @@
 import { ALERT_MSG } from '@constants';
-import { mdiChevronLeft, mdiDotsVertical, mdiDrag, mdiSortAlphabeticalVariant } from '@mdi/js';
+import {
+  mdiChevronLeft,
+  mdiDotsVertical,
+  mdiDrag,
+  mdiEyeOffOutline,
+  mdiPin,
+  mdiSortAlphabeticalVariant,
+} from '@mdi/js';
 import { SidebarConfig, HaExtened, PANEL_TYPE } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
@@ -305,12 +312,15 @@ export class SidebarDialogGroups extends LitElement {
     const isCollapsed = (key: string): boolean => {
       return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
     };
-
+    const isPinned = (key: string): boolean => {
+      return this._sidebarConfig?.pinned_groups?.hasOwnProperty(key) ?? false;
+    };
     const actions = [
       { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
       { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
       { title: 'Show in preview', action: 'preview-item', icon: 'mdi:information-outline' },
       { title: 'Collapse by default', action: 'collapsed-group', icon: 'mdi:eye-minus-outline' },
+      { title: 'Add to pinned groups', action: 'pinned-group', icon: 'mdi:pin-outline' },
       { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
     ];
     const loading =
@@ -331,6 +341,7 @@ export class SidebarDialogGroups extends LitElement {
                     const key = group;
                     const groupName = group.replace(/_/g, ' ');
                     let defaultCollapsed = isCollapsed(key);
+                    let pinned = isPinned(key);
                     const itemCount = this._sidebarConfig.custom_groups![key].length;
                     return html` <div class="group-item-row" data-group=${key} data-index=${index}>
                       <div class="handle">
@@ -344,12 +355,21 @@ export class SidebarDialogGroups extends LitElement {
                         </div>
                       </div>
                       <div class="group-actions">
-                        <ha-icon
-                          ?hidden=${!isCollapsed(key)}
-                          icon="mdi:eye-off-outline"
-                          style="color: var(--disabled-color)"
+                        <ha-icon-button
+                          class="action-btn"
+                          .path=${mdiEyeOffOutline}
+                          ?is-selected=${isCollapsed(key)}
                           @click=${() => this._handleGroupAction('collapsed-group', key)}
-                        ></ha-icon>
+                        >
+                        </ha-icon-button>
+                        <wa-divider orientation="vertical"></wa-divider>
+                        <ha-icon-button
+                          class="action-btn"
+                          .path=${mdiPin}
+                          ?is-selected=${pinned}
+                          @click=${() => this._handleGroupAction('pinned-group', key)}
+                        ></ha-icon-button>
+                        <wa-divider orientation="vertical"></wa-divider>
                         <ha-dropdown @wa-select=${this._handleSubItemAction}>
                           <ha-icon-button slot="trigger" .path=${mdiDotsVertical} hide-title></ha-icon-button>
                           ${actions.map((action) => {
@@ -359,8 +379,14 @@ export class SidebarDialogGroups extends LitElement {
                               <ha-dropdown-item
                                 .value=${key}
                                 .data=${action}
-                                .type=${action.action === 'collapsed-group' ? 'checkbox' : undefined}
-                                .checked=${action.action === 'collapsed-group' ? defaultCollapsed : undefined}
+                                .type=${action.action === 'collapsed-group' || action.action === 'pinned-group'
+                                  ? 'checkbox'
+                                  : undefined}
+                                .checked=${action.action === 'collapsed-group'
+                                  ? defaultCollapsed
+                                  : action.action === 'pinned-group'
+                                    ? pinned
+                                    : undefined}
                                 .variant=${action.action === 'delete' ? 'danger' : undefined}
                                 ><ha-icon slot="icon" icon=${action.icon}></ha-icon> ${action.title}</ha-dropdown-item
                               >`;
@@ -426,6 +452,7 @@ export class SidebarDialogGroups extends LitElement {
 
     const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
     const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
+    const pinnedGroups = { ...(this._sidebarConfig.pinned_groups || {}) };
 
     const updateSidebarConfig = (updates: Partial<SidebarConfig>) => {
       this._sidebarConfig = {
@@ -494,6 +521,15 @@ export class SidebarDialogGroups extends LitElement {
         }
         delete customGroups[key];
         updates.custom_groups = customGroups;
+        updateSidebarConfig(updates);
+        break;
+      case 'pinned-group':
+        if (pinnedGroups.hasOwnProperty(key)) {
+          delete pinnedGroups[key];
+        } else {
+          pinnedGroups[key] = true;
+        }
+        updates.pinned_groups = pinnedGroups;
         updateSidebarConfig(updates);
         break;
       case 'preview':
@@ -567,10 +603,11 @@ export class SidebarDialogGroups extends LitElement {
     const selector = this._createSelectorOptions(itemsToChoose);
 
     const renderItems = this._renderSelectedItems(selectedType, selectedItems);
-
+    const renderPinGroupForms = customGroup ? this._renderPinGroupForms(customGroup) : nothing;
     return html`
       <div id="items-preview-wrapper">
         <div class="items-container">
+          ${renderPinGroupForms}
           <div class="header-row flex-icon">
             <span>SELECT ITEMS</span>
           </div>
@@ -597,6 +634,47 @@ export class SidebarDialogGroups extends LitElement {
     `;
   }
 
+  private _renderPinGroupForms(groupName: string): TemplateResult {
+    const pinnedGroups = this._sidebarConfig?.pinned_groups || {};
+    const isPinned = pinnedGroups.hasOwnProperty(groupName) ?? false;
+    const icon = typeof pinnedGroups[groupName] === 'object' ? pinnedGroups[groupName].icon : '';
+    const itemData = {
+      is_pinned: isPinned,
+      icon: icon,
+    };
+    const schema = [
+      {
+        name: '',
+        type: 'grid',
+        schema: [
+          {
+            name: 'is_pinned',
+            label: 'Pin this group',
+            type: 'boolean',
+            default: false,
+          },
+          {
+            name: 'icon',
+            label: 'Icon (optional)',
+            disabled: !itemData.is_pinned,
+            selector: { icon: {} },
+          },
+        ],
+      },
+    ] as const;
+    return html`
+      <ha-form
+        .hass=${this.hass}
+        .schema=${schema}
+        .data=${itemData}
+        .groupName=${groupName}
+        .computeLabel=${(schemaItem: any) => {
+          return schemaItem.label;
+        }}
+        @value-changed=${this._handlePinGroupChange}
+      ></ha-form>
+    `;
+  }
   private _renderSelectedItems(selectedType: string, selectedItems: string[]): TemplateResult {
     const hassPanels = this.hass?.panels;
     const icon = (item: string) => {
@@ -854,6 +932,29 @@ export class SidebarDialogGroups extends LitElement {
     this._dispatchConfig(this._sidebarConfig);
   }
 
+  private _handlePinGroupChange = (ev: CustomEvent) => {
+    ev.stopPropagation();
+    const groupName = (ev as any).target.groupName;
+    const value = ev.detail.value;
+    console.log('Pin group change', groupName, value);
+    const pinnedGroups = { ...(this._sidebarConfig?.pinned_groups || {}) };
+    if (value.is_pinned) {
+      if (value.icon) {
+        pinnedGroups[groupName] = { icon: value.icon };
+      } else {
+        pinnedGroups[groupName] = true;
+      }
+    } else {
+      delete pinnedGroups[groupName];
+    }
+
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      pinned_groups: pinnedGroups,
+    };
+    this._dispatchConfig(this._sidebarConfig);
+  };
+
   private _updatePanels(hiddenItems: string[]) {
     const combinedPanels = this._dialog._initCombiPanels;
     let initPanelOrder = [...(this._dialog._initPanelOrder || [])];
@@ -966,6 +1067,18 @@ export class SidebarDialogGroups extends LitElement {
           text-overflow: ellipsis;
           overflow: clip;
           max-width: 100%;
+        }
+        ha-icon-button.action-btn {
+          opacity: 0.3;
+          color: var(--disabled-text-color);
+        }
+        ha-icon-button.action-btn:hover {
+          opacity: 1;
+          color: var(--sidebar-text-color);
+        }
+        ha-icon-button.action-btn[is-selected] {
+          color: var(--ha-color-on-primary-normal, var(--primary-color)) !important;
+          opacity: 1 !important;
         }
       `,
       dialogStyles,

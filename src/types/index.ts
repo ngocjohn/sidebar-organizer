@@ -137,9 +137,14 @@ export enum PANEL_TYPE {
   BOTTOM_GRID = 'bottom_grid_items',
   HIDDEN = 'hidden_items',
 }
+
+export type PinnedGroupEntry = true | { icon?: string };
+export type PinnedGroupsConfig = Record<string, PinnedGroupEntry>;
+
 export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceConfig {
   default_collapsed?: string[];
   color_config?: SidebarColorConfig;
   notification?: NotificationConfig;
   new_items?: NewItemConfig[];
+  pinned_groups?: PinnedGroupsConfig;
 }
