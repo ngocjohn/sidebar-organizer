@@ -193,9 +193,8 @@ export class SidebarConfigDialog extends LitElement {
         }
         const pinnedGroupsChanged = JSON.stringify(oldConfig.pinned_groups) !== JSON.stringify(newConfig.pinned_groups);
         if (pinnedGroupsChanged && newConfig.pinned_groups) {
-          this._pinnedGroupsMap = new Map(Object.entries(normalizePinnedGroups(newConfig.pinned_groups)));
-          //info
-          console.log('%cSIDEBAR-DIALOG:%c ℹ️ Pinned groups updated', 'color: #40c057;', 'color: #228be6;');
+					this._pinnedGroupsMap = new Map(Object.entries(normalizePinnedGroups(newConfig.pinned_groups)));
+
         }
 
         this._settingItemMoved = newConfig.move_settings_from_fixed === true;

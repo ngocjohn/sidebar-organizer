@@ -636,7 +636,7 @@ export class SidebarDialogGroups extends LitElement {
 
   private _renderPinGroupForms(groupName: string): TemplateResult {
     const pinnedGroups = this._sidebarConfig?.pinned_groups || {};
-    const isPinned = pinnedGroups.hasOwnProperty(groupName) ?? false;
+    const isPinned = pinnedGroups.hasOwnProperty(groupName);
     const icon = typeof pinnedGroups[groupName] === 'object' ? pinnedGroups[groupName].icon : '';
     const itemData = {
       is_pinned: isPinned,
