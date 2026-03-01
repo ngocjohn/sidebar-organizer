@@ -58,6 +58,7 @@ export interface PanelInfo<T = Record<string, any> | null> {
   url_path: string;
   config_panel_domain?: string;
   default_visible?: boolean;
+  show_in_sidebar?: boolean;
 }
 
 export interface Panels {

@@ -7,11 +7,17 @@ export interface SidebarConfigDialogParams {
   config: SidebarConfig;
 }
 export const loadSidebarOrganizerDialog = () => import('../components/sidebar-organizer-dialog');
+export const loadSidebarOrganizerDialogWA = () => import('../components/sidebar-organizer-dialog_wa');
 
-export const showDialogSidebarOrganizer = (el: HTMLElement, dialogParam: SidebarConfigDialogParams): void => {
+export const showDialogSidebarOrganizer = (
+  el: HTMLElement,
+  dialogParam: SidebarConfigDialogParams,
+  newDialog: boolean = false
+): void => {
+  console.log('show new dialog:', newDialog);
   fireEvent(el, 'show-dialog', {
-    dialogTag: ELEMENT.SIDEBAR_CONFIG_DIALOG_WRAPPER,
-    dialogImport: loadSidebarOrganizerDialog,
+    dialogTag: newDialog ? ELEMENT.SIDEBAR_CONFIG_DIALOG_WA : ELEMENT.SIDEBAR_CONFIG_DIALOG_WRAPPER,
+    dialogImport: newDialog ? loadSidebarOrganizerDialogWA : loadSidebarOrganizerDialog,
     dialogParams: dialogParam,
   });
 };

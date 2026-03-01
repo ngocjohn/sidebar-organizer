@@ -37,6 +37,7 @@ export enum ELEMENT {
   USER_BADGE = 'ha-user-badge',
   SIDEBAR_CONFIG_DIALOG = 'sidebar-organizer-config-dialog',
   SIDEBAR_CONFIG_DIALOG_WRAPPER = 'sidebar-organizer-dialog',
+  SIDEBAR_CONFIG_DIALOG_WA = 'sidebar-organizer-dialog-wa',
   HA_BUTTON = 'ha-button',
   ADDED_DIVIDER = 'div.divider[added]',
   DIVIDER = 'div.divider',

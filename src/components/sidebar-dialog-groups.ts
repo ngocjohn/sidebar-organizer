@@ -11,7 +11,6 @@ import { SidebarConfig, HaExtened, PANEL_TYPE } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
-import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -85,7 +84,7 @@ export class SidebarDialogGroups extends LitElement {
       }
       const customGroups = this._sidebarConfig.custom_groups || {};
       const bottomItems = this._sidebarConfig.bottom_items || [];
-      let toShow;
+      let toShow = '';
       const inGroup = Object.keys(customGroups).find((key) => customGroups[key].includes(notify));
       const inBottom = bottomItems.includes(notify);
       if (inGroup) {
@@ -274,34 +273,12 @@ export class SidebarDialogGroups extends LitElement {
         .configValue=${key}
         .helper=${'Use Jinja template to configure the notification. Result can be icon or text.'}
         .selector=${{
-          template: {},
+          template: { preview: true },
         }}
         .required=${false}
         @value-changed=${this._handleNotifyConfigChange}
       ></ha-selector>
     `;
-  }
-
-  private _subscribeTemplate(configValye: string, callback: (result: string) => void): void {
-    if (!this.hass || !hasTemplate(configValye)) {
-      console.log('Not a template:', this.hass, !hasTemplate(configValye));
-      return;
-    }
-
-    subscribeRenderTemplate(
-      this.hass.connection,
-      (result) => {
-        callback(result.result);
-      },
-      {
-        template: configValye ?? '',
-        variables: {
-          config: configValye,
-          user: this.hass.user!.name,
-        },
-        strict: true,
-      }
-    );
   }
 
   private _renderCustomGroupList(): TemplateResult {
@@ -339,7 +316,6 @@ export class SidebarDialogGroups extends LitElement {
                   (group) => group,
                   (group, index) => {
                     const key = group;
-                    const groupName = group.replace(/_/g, ' ');
                     let defaultCollapsed = isCollapsed(key);
                     let pinned = isPinned(key);
                     const itemCount = this._sidebarConfig.custom_groups![key].length;
@@ -350,7 +326,7 @@ export class SidebarDialogGroups extends LitElement {
                       <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key)}>
                         <ha-icon icon=${`mdi:numeric-${index + 1}-box`}></ha-icon>
                         <div class="group-name-items" style="text-transform: ${textTransform}">
-                          ${groupName}
+                          ${key}
                           <span>${itemCount} ${itemCount > 1 ? 'items' : 'item'}</span>
                         </div>
                       </div>
@@ -470,14 +446,8 @@ export class SidebarDialogGroups extends LitElement {
         this._selectedGroup = key;
         break;
       case 'rename':
-        let newName = await showPromptDialog(
-          this,
-          'Enter new group name',
-          key.replace(/_/g, ' ').toUpperCase(),
-          'Rename'
-        );
+        let newName = await showPromptDialog(this, 'Enter new group name', key, 'Rename');
         if (newName === null || newName === '') return;
-        newName = newName.trim().replace(/\s/g, '_').toLowerCase();
 
         if (Object.keys(customGroups).includes(newName)) {
           await showAlertDialog(this, `${ALERT_MSG.NAME_EXISTS}`);
@@ -512,7 +482,7 @@ export class SidebarDialogGroups extends LitElement {
       case 'delete':
         const confirmDelete = await showConfirmDialog(
           this,
-          `Are you sure you want to delete this group? ${key.replace(/_/g, ' ').toLocaleUpperCase()}`,
+          `Are you sure you want to delete this group? ${key}`,
           'Delete'
         );
         if (!confirmDelete) return;
@@ -605,9 +575,9 @@ export class SidebarDialogGroups extends LitElement {
     const renderItems = this._renderSelectedItems(selectedType, selectedItems);
     const renderPinGroupForms = customGroup ? this._renderPinGroupForms(customGroup) : nothing;
     return html`
+      ${renderPinGroupForms}
       <div id="items-preview-wrapper">
         <div class="items-container">
-          ${renderPinGroupForms}
           <div class="header-row flex-icon">
             <span>SELECT ITEMS</span>
           </div>

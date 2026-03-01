@@ -195,7 +195,10 @@ export class SidebarOrganizer {
     if (!this.firstSetUpDone && this._hasSidebarConfig) {
       // await this._getInitDashboards();
       this._watchHaSidebarShouldUpdate();
-      await this._getDataDashboards();
+      if (!atLeastVersion(this.hass.config.version, 2026, 3)) {
+        console.log('add built-in panels to sidebar for versions before 2026.3');
+        await this._getDataDashboards();
+      }
       this.firstSetUpDone = true;
     }
 
@@ -335,7 +338,6 @@ export class SidebarOrganizer {
     } else {
       addAction(profileEl, this._dialogManager._showConfigDialogEditor.bind(this._dialogManager));
     }
-    await this.hass.loadFragmentTranslation('lovelace');
   }
 
   private async _getDataDashboards() {
