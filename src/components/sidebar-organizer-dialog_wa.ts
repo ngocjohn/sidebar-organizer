@@ -181,7 +181,7 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
         @keydown=${this._ignoreKeydown}
         @closed=${this._dialogClosed}
         .headerSubtitle=${VERSION}
-        .headerSubtitlePosition=${'bellow'}
+        .headerSubtitlePosition=${'below'}
       >
         ${headerContent}
         <div class="content">${this._renderContent()}</div>
