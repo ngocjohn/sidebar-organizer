@@ -42,7 +42,7 @@ import { SidebarDialogGroups } from './sidebar-dialog-groups';
 import { SidebarDialogNewItems } from './sidebar-dialog-new-items';
 import { SidebarDialogPreview } from './sidebar-dialog-preview';
 import { SidebarOrganizerDialog } from './sidebar-organizer-dialog';
-
+import { SidebarOrganizerDialogWA } from './sidebar-organizer-dialog_wa';
 
 const tabs = ['appearance', 'panels', 'newItems'] as const;
 
@@ -50,12 +50,10 @@ export interface ConfigChangedEvent {
   config: SidebarConfig;
 }
 
-
-
 @customElement('sidebar-organizer-config-dialog')
 export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
-  @property({ attribute: false }) _mainDialog!: SidebarOrganizerDialog;
+  @property({ attribute: false }) _mainDialog!: SidebarOrganizerDialog | SidebarOrganizerDialogWA;
   @property({ attribute: false }) readonly _initConfig!: SidebarConfig;
   @state() _connected: boolean = false;
   @state() public _sidebarConfig = {} as SidebarConfig;
@@ -193,8 +191,7 @@ export class SidebarConfigDialog extends LitElement {
         }
         const pinnedGroupsChanged = JSON.stringify(oldConfig.pinned_groups) !== JSON.stringify(newConfig.pinned_groups);
         if (pinnedGroupsChanged && newConfig.pinned_groups) {
-					this._pinnedGroupsMap = new Map(Object.entries(normalizePinnedGroups(newConfig.pinned_groups)));
-
+          this._pinnedGroupsMap = new Map(Object.entries(normalizePinnedGroups(newConfig.pinned_groups)));
         }
 
         this._settingItemMoved = newConfig.move_settings_from_fixed === true;
@@ -533,7 +530,6 @@ export class SidebarConfigDialog extends LitElement {
     const { added, removed } = await compareDashboardItems(this.hass, allPanels);
     if (Boolean(added.length || removed.length)) {
       // If there are changes, update the sidebar items
-      console.log('Sidebar panels have changed:', { added, removed });
       window.location.reload();
       return;
     } else {
@@ -732,6 +728,9 @@ export class SidebarConfigDialog extends LitElement {
 
         #sidebar-config {
           display: block;
+          position: sticky;
+          top: 1em;
+          height: max-content;
         }
 
         #tabbar {
@@ -764,6 +763,10 @@ export class SidebarConfigDialog extends LitElement {
           align-content: center;
           /* background-color: rgba(0, 0, 0, 0.2); */
           background-color: var(--clear-background-color, rgba(0, 0, 0, 0.2));
+        }
+
+        :host([fullscreen]) #sidebar-preview {
+          height: calc(var(--mdc-dialog-min-height, 100vh) - 10vh);
         }
 
         .config-content {
@@ -846,12 +849,11 @@ declare global {
   interface Window {
     sidebarDialog: SidebarConfigDialog;
   }
-    interface HASSDomEvents {
-      'sidebar-config-changed': ConfigChangedEvent;
-      'config-has-changed': boolean;
-    }
-    interface HTMLElementEventMap {
-      'sidebar-config-changed': ConfigChangedEvent;
-    }
+  interface HASSDomEvents {
+    'sidebar-config-changed': ConfigChangedEvent;
+    'config-has-changed': boolean;
+  }
+  interface HTMLElementEventMap {
+    'sidebar-config-changed': ConfigChangedEvent;
+  }
 }
-

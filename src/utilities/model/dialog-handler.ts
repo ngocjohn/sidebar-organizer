@@ -3,6 +3,7 @@ import type { HaExtened, HaDrawer } from '@types';
 
 import { ALERT_MSG, SELECTOR, STORAGE } from '@constants';
 import { getPanelItems } from '@utilities/compute-panels';
+import { atLeastVersion } from '@utilities/configs';
 import { getSiderbarEditDialog } from '@utilities/dom-utils';
 import { clearSidebarUserData } from '@utilities/frontend';
 import { DialogBoxParams, DialogType, showDialogBox } from '@utilities/show-dialog-box';
@@ -211,10 +212,12 @@ export default class DialogHandler {
     return dialog;
   }
   public _showConfigDialogEditor = async (): Promise<void> => {
+    const shouldLoadNewDialog = atLeastVersion(this.hass.config.version, 2026, 3);
+
     this._haDrawer.open!! = false;
     this._organizer.HaSidebar.editMode = false;
     await this._checkStorageOrder();
 
-    showDialogSidebarOrganizer(this.haElement, { config: this._organizer._config });
+    showDialogSidebarOrganizer(this.haElement, { config: this._organizer._config }, shouldLoadNewDialog);
   };
 }

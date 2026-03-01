@@ -94,7 +94,12 @@ export const computePanels = memoizeOne(
     const beforeSpacer: PanelInfo[] = [];
     const afterSpacer: PanelInfo[] = [];
 
-    const allPanels = Object.values(panels).filter((panel) => !FIXED_PANELS.includes(panel.url_path));
+    const allPanels = Object.values(panels).filter(
+      (panel) =>
+        !FIXED_PANELS.includes(panel.url_path) &&
+        panel.title &&
+        ('show_in_sidebar' in panel ? panel.show_in_sidebar : true)
+    );
 
     allPanels.forEach((panel) => {
       const isDefaultPanel = panel.url_path === defaultPanel;
@@ -191,6 +196,7 @@ export const getPanelItems = async (hass: HomeAssistant): Promise<{ order: strin
   const { panelOrder, hiddenPanels } = await getBasePanelData(hass);
   const defaultPanel = getDefaultPanelUrlPath(hass);
   const [beforeSpacer] = computePanels(hass.panels, defaultPanel, panelOrder || [], hiddenPanels || [], hass.locale);
+
   const panels = hass.panels ? Object.values(hass.panels) : [];
   const orderSet = new Set(panelOrder || []);
   const hiddenSet = new Set(hiddenPanels || []);

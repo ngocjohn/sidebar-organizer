@@ -328,12 +328,16 @@ export class SidebarDialogPreview extends LitElement {
       return this._renderPanel(defaultDash);
     };
 
-    return html` <div id="theme-container"></div>
-      <div class="divider-preview" style=${this._computePreviewStyle()}>
-        ${this._renderHeader()}
-        <div class="groups-container">
-          ${lovelacePanel()} ${this._renderCustomGroups()} ${this._renderUngroupedPanels()}
-          <div class="spacer"></div>
+    return html` <div class="divider-preview" style=${this._computePreviewStyle()}>
+      ${this._renderHeader()}
+      <div class="panels-list">
+        <div class="wrapper">
+          <div class="groups-container before-spacer">
+            ${lovelacePanel()} ${this._renderCustomGroups()} ${this._renderUngroupedPanels()}
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="after-spacer">
           ${isEmpty(this._previewPanels?.bottom_items)
             ? nothing
             : html`
@@ -347,7 +351,8 @@ export class SidebarDialogPreview extends LitElement {
                 <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
               `}
         </div>
-      </div>`;
+      </div>
+    </div>`;
   }
 
   private _renderCustomGroups(): TemplateResult[] {
@@ -584,24 +589,39 @@ export class SidebarDialogPreview extends LitElement {
         }
 
         :host {
+          --preview-header-height: 56px;
           --selected-container-color: rgb(from var(--primary-color) r g b / 0.4);
           background-color: var(--clear-background-color, rgba(0, 0, 0, 0.2));
           min-height: 100%;
           display: flex;
           width: 100%;
+          height: 100%;
           justify-content: center;
-          max-height: calc(var(--mdc-dialog-min-height, 700px) - 40px);
+          box-sizing: border-box;
+          /* max-height: calc(var(--mdc-dialog-min-height, 700px) - 40px); */
         }
 
         :host ha-spinner {
           display: flex;
           place-self: center;
         }
+        .menu-title {
+          display: flex;
+          height: var(--preview-header-height);
+          width: calc(250px + var(--safe-area-inset-left, 0px));
+          color: var(--sidebar-text-color);
+          border-bottom: 1px solid var(--divider-color);
+          position: sticky;
+          font-size: 20px;
+          align-items: center;
+          padding-inline-start: 0.5em;
+          justify-content: space-between;
+        }
 
         .panels-list {
           display: flex;
           flex-direction: column;
-          height: calc(100% - var(--header-height) - var(--safe-area-inset-top, 0px));
+          height: calc(100% - var(--preview-header-height) - var(--safe-area-inset-top, 0px));
         }
         .wrapper {
           position: relative;
@@ -610,16 +630,22 @@ export class SidebarDialogPreview extends LitElement {
           min-height: 0;
           flex: 1;
         }
-
-        .preview-container {
-          min-width: 260px;
-          flex: 0;
+        .groups-container {
           display: flex;
           flex-direction: column;
+          height: 100%;
           width: 100%;
-          background-color: var(--primary-background-color);
-          border: 1px solid var(--divider-color);
-          /* display: block; */
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-color: var(--scrollbar-thumb-color) transparent;
+          scrollbar-width: thin;
+        }
+        .groups-container.before-spacer {
+          padding-bottom: 0;
+        }
+        .after-spacer {
+          padding-top: 0;
+          min-height: fit-content;
         }
 
         .divider-preview {
@@ -641,17 +667,6 @@ export class SidebarDialogPreview extends LitElement {
             margin: 10px auto 0;
             max-height: 580px;
           }
-        }
-        .groups-container {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-          width: 100%;
-          overflow-y: auto;
-          scrollbar-color: var(--scrollbar-thumb-color) transparent;
-          scrollbar-width: thin;
-          max-height: calc(100% - 0px);
-          /* scroll-margin-block-end: -40px; */
         }
 
         .divider-container {
@@ -736,7 +751,9 @@ export class SidebarDialogPreview extends LitElement {
           background-color: var(--divider-color);
         }
         .spacer {
-          flex: 1;
+          margin-top: auto;
+          pointer-events: none;
+          /* flex: 1; */
         }
         a {
           text-decoration: none;
@@ -810,27 +827,12 @@ export class SidebarDialogPreview extends LitElement {
           color: var(--primary-color);
           opacity: 1;
         }
-        .menu-title {
-          display: flex;
-          width: calc(250px + var(--safe-area-inset-left, 0px));
-          min-height: 40px;
-          color: var(--sidebar-text-color);
-          border-bottom: 1px solid var(--divider-color);
-          position: sticky;
-          font-size: 20px;
-          align-items: center;
-          padding-inline-start: 0.5em;
-          justify-content: space-between;
-        }
-        .system-panel {
-          display: block;
-          margin-bottom: 40px;
-        }
+
         .bottom-grid-panel {
           display: grid;
           grid-template-columns: repeat(auto-fill, 25%);
           padding: 0;
-          margin-bottom: 40px;
+          /* margin-bottom: 40px; */
           max-height: fit-content;
           scroll-margin-block-end: -40px;
         }
