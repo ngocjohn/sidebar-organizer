@@ -17,7 +17,7 @@ import { SidebarOrganizer } from '../../sidebar-organizer';
 export default class DialogHandler {
   private haElement: HaExtened;
   private _organizer: SidebarOrganizer;
-  private _haDrawer: HaDrawer;
+  private readonly _haDrawer: HaDrawer;
   public hass: HomeAssistant;
 
   constructor(haDrawer: HaDrawer, ha: HaExtened, organizer: SidebarOrganizer) {
@@ -230,7 +230,7 @@ export default class DialogHandler {
         ?.shadowRoot?.querySelector(SELECTOR.CONTENT);
 
       if (contentElement && !contentElement.querySelector(ELEMENT.SO_PROFILE_SECTION)) {
-        const sectionElement = await this._createSOProfileSection();
+        const sectionElement = await this._createProfileSectionComponent();
         contentElement.appendChild(sectionElement);
         console.log(
           '%cDIALOG-HANDLER:%c ✅ Injected Sidebar Organizer section into profile page',
@@ -241,7 +241,7 @@ export default class DialogHandler {
     }, 0);
   }
 
-  private _createSOProfileSection = async (): Promise<SoProfileSection> => {
+  private _createProfileSectionComponent = async (): Promise<SoProfileSection> => {
     const soProfileSection = document.createElement(ELEMENT.SO_PROFILE_SECTION) as SoProfileSection;
     soProfileSection.organizer = this._organizer;
     return soProfileSection;

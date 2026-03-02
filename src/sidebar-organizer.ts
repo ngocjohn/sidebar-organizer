@@ -197,13 +197,6 @@ export class SidebarOrganizer {
       this._watchHaSidebarShouldUpdate();
       // Load built-in panels for versions before 2026.3 to ensure they are included in the sidebar configuration process
       if (!atLeastVersion(this.hass.config.version, 2026, 3)) {
-        //success
-        console.log(
-          '%cSIDEBAR-ORGANIZER:%c ✅ Using built-in panels for versions before 2026.3',
-          'color: #bada55;',
-          'color: #40c057;'
-        );
-
         await this._getDataDashboards();
       }
       this.firstSetUpDone = true;

@@ -244,10 +244,7 @@ export const clearBrowserCache = async (): Promise<void> => {
   if (window.caches) {
     try {
       const cacheNames = await window.caches.keys();
-      const deletePromises: Promise<boolean>[] = [];
-      cacheNames.forEach((cacheName) => {
-        deletePromises.push(window.caches.delete(cacheName));
-      });
+      const deletePromises: Promise<boolean>[] = cacheNames.map((cacheName) => window.caches.delete(cacheName));
       await Promise.all(deletePromises);
       window.location.reload();
     } catch (error) {

@@ -53,11 +53,11 @@ export class SoProfileSection extends LitElement {
     return html`
       <ha-card .header=${NAMESPACE_TITLE}>
         <div class="card-content">
-          This following settings are used to control the behavior of the Sidebar Organizer plugin.
+          The following settings are used to control the behavior of the Sidebar Organizer plugin.
         </div>
         <ha-md-list>
           ${ACTION_LIST.map((action) => {
-            const isDisable = action.action === 'delete_configuration' && !this.organizer._hasSidebarConfig;
+            const isDisabled = action.action === 'delete_configuration' && !this.organizer._hasSidebarConfig;
             return html`
               ${action.action === 'delete_configuration' ? html`<wa-divider style="--spacing: 0;"></wa-divider>` : ''}
               <ha-md-list-item>
@@ -68,7 +68,7 @@ export class SoProfileSection extends LitElement {
                   appearance="plain"
                   size="small"
                   .variant=${action.variant || 'brand'}
-                  .disabled=${isDisable}
+                  .disabled=${isDisabled}
                   @click=${() => this._handleAction(action.action)}
                 >
                   ${action.btnText}
