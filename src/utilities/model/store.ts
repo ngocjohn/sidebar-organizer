@@ -12,6 +12,7 @@ import { fetchUsers } from '@utilities/user';
 import { pick } from 'es-toolkit/compat';
 import { UnsubscribeFunc } from 'home-assistant-js-websocket';
 
+import '../../components/so-profile-section';
 import { SidebarOrganizer } from '../../sidebar-organizer';
 import { HomeAssistant } from '../../types/ha';
 

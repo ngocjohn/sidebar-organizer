@@ -728,7 +728,7 @@ export class SidebarConfigDialog extends LitElement {
 
         #sidebar-config {
           display: block;
-          position: sticky;
+          /* position: sticky; */
           top: 1em;
           height: max-content;
         }
@@ -766,7 +766,7 @@ export class SidebarConfigDialog extends LitElement {
         }
 
         :host([fullscreen]) #sidebar-preview {
-          height: calc(var(--mdc-dialog-min-height, 100vh) - 10vh);
+          height: calc(var(--mdc-dialog-min-height, 100vh) - 160px);
         }
 
         .config-content {

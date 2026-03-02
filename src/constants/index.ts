@@ -13,8 +13,12 @@ export const CONFIG_NAME = 'sidebar-organizer';
 export const CONFIG_PATH = '/local/sidebar-organizer.yaml';
 export const NAME_RGX = /sidebar-organizer.js/i;
 
+export const PROFILE_GENERAL_PATH_REGEXP = /\/profile(\/general)?$/;
+
 export enum PATH {
   LOVELACE_DASHBOARD = '/config/lovelace/dashboards',
+  PROFILE_GENERAL = '/profile/general',
+  PROFILE = '/profile',
 }
 
 export enum TAB_STATE {
