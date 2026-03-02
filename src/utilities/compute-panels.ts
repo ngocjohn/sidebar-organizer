@@ -216,3 +216,22 @@ export const getPanelItems = async (hass: HomeAssistant): Promise<{ order: strin
 
   return { order, hidden };
 };
+
+export const getPanelsFromHass = (hass: HomeAssistant): [PanelInfo[], PanelInfo[]] => {
+  const defaultPanel = getDefaultPanelUrlPath(hass);
+  return computePanels(hass.panels, defaultPanel, [], [], hass.locale);
+};
+
+export const getHiddenBuiltInPanels = (hass: HomeAssistant): string[] => {
+  const panels = hass.panels;
+  if (!panels) {
+    return [];
+  }
+  const hiddenBuiltIn = Object.values(panels)
+    .filter(
+      (p) => !FIXED_PANELS.includes(p.url_path) && p.title && ('show_in_sidebar' in p ? !p.show_in_sidebar : true)
+    )
+    .map((p) => p.url_path!);
+
+  return hiddenBuiltIn;
+};

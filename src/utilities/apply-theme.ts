@@ -1,5 +1,20 @@
 import { HaExtened, SidebarConfig } from '@types';
 
+declare global {
+  interface Window {
+    // Custom panel entry point url
+    customPanelJS: string;
+    ShadyCSS: {
+      nativeCss: boolean;
+      nativeShadow: boolean;
+      prepareTemplate(templateElement, elementName, elementExtension);
+      styleElement(element);
+      styleSubtree(element, overrideProperties);
+      styleDocument(overrideProperties);
+      getComputedStyleValue(element, propertyName);
+    };
+  }
+}
 export interface ThemeVars {
   // Incomplete
   'primary-color': string;
@@ -113,21 +128,32 @@ export const applyThemesOnElement = (element: any, themes: Themes, localTheme: s
   }
 };
 
-declare global {
-  interface Window {
-    // Custom panel entry point url
-    customPanelJS: string;
-    ShadyCSS: {
-      nativeCss: boolean;
-      nativeShadow: boolean;
-      prepareTemplate(templateElement, elementName, elementExtension);
-      styleElement(element);
-      styleSubtree(element, overrideProperties);
-      styleDocument(overrideProperties);
-      getComputedStyleValue(element, propertyName);
-    };
+export const generateThemeStyles = (hass: HaExtened['hass'], theme: string, mode?: string): Record<string, string> => {
+  const themeData = hass.themes.themes[theme];
+  if (themeData) {
+    if (!mode) {
+      mode = hass.themes.darkMode ? 'dark' : 'light';
+      // Get the current mode (light or dark)
+    } else {
+      mode = mode;
+    }
+    // console.log('Applying theme:', theme, 'with mode:', mode);
+    const allThemeData = getAllThemeData(themeData, mode);
+    const allTheme = { default_theme: hass.themes.default_theme, themes: { [theme]: allThemeData } };
+
+    const styles: Record<string, string> = {};
+    const themeName = theme;
+    if (themeName !== 'default') {
+      const theme = allTheme.themes[themeName];
+      Object.keys(theme).forEach((key) => {
+        const prefixedKey = '--' + key;
+        styles[prefixedKey] = theme[key];
+      });
+    }
+    return styles;
   }
-}
+  return {};
+};
 
 export const _hasThemeModes = (themeName: string, hass: HaExtened['hass']): boolean => {
   const hassThemes = hass.themes.themes;

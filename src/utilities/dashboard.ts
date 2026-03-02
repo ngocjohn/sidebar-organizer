@@ -1,6 +1,7 @@
 import type { HA as HomeAssistant } from '../types';
 
 import { LitElement } from 'lit';
+import { getHiddenBuiltInPanels } from './compute-panels';
 
 export type LovelaceDashboard = LovelaceYamlDashboard | LovelaceStorageDashboard;
 
@@ -90,7 +91,8 @@ export interface DashboardComparison {
 }
 export const compareDashboardItems = async (hass: HomeAssistant, panels: string[]): Promise<DashboardComparison> => {
   const currentItems = await _getCurrentDashboardItems(hass);
+  const hiddenBuiltInPanels = getHiddenBuiltInPanels(hass) || [];
   const added = currentItems.inSidebar.filter((item) => !panels.includes(item));
-  const removed = currentItems.notInSidebar.filter((panel) => panels.includes(panel));
+  const removed = [currentItems.notInSidebar, hiddenBuiltInPanels].flat().filter((panel) => panels.includes(panel));
   return { currentItems, added, removed };
 };

@@ -1,4 +1,4 @@
-import { DividerColorSettings, HaExtened, PanelInfo, SidebarConfig } from '@types';
+import { DividerColorSettings, HaExtened, ItemShallowKeys, PanelInfo, SidebarConfig } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
 import { isIcon } from '@utilities/is-icon';
@@ -40,7 +40,8 @@ export class SidebarDialogPreview extends LitElement {
   protected willUpdate(_changedProperties: PropertyValues): void {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig && isEmpty(this._previewPanels)) {
       this._previewPanels = this._computePreviewPanels();
-      console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #40c057;', 'Computed preview panels:', this._previewPanels);
+      !isEmpty(this._previewPanels) &&
+        console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #40c057;', 'Computed preview panels:', this._previewPanels);
     }
   }
 
@@ -78,75 +79,9 @@ export class SidebarDialogPreview extends LitElement {
       const newConfig = this._sidebarConfig;
 
       if (oldConfig && newConfig) {
-        const bottomHasChanged = !shallowEqual(oldConfig.bottom_items, newConfig.bottom_items);
-        const bottomGridHasChanged = !shallowEqual(oldConfig.bottom_grid_items, newConfig.bottom_grid_items);
-        const customGroupsHasChanged = !shallowEqual(oldConfig.custom_groups, newConfig.custom_groups);
-        const hiddenItemsHasChanged = !shallowEqual(oldConfig.hidden_items, newConfig.hidden_items);
-        const newItemsHasChanged = !shallowEqual(oldConfig.new_items, newConfig.new_items);
-
-        if (
-          Boolean(
-            bottomHasChanged ||
-            bottomGridHasChanged ||
-            customGroupsHasChanged ||
-            hiddenItemsHasChanged ||
-            newItemsHasChanged
-          )
-        ) {
-          console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #40c057;', {
-            bottomHasChanged,
-            bottomGridHasChanged,
-            customGroupsHasChanged,
-            hiddenItemsHasChanged,
-            newItemsHasChanged,
-          });
-          this._updateListbox(newConfig);
-        }
-
-        const themeChanged = !shallowEqual(
-          oldConfig.color_config?.custom_theme?.theme,
-          newConfig.color_config?.custom_theme?.theme
-        );
-
-        if (themeChanged) {
-          console.log(
-            '%cSIDEBAR-DIALOG-PREVIEW:',
-            'color: #40c057;',
-            'Custom theme changed, old -> new:',
-            oldConfig.color_config?.custom_theme?.theme,
-            '->',
-            newConfig.color_config?.custom_theme?.theme
-          );
-
-          if (newConfig.color_config?.custom_theme?.theme === undefined) {
-            this.style = '';
-            setTimeout(() => {
-              this._setTheme('default');
-            }, 200);
-          } else {
-            this._setTheme(this._colorConfigMode);
-          }
-        }
-
-        const notificationChanged = !shallowEqual(oldConfig.notification, newConfig.notification);
-        const newItemsNotificationChanged = JSON.parse(
-          JSON.stringify(
-            oldConfig.new_items?.every((item) => item.notification) !==
-              newConfig.new_items?.every((item) => item.notification)
-          )
-        );
-
-        if (!notificationChanged && !newItemsNotificationChanged) {
-          return;
-        } else {
-          console.log(
-            '%cSIDEBAR-DIALOG-PREVIEW:',
-            'color: #40c057;',
-            'Notification config changed, updating notifications'
-          );
-
-          this._handleNotifyChange();
-        }
+        this._updatePanelConfig(oldConfig, newConfig);
+        this._updateThemeChange(oldConfig, newConfig);
+        this._updateNotificationChange(oldConfig, newConfig);
       }
     }
 
@@ -159,6 +94,80 @@ export class SidebarDialogPreview extends LitElement {
       }
     }
     if (_changedProperties.has('_ready') && this._ready) {
+      this._handleNotifyChange();
+    }
+  }
+
+  private _updatePanelConfig(oldConfig: SidebarConfig, newConfig: SidebarConfig): void {
+    const panelConfigKeys = [
+      'custom_groups',
+      'bottom_items',
+      'bottom_grid_items',
+      'hidden_items',
+      'new_items',
+    ] as ItemShallowKeys[];
+    const changedFlags = panelConfigKeys.reduce<Record<string, boolean>>(
+      (acc, key) => {
+        acc[key] = !shallowEqual(oldConfig[key], newConfig[key]);
+        return acc;
+      },
+      {} as Record<ItemShallowKeys, boolean>
+    );
+
+    const settingsMovedChanged = oldConfig.move_settings_from_fixed !== newConfig.move_settings_from_fixed;
+
+    if (!Object.values(changedFlags).some(Boolean) && !settingsMovedChanged) {
+      return;
+    }
+    console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #40c057;', 'Panel config changed:', {
+      ...Object.fromEntries(Object.entries(changedFlags).filter(([, value]) => value)),
+      ...(settingsMovedChanged ? { move_settings_from_fixed: true } : {}),
+    });
+    this._updateListbox(newConfig);
+  }
+
+  private _updateThemeChange(oldConfig: SidebarConfig, newConfig: SidebarConfig): void {
+    const oldTheme = oldConfig.color_config?.custom_theme?.theme;
+    const newTheme = newConfig.color_config?.custom_theme?.theme;
+    if (shallowEqual(oldTheme, newTheme)) return;
+
+    //info
+    console.log(
+      '%cSIDEBAR-DIALOG-PREVIEW:%c ℹ️ Custom Theme changed:',
+      'color: #40c057;',
+      'color: #228be6;',
+      oldTheme,
+      '->',
+      newTheme
+    );
+
+    if (newTheme === undefined) {
+      this.style = '';
+      setTimeout(() => this._setTheme('default'), 200);
+      return;
+    } else {
+      this._setTheme(this._colorConfigMode);
+    }
+  }
+
+  private _updateNotificationChange(oldConfig: SidebarConfig, newConfig: SidebarConfig): void {
+    const notificationChanged = !shallowEqual(oldConfig.notification, newConfig.notification);
+    const newItemsNotificationChanged = JSON.parse(
+      JSON.stringify(
+        oldConfig.new_items?.every((item) => item.notification) !==
+          newConfig.new_items?.every((item) => item.notification)
+      )
+    );
+
+    if (!notificationChanged && !newItemsNotificationChanged) {
+      return;
+    } else {
+      console.log(
+        '%cSIDEBAR-DIALOG-PREVIEW:',
+        'color: #40c057;',
+        'Notification config changed, updating notifications'
+      );
+
       this._handleNotifyChange();
     }
   }
@@ -350,6 +359,10 @@ export class SidebarDialogPreview extends LitElement {
                 <div class="divider"></div>
                 <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
               `}
+          ${this._dialog._settingItemMoved
+            ? nothing
+            : html`<div class="divider"></div>
+                ${this._renderPanel(this._getPanelInfo('config'))}`}
         </div>
       </div>
     </div>`;
@@ -366,7 +379,7 @@ export class SidebarDialogPreview extends LitElement {
       return html`<div class="divider-container" group=${groupName} @click=${() => this._toggleColapsed(groupName)}>
           <div class="added-content" group=${groupName} ?collapsed=${isCollapsed}>
             <ha-icon icon="mdi:chevron-down"></ha-icon>
-            <span>${groupName.replace('_', ' ')}</span>
+            <span>${groupName.trim()}</span>
           </div>
         </div>
         <div class="group-items" ?collapsed=${isCollapsed} group=${groupName}>
@@ -608,20 +621,21 @@ export class SidebarDialogPreview extends LitElement {
         .menu-title {
           display: flex;
           height: var(--preview-header-height);
-          width: calc(250px + var(--safe-area-inset-left, 0px));
+          width: 100%;
           color: var(--sidebar-text-color);
           border-bottom: 1px solid var(--divider-color);
-          position: sticky;
           font-size: 20px;
           align-items: center;
           padding-inline-start: 0.5em;
           justify-content: space-between;
+          box-sizing: border-box;
         }
 
         .panels-list {
           display: flex;
           flex-direction: column;
-          height: calc(100% - var(--preview-header-height) - var(--safe-area-inset-top, 0px));
+          height: calc(var(--mdc-dialog-min-height, 700px) - var(--preview-header-height));
+          max-height: calc(100% - var(--preview-header-height));
         }
         .wrapper {
           position: relative;
@@ -652,7 +666,7 @@ export class SidebarDialogPreview extends LitElement {
           display: block;
           /* margin: 1rem auto; */
           align-items: center;
-          max-height: calc(var(--mdc-dialog-min-height, 700px) - 50px);
+          /* min-height: calc(var(--mdc-dialog-min-height, 700px) - 50px); */
           /* max-height: max-content; */
           max-width: 260px;
           height: auto;
@@ -832,9 +846,7 @@ export class SidebarDialogPreview extends LitElement {
           display: grid;
           grid-template-columns: repeat(auto-fill, 25%);
           padding: 0;
-          /* margin-bottom: 40px; */
           max-height: fit-content;
-          scroll-margin-block-end: -40px;
         }
         .bottom-grid-panel a {
           width: calc(249px / 4 - 0px);

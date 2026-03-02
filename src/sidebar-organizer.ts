@@ -38,7 +38,7 @@ import {
   normalizePinnedGroups,
 } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { addAction, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, nextRender, onPanelLoaded } from '@utilities/dom-utils';
 import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
@@ -247,7 +247,6 @@ export class SidebarOrganizer {
             this._prevPath === PATH.LOVELACE_DASHBOARD &&
             this._currentPath !== PATH.LOVELACE_DASHBOARD
           ) {
-            console.log('Path changed from Dashboard to:', this._currentPath, 'from:', this._prevPath);
             this._checkDashboardChange();
           }
         }
@@ -321,7 +320,7 @@ export class SidebarOrganizer {
     if (PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
       setTimeout(() => {
         void this._dialogManager._injectSidebarOrganizerElement(panelResolver).catch((err) => {
-          LOGGER.error?.('Failed to inject sidebar organizer element:', err);
+          console.log('Failed to inject sidebar organizer element:', err);
         });
       }, 200);
     }
@@ -408,8 +407,6 @@ export class SidebarOrganizer {
 
       const combinedOrder = this._reorderPanelItemsByConfig(initOrder);
       this._baseOrder = combinedOrder;
-
-      // window.localStorage.setItem('sidebarPanelOrder', JSON.stringify(combinedOrder));
 
       // raarnge items based on the combined order, item not found in the combined order will be placed at the end
 
@@ -510,7 +507,7 @@ export class SidebarOrganizer {
     switch (type) {
       case HA_EVENT.HASS_EDIT_SIDEBAR:
         console.log('HASS Edit Sidebar Event:', detail);
-        if (detail.editMode === true && (!this._hasSidebarConfig || this._blockEditModeChange)) {
+        if (detail.editMode === true && !this._hasSidebarConfig) {
           this._dialogManager._addLegacyEditWarning();
         }
         break;
@@ -584,40 +581,86 @@ export class SidebarOrganizer {
     this._addAdditionalStyles(color_config);
   }
 
+  // private _handleSidebarHeader(): void {
+  //   const menuEl = this.sideBarRoot?.querySelector(SELECTOR.MENU) as HTMLElement;
+  //   const titleEl = menuEl.querySelector(SELECTOR.MENU_TITLE) as HTMLElement;
+  //   if (!titleEl) return;
+  //   const customTitle = this._config.header_title;
+  //   if (customTitle && customTitle !== '') {
+  //     titleEl.innerText = customTitle;
+  //   }
+
+  //   titleEl.classList.add('toggle');
+  //   const hide_header_toggle = this._config.hide_header_toggle || false;
+  //   if (hide_header_toggle) return;
+  //   const groupKeys = Object.keys(this._config?.custom_groups || {});
+  //   if (groupKeys.length === 0 || Object.values(this._config.custom_groups || {}).flat().length === 0) return;
+  //   const groupsLength = groupKeys.length;
+  //   const collapsedSize = this.collapsedItems.size;
+  //   const isAllCollapsed = collapsedSize === groupsLength;
+
+  //   const collapseEl = document.createElement(ELEMENT.HA_ICON) as any;
+  //   collapseEl.icon = isAllCollapsed ? MDI.PLUS : MDI.MINUS;
+  //   collapseEl.classList.add(CLASS.COLLAPSE_TOGGLE);
+  //   collapseEl.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
+
+  //   const handleToggle = (ev: Event) => {
+  //     ev.stopPropagation();
+  //     this.collapsedItems.size === groupKeys.length
+  //       ? this.collapsedItems.clear()
+  //       : (this.collapsedItems = new Set([...groupKeys]));
+  //     this._handleCollapsed(this.collapsedItems);
+  //   };
+  //   ['mousedown', 'touchstart'].forEach((eventType) => {
+  //     collapseEl.addEventListener(eventType, handleToggle, { passive: true });
+  //   });
+
+  //   titleEl.appendChild(collapseEl);
+  // }
+
   private _handleSidebarHeader(): void {
-    const menuEl = this.sideBarRoot?.querySelector(SELECTOR.MENU) as HTMLElement;
-    const titleEl = menuEl.querySelector(SELECTOR.MENU_TITLE) as HTMLElement;
+    const menuEl = this.sideBarRoot?.querySelector(SELECTOR.MENU) as HTMLElement | null;
+    const titleEl = menuEl?.querySelector(SELECTOR.MENU_TITLE) as HTMLElement | null;
     if (!titleEl) return;
+
     const customTitle = this._config.header_title;
-    if (customTitle && customTitle !== '') {
-      titleEl.innerText = customTitle;
-    }
+    if (customTitle) titleEl.innerText = customTitle;
 
     titleEl.classList.add('toggle');
-    const hide_header_toggle = this._config.hide_header_toggle || false;
-    if (hide_header_toggle) return;
+
+    if (this._config.hide_header_toggle) return;
+
     const groupKeys = Object.keys(this._config?.custom_groups || {});
-    if (groupKeys.length === 0 || Object.values(this._config.custom_groups || {}).flat().length === 0) return;
-    const groupsLength = groupKeys.length;
-    const collapsedSize = this.collapsedItems.size;
-    const isAllCollapsed = collapsedSize === groupsLength;
+    const hasAnyItems = Object.values(this._config.custom_groups || {}).flat().length > 0;
+    if (groupKeys.length === 0 || !hasAnyItems) return;
+
+    const isAllCollapsed = this.collapsedItems.size === groupKeys.length;
 
     const collapseEl = document.createElement(ELEMENT.HA_ICON) as any;
     collapseEl.icon = isAllCollapsed ? MDI.PLUS : MDI.MINUS;
     collapseEl.classList.add(CLASS.COLLAPSE_TOGGLE);
-    collapseEl.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
+    collapseEl.classList.toggle(CLASS.ACTIVE, isAllCollapsed);
 
-    const handleToggle = (ev: Event) => {
+    // Helps avoid weird touch gestures and delays
+    (collapseEl as HTMLElement).style.touchAction = 'manipulation';
+
+    const toggle = (ev: Event) => {
       ev.stopPropagation();
+      // optional: prevents synthetic click paths in some browsers
+      if (ev.cancelable) ev.preventDefault();
+
       this.collapsedItems.size === groupKeys.length
         ? this.collapsedItems.clear()
-        : (this.collapsedItems = new Set([...groupKeys]));
+        : (this.collapsedItems = new Set(groupKeys));
+
       this._handleCollapsed(this.collapsedItems);
     };
-    ['mousedown', 'touchstart'].forEach((eventType) => {
-      collapseEl.addEventListener(eventType, handleToggle, { passive: true });
-    });
 
+    // Pointer events = one event stream for mouse + touch + pen
+    collapseEl.addEventListener('pointerup', toggle, { passive: false });
+
+    // Remove any existing icon to prevent duplicates when re-rendering header
+    titleEl.querySelector(`.${CLASS.COLLAPSE_TOGGLE}`)?.remove();
     titleEl.appendChild(collapseEl);
   }
 
@@ -850,8 +893,10 @@ export class SidebarOrganizer {
     }
   }
 
-  private _handleCollapsed(collapsedItems: Set<string>) {
+  private async _handleCollapsed(collapsedItems: Set<string>) {
     setStorage(STORAGE.COLLAPSE, [...collapsedItems]);
+    // Wait for the DOM to update after collapsing/expanding groups
+    await nextRender();
     this._handleCollapsedChange();
     // Update sidebar items
     Array.from(this._sidebarItems)

@@ -36,7 +36,6 @@ export class SidebarOrganizerTab extends LitElement {
 
   static styles = css`
     div {
-      padding: 0 32px;
       display: flex;
       flex-direction: column;
       text-align: center;

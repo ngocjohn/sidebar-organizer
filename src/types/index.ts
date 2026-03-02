@@ -131,6 +131,8 @@ export interface SidebardPanelConfig {
 export const PanelTypes = ['custom_groups', 'bottom_items', 'bottom_grid_items', 'hidden_items'] as const;
 export type PanelType = (typeof PanelTypes)[number];
 
+export type ItemShallowKeys = keyof SidebardPanelConfig & 'new_items';
+
 export enum PANEL_TYPE {
   CUSTOM = 'custom_groups',
   BOTTOM = 'bottom_items',

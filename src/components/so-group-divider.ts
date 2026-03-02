@@ -1,3 +1,4 @@
+import { ATTRIBUTE } from '@constants';
 import { html, LitElement, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 @customElement('so-group-divider')
@@ -6,33 +7,33 @@ export class SoGroupDivider extends LitElement {
   @property({ attribute: 'group' }) public group: string = '';
   @property({ attribute: 'custom-icon' }) public customIcon!: string;
   @state() public expanded: boolean = false;
+  @state() private _observer!: MutationObserver;
 
   protected createRenderRoot() {
     return this;
   }
   connectedCallback() {
     super.connectedCallback();
-    window.addEventListener('hass-toggle-menu', this._handleToggleMenu.bind(this));
   }
   disconnectedCallback() {
-    window.removeEventListener('hass-toggle-menu', this._handleToggleMenu.bind(this));
+    this._observer.disconnect();
+    console.log('disconnected', this.group, this._observer);
     super.disconnectedCallback();
   }
 
-  private async _handleToggleMenu() {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    this.expanded = this.haSidebar.alwaysExpand;
-  }
   protected firstUpdated(_changedProperties: PropertyValues): void {
     super.firstUpdated(_changedProperties);
     this.expanded = this.haSidebar.alwaysExpand;
+    this._observer = new MutationObserver((mutations) => {
+      mutations.forEach(({ attributeName }): void => {
+        if (attributeName === ATTRIBUTE.EXPANDED) {
+          this.expanded = this.haSidebar.alwaysExpand;
+        }
+      });
+    });
+    this._observer.observe(this.haSidebar, { attributes: true });
   }
-  protected updated(changedProperties: PropertyValues): void {
-    super.updated(changedProperties);
-    if (changedProperties.has('haSidebar')) {
-      this.expanded = this.haSidebar.alwaysExpand;
-    }
-  }
+
   protected render() {
     return html`
       ${!this.expanded

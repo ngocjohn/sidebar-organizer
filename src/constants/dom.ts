@@ -81,6 +81,7 @@ export enum ATTRIBUTE {
   UNGROUPED = 'ungrouped',
   GROUP = 'group',
   ADDED = 'added',
+  EXPANDED = 'expanded',
 }
 
 export enum SLOT {

@@ -32,6 +32,7 @@ import {
   removeStorage,
 } from '@utilities/storage-utils';
 import { pick } from 'es-toolkit/compat';
+import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import YAML from 'yaml';
@@ -70,10 +71,12 @@ export class SidebarConfigDialog extends LitElement {
   @state() private _newItems: string[] = [];
   @state() private _panelConfigMap = new Map<string, string[]>();
   @state() private _pinnedGroupsMap = new Map<string, { icon?: string }>();
-  @state() private _settingItemMoved = false;
+  @state() public _settingItemMoved = false;
 
   @state() private _uploading = false;
   @state() _invalidConfig?: INVALID_CONFIG;
+
+  public _styleManager: HomeAssistantStylesManager = new HomeAssistantStylesManager({ prefix: 'sidebar-dialog' });
 
   public _dashboardUtils = DASHBOARD_UTILS;
   public _arrayUtils = ARRAY_UTILS;
@@ -112,7 +115,7 @@ export class SidebarConfigDialog extends LitElement {
       console.log(
         '%cSIDEBAR-DIALOG:%c ℹ️ Sidebar dialog connected, setting up initial config...',
         'color: #40c057;',
-        'color: #228be6; font-weight: 600;'
+        'color: #228be6;'
       );
 
       this._setupInitConfig();
@@ -525,6 +528,12 @@ export class SidebarConfigDialog extends LitElement {
     const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
 
     const hiddenItems = getHiddenPanels();
+    console.log(
+      '%cSIDEBAR-DIALOG:%c Validating storage panels with current order and hidden items',
+      'color: #40c057;',
+      'color: #228be6;',
+      { currentPanelOrder, hiddenItems }
+    );
     const allPanels = ARRAY_UTILS.union(currentPanelOrder, hiddenItems);
     // console.log('Validating storage panels with current order and hidden items', allPanels);
     const { added, removed } = await compareDashboardItems(this.hass, allPanels);
@@ -719,6 +728,7 @@ export class SidebarConfigDialog extends LitElement {
             min-height: 600px;
           }
         }
+
         .dialog-content > * {
           flex-basis: 0;
           flex-grow: 1;
@@ -728,8 +738,6 @@ export class SidebarConfigDialog extends LitElement {
 
         #sidebar-config {
           display: block;
-          /* position: sticky; */
-          top: 1em;
           height: max-content;
         }
 
@@ -746,10 +754,13 @@ export class SidebarConfigDialog extends LitElement {
         }
         .tab-item {
           width: 100%;
-          flex: 1;
+          flex: 1 1 0%;
         }
         .tab-item[active] {
           background-color: #9b9b9b10;
+        }
+        :host([fullscreen]) #sidebar-preview {
+          height: calc(var(--mdc-dialog-min-height) - 128px - 7px);
         }
 
         #sidebar-preview {
@@ -763,10 +774,6 @@ export class SidebarConfigDialog extends LitElement {
           align-content: center;
           /* background-color: rgba(0, 0, 0, 0.2); */
           background-color: var(--clear-background-color, rgba(0, 0, 0, 0.2));
-        }
-
-        :host([fullscreen]) #sidebar-preview {
-          height: calc(var(--mdc-dialog-min-height, 100vh) - 160px);
         }
 
         .config-content {

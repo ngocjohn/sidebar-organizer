@@ -6,11 +6,12 @@ import { ALERT_MSG, ELEMENT, SELECTOR, STORAGE } from '@constants';
 import { getPanelItems } from '@utilities/compute-panels';
 import { atLeastVersion } from '@utilities/configs';
 import { getSiderbarEditDialog } from '@utilities/dom-utils';
+import { fireEvent } from '@utilities/fire_event';
 import { clearSidebarUserData } from '@utilities/frontend';
 import { DialogBoxParams, DialogType, showDialogBox } from '@utilities/show-dialog-box';
-import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
 
 import '../../components/so-profile-section';
+import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
 import { isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 
 import { SidebarOrganizer } from '../../sidebar-organizer';
@@ -233,11 +234,7 @@ export default class DialogHandler {
       if (contentElement && !contentElement.querySelector(ELEMENT.SO_PROFILE_SECTION)) {
         const sectionElement = await this._createProfileSectionComponent();
         contentElement.appendChild(sectionElement);
-        console.log(
-          '%cDIALOG-HANDLER:%c ✅ Injected Sidebar Organizer section into profile page',
-          'color: #4dabf7;',
-          'color: #40c057;'
-        );
+        console.log('%cDIALOG-HANDLER: ✅ Injected Sidebar Organizer section into profile page', 'color: #4dabf7;');
       }
     }, 0);
   }
@@ -247,4 +244,8 @@ export default class DialogHandler {
     soProfileSection.organizer = this._organizer;
     return soProfileSection;
   };
+
+  public sidebarDispatchEvent(eventName: any, detail?: any): void {
+    fireEvent(this.haElement, eventName, detail);
+  }
 }
