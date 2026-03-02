@@ -1,3 +1,4 @@
+import type { SoProfileSection } from '../../components/so-profile-section';
 import type { HomeAssistant } from '../../types/ha';
 import type { HaExtened, HaDrawer, PartialPanelResolver } from '@types';
 
@@ -8,10 +9,10 @@ import { getSiderbarEditDialog } from '@utilities/dom-utils';
 import { clearSidebarUserData } from '@utilities/frontend';
 import { DialogBoxParams, DialogType, showDialogBox } from '@utilities/show-dialog-box';
 import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
-import { isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 
 import '../../components/so-profile-section';
-import { SoProfileSection } from '../../components/so-profile-section';
+import { isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
+
 import { SidebarOrganizer } from '../../sidebar-organizer';
 
 export default class DialogHandler {

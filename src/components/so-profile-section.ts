@@ -1,4 +1,4 @@
-import type { SidebarOrganizer } from 'sidebar-organizer';
+import type { SidebarOrganizer } from '../sidebar-organizer';
 
 import { NAMESPACE_TITLE } from '@constants';
 import { clearSidebarOrganizerStorage } from '@utilities/configs/misc';
@@ -67,7 +67,7 @@ export class SoProfileSection extends LitElement {
                   slot="end"
                   appearance="plain"
                   size="small"
-                  .variant=${action.variant || 'brand'}
+                  variant=${action.variant || 'brand'}
                   .disabled=${isDisabled}
                   @click=${() => this._handleAction(action.action)}
                 >

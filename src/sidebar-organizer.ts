@@ -317,10 +317,12 @@ export class SidebarOrganizer {
 
   private async _checkProfileSection(): Promise<void> {
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
-    const pathName = panelResolver.route.path || '';
+    const pathName = panelResolver?.route?.path ?? '';
     if (PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
-      setTimeout(async () => {
-        await this._dialogManager._injectSidebarOrganizerElement(panelResolver);
+      setTimeout(() => {
+        void this._dialogManager._injectSidebarOrganizerElement(panelResolver).catch((err) => {
+          LOGGER.error?.('Failed to inject sidebar organizer element:', err);
+        });
       }, 200);
     }
   }
