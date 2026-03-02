@@ -195,4 +195,7 @@ export const dialogStyles = css`
     overflow: auto;
     max-height: calc(var(--code-mirror-max-height) - 30px);
   }
+  /* .card-content {
+
+	} */
 `;

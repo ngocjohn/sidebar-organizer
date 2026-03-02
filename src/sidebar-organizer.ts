@@ -9,6 +9,7 @@ import {
   MDI,
   NAMESPACE,
   PATH,
+  PROFILE_GENERAL_PATH_REGEXP,
   SELECTOR,
   STORAGE,
 } from '@constants';
@@ -131,7 +132,7 @@ export class SidebarOrganizer {
   private _sidebarItems: SidebarPanelItem[];
   private _styleManager: HomeAssistantStylesManager;
   private _store!: Store;
-  private _dialogManager!: DialogHandler;
+  public _dialogManager!: DialogHandler;
   public _userHasSidebarSettings: boolean = false;
 
   private collapsedItems = new Set<string>();
@@ -193,10 +194,9 @@ export class SidebarOrganizer {
 
     this._setupConfigBtn();
     if (!this.firstSetUpDone && this._hasSidebarConfig) {
-      // await this._getInitDashboards();
       this._watchHaSidebarShouldUpdate();
+      // Load built-in panels for versions before 2026.3 to ensure they are included in the sidebar configuration process
       if (!atLeastVersion(this.hass.config.version, 2026, 3)) {
-        console.log('add built-in panels to sidebar for versions before 2026.3');
         await this._getDataDashboards();
       }
       this.firstSetUpDone = true;
@@ -251,6 +251,9 @@ export class SidebarOrganizer {
             this._checkDashboardChange();
           }
         }
+        if (PROFILE_GENERAL_PATH_REGEXP.test(this._currentPath)) {
+          this._checkProfileSection();
+        }
       }, 200); // Delay in ms
     };
 
@@ -289,13 +292,16 @@ export class SidebarOrganizer {
 
   private async _panelLoaded(): Promise<void> {
     if (this._notCompatible) return;
+
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
+
     const pathName = panelResolver.route?.path || '';
     // const paperListBox = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_SCROLLBAR).element) as HTMLElement;
     const paperListBox = this._panelsList as HTMLElement;
     // console.log('Panel Loaded:', pathName, paperListBox);
     if (pathName && paperListBox) {
       // console.log('Dashboard Page Loaded');
+      this._checkProfileSection();
       setTimeout(() => {
         if (this._diffCheck && this.firstSetUpDone && this.setupConfigDone) {
           // console.log('Diff Check and first setup done');
@@ -306,6 +312,18 @@ export class SidebarOrganizer {
           }
         }
       }, 100);
+    }
+  }
+
+  private async _checkProfileSection(): Promise<void> {
+    const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
+    const pathName = panelResolver?.route?.path ?? '';
+    if (PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
+      setTimeout(() => {
+        void this._dialogManager._injectSidebarOrganizerElement(panelResolver).catch((err) => {
+          LOGGER.error?.('Failed to inject sidebar organizer element:', err);
+        });
+      }, 200);
     }
   }
 
@@ -388,7 +406,7 @@ export class SidebarOrganizer {
         (item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '')
       );
 
-      const combinedOrder = this._computePanels(initOrder);
+      const combinedOrder = this._reorderPanelItemsByConfig(initOrder);
       this._baseOrder = combinedOrder;
 
       // window.localStorage.setItem('sidebarPanelOrder', JSON.stringify(combinedOrder));
@@ -602,6 +620,7 @@ export class SidebarOrganizer {
 
     titleEl.appendChild(collapseEl);
   }
+
   private _handleCollapsedChange(): void {
     const toggleIcon = this.sideBarRoot?.querySelector(SELECTOR.HEADER_TOGGLE_ICON) as HTMLElement;
     if (!toggleIcon) return;
@@ -904,7 +923,7 @@ export class SidebarOrganizer {
     );
   }
 
-  private _computePanels(currentPanel: string[]): string[] {
+  private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const customGroups = this._config.custom_groups || {};
     const bottomMovedItems = this._config.bottom_items || [];
@@ -1136,12 +1155,11 @@ export class SidebarOrganizer {
     this._handleCollapsedChange();
   }
 
-  public _reloadWindow() {
+  public _reloadWindow(timeout: number = 2000): void {
     this._store._showToast('Reloading window to apply changes...');
-    console.log('Reloading window...');
     setTimeout(() => {
       window.location.reload();
-    }, 1000);
+    }, timeout);
   }
 
   public _getGroupOfPanel = (panel: string): string | null => {

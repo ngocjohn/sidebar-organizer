@@ -1,21 +1,24 @@
+import type { SoProfileSection } from '../../components/so-profile-section';
 import type { HomeAssistant } from '../../types/ha';
-import type { HaExtened, HaDrawer } from '@types';
+import type { HaExtened, HaDrawer, PartialPanelResolver } from '@types';
 
-import { ALERT_MSG, SELECTOR, STORAGE } from '@constants';
+import { ALERT_MSG, ELEMENT, SELECTOR, STORAGE } from '@constants';
 import { getPanelItems } from '@utilities/compute-panels';
 import { atLeastVersion } from '@utilities/configs';
 import { getSiderbarEditDialog } from '@utilities/dom-utils';
 import { clearSidebarUserData } from '@utilities/frontend';
 import { DialogBoxParams, DialogType, showDialogBox } from '@utilities/show-dialog-box';
 import { showDialogSidebarOrganizer } from '@utilities/show-dialog-sidebar-organizer';
+
+import '../../components/so-profile-section';
 import { isStoragePanelEmpty, setStorage } from '@utilities/storage-utils';
 
 import { SidebarOrganizer } from '../../sidebar-organizer';
 
 export default class DialogHandler {
-  readonly haElement: HaExtened;
-  readonly _organizer: SidebarOrganizer;
-  readonly _haDrawer: HaDrawer;
+  private haElement: HaExtened;
+  private _organizer: SidebarOrganizer;
+  private readonly _haDrawer: HaDrawer;
   public hass: HomeAssistant;
 
   constructor(haDrawer: HaDrawer, ha: HaExtened, organizer: SidebarOrganizer) {
@@ -219,5 +222,29 @@ export default class DialogHandler {
     await this._checkStorageOrder();
 
     showDialogSidebarOrganizer(this.haElement, { config: this._organizer._config }, shouldLoadNewDialog);
+  };
+
+  public async _injectSidebarOrganizerElement(panelResolver: PartialPanelResolver): Promise<void> {
+    setTimeout(async () => {
+      const contentElement = panelResolver
+        .querySelector(ELEMENT.PROFILE_GENERAL)
+        ?.shadowRoot?.querySelector(SELECTOR.CONTENT);
+
+      if (contentElement && !contentElement.querySelector(ELEMENT.SO_PROFILE_SECTION)) {
+        const sectionElement = await this._createProfileSectionComponent();
+        contentElement.appendChild(sectionElement);
+        console.log(
+          '%cDIALOG-HANDLER:%c ✅ Injected Sidebar Organizer section into profile page',
+          'color: #4dabf7;',
+          'color: #40c057;'
+        );
+      }
+    }, 0);
+  }
+
+  private _createProfileSectionComponent = async (): Promise<SoProfileSection> => {
+    const soProfileSection = document.createElement(ELEMENT.SO_PROFILE_SECTION) as SoProfileSection;
+    soProfileSection.organizer = this._organizer;
+    return soProfileSection;
   };
 }

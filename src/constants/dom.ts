@@ -25,6 +25,7 @@ export enum SELECTOR {
   AFTER_SPACER = 'ha-md-list.after-spacer',
   GRID_CONTAINER = '.grid-container',
   SETTINGS_ITEM = '.panels-list > ha-md-list > ha-md-list-item.configuration',
+  CONTENT = '.content',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',
@@ -46,6 +47,8 @@ export enum ELEMENT {
   ITEMS_DISPLAY_EDITOR = 'ha-items-display-editor',
   HA_MD_LIST = 'ha-md-list',
   HA_SIDEBAR = 'ha-sidebar',
+  PROFILE_GENERAL = 'ha-profile-section-general',
+  SO_PROFILE_SECTION = 'so-profile-section',
 }
 
 export enum CLASS {

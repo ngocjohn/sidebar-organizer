@@ -119,10 +119,6 @@ export const resetBottomItems = (paperListBox: HTMLElement): void => {
 };
 
 export const onPanelLoaded = (path: string, paperListbox: HTMLElement): void => {
-  // if (path === PATH.LOVELACE_DASHBOARD) {
-  //   resetBottomItems(paperListbox);
-  // }
-
   const items = Array.from<SidebarPanelItem>(paperListbox?.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM));
 
   const activeItem = items.find((item: SidebarPanelItem): boolean => path === item.href);
@@ -242,4 +238,25 @@ export const fileDownload = (href: string, filename = ''): void => {
   document.body.appendChild(element);
   element.dispatchEvent(new MouseEvent('click'));
   document.body.removeChild(element);
+};
+
+export const clearBrowserCache = async (): Promise<void> => {
+  if (window.caches) {
+    try {
+      const cacheNames = await window.caches.keys();
+      const deletePromises: Promise<boolean>[] = cacheNames.map((cacheName) => window.caches.delete(cacheName));
+      await Promise.all(deletePromises);
+      window.location.reload();
+    } catch (error) {
+      console.error(
+        '%cCACHE-CLEARING:',
+        'color: #ff6b6b;',
+        'Error clearing cache, falling back to full reload.',
+        error
+      );
+      window.location.reload();
+    }
+  } else {
+    window.location.reload();
+  }
 };

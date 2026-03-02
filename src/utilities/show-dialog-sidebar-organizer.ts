@@ -14,7 +14,6 @@ export const showDialogSidebarOrganizer = (
   dialogParam: SidebarConfigDialogParams,
   newDialog: boolean = false
 ): void => {
-  console.log('show new dialog:', newDialog);
   fireEvent(el, 'show-dialog', {
     dialogTag: newDialog ? ELEMENT.SIDEBAR_CONFIG_DIALOG_WA : ELEMENT.SIDEBAR_CONFIG_DIALOG_WRAPPER,
     dialogImport: newDialog ? loadSidebarOrganizerDialogWA : loadSidebarOrganizerDialog,
