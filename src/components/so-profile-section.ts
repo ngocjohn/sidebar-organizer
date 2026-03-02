@@ -1,10 +1,11 @@
 import type { SidebarOrganizer } from '../sidebar-organizer';
 
-import { NAMESPACE_TITLE } from '@constants';
+import { CONFIG_NAME, NAMESPACE_TITLE } from '@constants';
 import { clearSidebarOrganizerStorage } from '@utilities/configs/misc';
-import { clearBrowserCache } from '@utilities/dom-utils';
+import { clearBrowserCache, fileDownload } from '@utilities/dom-utils';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import YAML from 'yaml';
 
 const ACTION_LIST: {
   headline: string;
@@ -24,6 +25,12 @@ const ACTION_LIST: {
     supportingText: 'Clear the frontend cache to fix potential issues.',
     action: 'clear_cache',
     btnText: 'Clear',
+  },
+  {
+    headline: 'Download configuration',
+    supportingText: 'Download the current configuration as a yaml file.',
+    action: 'download_configuration',
+    btnText: 'Download',
   },
   {
     headline: 'Delete saved configuration',
@@ -101,6 +108,17 @@ export class SoProfileSection extends LitElement {
         break;
       case 'clear_cache':
         clearBrowserCache();
+        break;
+      case 'download_configuration':
+        const yamlStr = YAML.stringify(this.organizer._config);
+        // Create a blob from the data
+        const blob = new Blob([yamlStr], { type: 'application/x-yaml' });
+        const url = URL.createObjectURL(blob);
+        const filename = `${CONFIG_NAME + '_' + new Date().toISOString().replaceAll('-', '').replaceAll(':', '').split('.', 1).join()}.yaml`;
+        fileDownload(url, filename);
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 0);
         break;
     }
   };
