@@ -26,7 +26,7 @@ export class SidebarDialogCodeEditor extends LitElement {
   static get styles(): CSSResultGroup {
     return css`
       :host {
-        --code-mirror-max-height: 500px;
+        --code-mirror-max-height: calc(var(--mdc-dialog-min-height) / 1.2);
       }
       :host *[hidden] {
         display: none;
