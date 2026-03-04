@@ -2,7 +2,7 @@ import { html, css, LitElement, TemplateResult, CSSResultGroup, nothing, Propert
 import { customElement, property, query } from 'lit/decorators.js';
 import YAML from 'yaml';
 /* eslint-disable */
-import { ALERT_MSG, NAMESPACE, STORAGE } from '@constants';
+import { ALERT_MSG, CONFIG_NAME, NAMESPACE, STORAGE } from '@constants';
 import { removeStorage } from '@utilities/storage-utils';
 import { SidebarConfig, HaExtened } from '@types';
 import { SidebarConfigDialog } from './sidebar-dialog';
@@ -97,7 +97,7 @@ export class SidebarDialogCodeEditor extends LitElement {
           return;
         }
         if (filename === '') {
-          filename = 'sidebar-organizer';
+          filename = `${CONFIG_NAME + '_' + new Date().toISOString().replace(/:/g, '-').split('.', 1).join()}`;
         }
 
         const data = YAML.stringify(this._sidebarConfig);

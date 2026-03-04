@@ -239,6 +239,7 @@ export class SidebarOrganizer {
 
       this._delayTimeout = window.setTimeout(() => {
         const newPath = window.location.pathname;
+        void this._checkProfileSection();
         if (newPath !== this._currentPath) {
           this._prevPath = this._currentPath;
           this._currentPath = newPath;
@@ -249,9 +250,6 @@ export class SidebarOrganizer {
           ) {
             this._checkDashboardChange();
           }
-        }
-        if (PROFILE_GENERAL_PATH_REGEXP.test(this._currentPath)) {
-          this._checkProfileSection();
         }
       }, 200); // Delay in ms
     };
@@ -299,8 +297,6 @@ export class SidebarOrganizer {
     const paperListBox = this._panelsList as HTMLElement;
     // console.log('Panel Loaded:', pathName, paperListBox);
     if (pathName && paperListBox) {
-      // console.log('Dashboard Page Loaded');
-      this._checkProfileSection();
       setTimeout(() => {
         if (this._diffCheck && this.firstSetUpDone && this.setupConfigDone) {
           // console.log('Diff Check and first setup done');
@@ -314,15 +310,13 @@ export class SidebarOrganizer {
     }
   }
 
-  private async _checkProfileSection(): Promise<void> {
+  private async _checkProfileSection() {
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
-    const pathName = panelResolver?.route?.path ?? '';
-    if (PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
-      setTimeout(() => {
-        void this._dialogManager._injectSidebarOrganizerElement(panelResolver).catch((err) => {
-          console.log('Failed to inject sidebar organizer element:', err);
-        });
-      }, 200);
+    const pathName = panelResolver?.route?.path ?? window.location.pathname;
+    if (pathName && PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
+      await this._dialogManager._injectSidebarOrganizerElement(panelResolver);
+    } else {
+      return;
     }
   }
 

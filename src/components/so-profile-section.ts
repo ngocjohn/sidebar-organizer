@@ -7,10 +7,11 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import YAML from 'yaml';
 
+type ActionType = 'open_dialog' | 'clear_cache' | 'download_config' | 'delete_config';
 const ACTION_LIST: {
   headline: string;
   supportingText?: string;
-  action: string;
+  action: ActionType;
   btnText?: string;
   variant?: string;
   canDisable?: boolean;
@@ -32,14 +33,14 @@ const ACTION_LIST: {
   {
     headline: 'Download configuration',
     supportingText: 'Download the current configuration as a yaml file.',
-    action: 'download_configuration',
+    action: 'download_config',
     btnText: 'Download',
     canDisable: true,
   },
   {
     headline: 'Delete saved configuration',
     supportingText: "Delete the saved configuration in the browser's local storage.",
-    action: 'delete_configuration',
+    action: 'delete_config',
     btnText: 'Delete',
     variant: 'danger',
     canDisable: true,
@@ -71,7 +72,7 @@ export class SoProfileSection extends LitElement {
           ${ACTION_LIST.map((action) => {
             const isDisabled = action.canDisable && !this.organizer._hasSidebarConfig;
             return html`
-              ${action.action === 'delete_configuration' ? html`<wa-divider style="--spacing: 0;"></wa-divider>` : ''}
+              ${action.action === 'delete_config' ? html`<wa-divider style="--spacing: 0;"></wa-divider>` : ''}
               <ha-md-list-item>
                 <span slot="headline">${action.headline}</span>
                 ${action.supportingText ? html`<span slot="supporting-text">${action.supportingText}</span>` : ''}
@@ -93,12 +94,12 @@ export class SoProfileSection extends LitElement {
     `;
   }
 
-  private _handleAction = async (action: string) => {
+  private _handleAction = async (action: ActionType) => {
     switch (action) {
       case 'open_dialog':
         this.organizer._dialogManager._showConfigDialogEditor();
         break;
-      case 'delete_configuration':
+      case 'delete_config':
         const confirmed = await this.organizer._dialogManager._confirm(
           'Are you sure you want to delete the saved configuration? This action cannot be undone.',
           'Delete',
@@ -114,12 +115,12 @@ export class SoProfileSection extends LitElement {
       case 'clear_cache':
         clearBrowserCache();
         break;
-      case 'download_configuration':
+      case 'download_config':
         const yamlStr = YAML.stringify(this.organizer._config);
         // Create a blob from the data
         const blob = new Blob([yamlStr], { type: 'application/x-yaml' });
         const url = URL.createObjectURL(blob);
-        const filename = `${CONFIG_NAME + '_' + new Date().toISOString().replaceAll('-', '').replaceAll(':', '').split('.', 1).join()}.yaml`;
+        const filename = `${CONFIG_NAME + '_' + new Date().toISOString().replace(/:/g, '-').split('.', 1).join()}.yaml`;
         fileDownload(url, filename);
         setTimeout(() => {
           URL.revokeObjectURL(url);

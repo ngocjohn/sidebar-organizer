@@ -226,17 +226,23 @@ export default class DialogHandler {
   };
 
   public async _injectSidebarOrganizerElement(panelResolver: PartialPanelResolver): Promise<void> {
-    setTimeout(async () => {
-      const contentElement = panelResolver
-        .querySelector(ELEMENT.PROFILE_GENERAL)
-        ?.shadowRoot?.querySelector(SELECTOR.CONTENT);
+    const contentElement = panelResolver
+      .querySelector(ELEMENT.PROFILE_GENERAL)
+      ?.shadowRoot?.querySelector(SELECTOR.CONTENT);
 
-      if (contentElement && !contentElement.querySelector(ELEMENT.SO_PROFILE_SECTION)) {
-        const sectionElement = await this._createProfileSectionComponent();
-        contentElement.appendChild(sectionElement);
-        console.log('%cDIALOG-HANDLER: ✅ Injected Sidebar Organizer section into profile page', 'color: #4dabf7;');
+    if (contentElement && !contentElement.querySelector(ELEMENT.SO_PROFILE_SECTION)) {
+      const sectionElement = await this._createProfileSectionComponent();
+      contentElement.appendChild(sectionElement);
+
+      if (contentElement.querySelector(ELEMENT.SO_PROFILE_SECTION)) {
+        //success
+        console.log(
+          '%cDIALOG-HANDLER:%c ✅ Injected Sidebar Organizer section into profile page',
+          'color: #4dabf7;',
+          'color: #40c057;'
+        );
       }
-    }, 0);
+    }
   }
 
   private _createProfileSectionComponent = async (): Promise<SoProfileSection> => {
