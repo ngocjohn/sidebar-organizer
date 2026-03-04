@@ -13,24 +13,28 @@ const ACTION_LIST: {
   action: string;
   btnText?: string;
   variant?: string;
+  canDisable?: boolean;
 }[] = [
   {
     headline: 'Settings dialog',
     supportingText: 'Open the settings dialog to customize your sidebar.',
     action: 'open_dialog',
     btnText: 'Open',
+    canDisable: false,
   },
   {
     headline: 'Clear frontend cache',
     supportingText: 'Clear the frontend cache to fix potential issues.',
     action: 'clear_cache',
     btnText: 'Clear',
+    canDisable: false,
   },
   {
     headline: 'Download configuration',
     supportingText: 'Download the current configuration as a yaml file.',
     action: 'download_configuration',
     btnText: 'Download',
+    canDisable: true,
   },
   {
     headline: 'Delete saved configuration',
@@ -38,6 +42,7 @@ const ACTION_LIST: {
     action: 'delete_configuration',
     btnText: 'Delete',
     variant: 'danger',
+    canDisable: true,
   },
 ] as const;
 
@@ -64,7 +69,7 @@ export class SoProfileSection extends LitElement {
         </div>
         <ha-md-list>
           ${ACTION_LIST.map((action) => {
-            const isDisabled = action.action === 'delete_configuration' && !this.organizer._hasSidebarConfig;
+            const isDisabled = action.canDisable && !this.organizer._hasSidebarConfig;
             return html`
               ${action.action === 'delete_configuration' ? html`<wa-divider style="--spacing: 0;"></wa-divider>` : ''}
               <ha-md-list-item>
