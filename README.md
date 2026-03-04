@@ -67,6 +67,7 @@ If you have not disabled the [My Home Assistant], just click on the button to go
 [![open-hacs-repo-badge]][hacs-repo-custom-url]
 
 ### Install the plugin
+
 1. Go to HACS page on your Home Assistant instance
 1. Search for `Sidebar Organizer`
 1. Select Sidebar Organizer repo and install
@@ -120,8 +121,8 @@ frontend:
 
 ## Configuration dialog
 
-- Access the **Sidebar Organizer** Configuration menu by press and hold the Profile menu (the last item in the sidebar).
-
+- Access the **Sidebar Organizer** Configuration menu by press and hold the Profile menu (the last item in the sidebar) or via the profile page.
+  ![Configuration Section](assets/sidebar-config-section.png)
 - The settings menu is divided into three categories: Appearance, Panels, and Raw Code. Below is a breakdown of what you can customize in each section.
 
   ![Configuration Dialog](assets/config-dialog.gif)
@@ -264,6 +265,7 @@ In this section, you can organize the layout of the sidebar panels by customizin
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!--Badges-->
+
 [hacs-default]: https://img.shields.io/badge/HACS-Default-blue?style=flat&logo=homeassistantcommunitystore&logoSize=auto
 [hacs-default-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=ngocjohn&repository=sidebar-organizer&category=plugin
 [forum-url]: https://community.home-assistant.io/t/sidebar-organizer
