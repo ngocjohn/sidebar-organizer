@@ -11,6 +11,9 @@ import './sidebar-dialog-new-items';
 
 import {
   fetchFileConfig,
+  INVALID_ITEM_KEYS,
+  InvalidItemKeys,
+  InvalidItemLabels,
   isItemsValid,
   normalizePinnedGroups,
   tryCorrectConfig,
@@ -31,7 +34,7 @@ import {
   sidebarUseConfigFile,
   removeStorage,
 } from '@utilities/storage-utils';
-import { pick } from 'es-toolkit/compat';
+import { isEmpty, pick } from 'es-toolkit/compat';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -56,6 +59,7 @@ export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) hass!: HaExtened['hass'];
   @property({ attribute: false }) _mainDialog!: SidebarOrganizerDialog | SidebarOrganizerDialogWA;
   @property({ attribute: false }) readonly _initConfig!: SidebarConfig;
+  @property({ type: Boolean, reflect: true, attribute: 'fullscreen' }) fullscreen: boolean = false;
   @state() _connected: boolean = false;
   @state() public _sidebarConfig = {} as SidebarConfig;
   @state() public _useConfigFile = false;
@@ -76,6 +80,7 @@ export class SidebarConfigDialog extends LitElement {
   @state() private _uploading = false;
   @state() _invalidConfig?: INVALID_CONFIG;
 
+  private _resizeObserver?: ResizeObserver;
   public _styleManager: HomeAssistantStylesManager = new HomeAssistantStylesManager({ prefix: 'sidebar-dialog' });
 
   public _dashboardUtils = DASHBOARD_UTILS;
@@ -99,6 +104,10 @@ export class SidebarConfigDialog extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._connected = false;
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = undefined;
+    }
   }
 
   public get GUImode(): boolean {
@@ -134,7 +143,6 @@ export class SidebarConfigDialog extends LitElement {
     }
 
     if (_changedProperties.has('_invalidConfig') && this._invalidConfig) {
-      console.log('Invalid config changed, updating dialog state');
       const isValid = this.isValidConfig;
       this._mainDialog._configValid = isValid;
       this.requestUpdate();
@@ -157,6 +165,11 @@ export class SidebarConfigDialog extends LitElement {
         };
         this._initCombiPanels = this._initCombiPanels.filter((item) => item !== 'config');
       }
+    }
+    if (_changedProperties.has('_configLoaded') && this._configLoaded === true && !this._resizeObserver) {
+      setTimeout(() => {
+        this._measureConfigSection();
+      }, 100);
     }
   }
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
@@ -237,6 +250,23 @@ export class SidebarConfigDialog extends LitElement {
     this._validateStoragePanels();
     this._validateConfigFile();
   };
+
+  private _measureConfigSection() {
+    const configSection = this.shadowRoot?.getElementById('sidebar-config');
+    if (!configSection) return;
+    this._resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { height } = entry.contentRect;
+        const minHeight = 800;
+        if (height > minHeight && !this.fullscreen) {
+          this._dialogPreview.style.setProperty('--config-section-height', `${Math.round(height)}px`);
+        } else {
+          this._dialogPreview.style.removeProperty('--config-section-height');
+        }
+      }
+    });
+    this._resizeObserver.observe(configSection);
+  }
 
   protected render(): TemplateResult {
     if (!this._configLoaded) {
@@ -362,11 +392,6 @@ export class SidebarConfigDialog extends LitElement {
     const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
     const _invalidConfig = this._invalidConfig;
     const isConfigValid = this._invalidConfig.valid === true;
-    const sections = [
-      { title: 'Duplicated:', key: 'duplikatedItems' },
-      { title: 'Not exist:', key: 'invalidItems' },
-      { title: 'Hidden from sidebar', key: 'noTitleItems' },
-    ];
     const extraActionsStyle = `display: flex;  width: auto; justify-content: space-between;`;
     return html`
       <div class="invalid-config" .hidden=${this._useConfigFile} style="--code-mirror-max-height: 250px;">
@@ -409,14 +434,18 @@ export class SidebarConfigDialog extends LitElement {
           >${!isConfigValid ? ALERT_MSG.CONFIG_INVALID : ALERT_MSG.CONFIG_VALID}</ha-alert
         >
         <div class="invalid-config-content" ?hidden=${isConfigValid}>
-          ${sections.map(({ title, key }) => {
-            const items = (this._invalidConfig as any)[key];
-            return items?.length
+          ${INVALID_ITEM_KEYS.map((key: InvalidItemKeys) => {
+            const items = _invalidConfig[key] as string[] | boolean;
+            const hasItems = Array.isArray(items) ? items.length > 0 : Boolean(items);
+            const title = InvalidItemLabels[key];
+            return hasItems
               ? html`
                   <div>
                     <h2>${title}</h2>
                     <ul>
-                      ${items.map((item: string) => html`<li>${item}</li>`)}
+                      ${Array.isArray(items)
+                        ? items.map((item: string) => html`<li>${item}</li>`)
+                        : html`<li>True</li>`}
                     </ul>
                   </div>
                 `
@@ -528,12 +557,7 @@ export class SidebarConfigDialog extends LitElement {
     const currentPanelOrder = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
 
     const hiddenItems = getHiddenPanels();
-    console.log(
-      '%cSIDEBAR-DIALOG:%c Validating storage panels with current order and hidden items',
-      'color: #40c057;',
-      'color: #228be6;',
-      { currentPanelOrder, hiddenItems }
-    );
+
     const allPanels = ARRAY_UTILS.union(currentPanelOrder, hiddenItems);
     // console.log('Validating storage panels with current order and hidden items', allPanels);
     const { added, removed } = await compareDashboardItems(this.hass, allPanels);
@@ -583,8 +607,8 @@ export class SidebarConfigDialog extends LitElement {
     switch (action) {
       case 'check':
         const config = this._invalidConfig.config as SidebarConfig;
-        const result = isItemsValid(config, this.hass, true);
-        console.log('Config validation result:', result);
+        const result = isItemsValid(config, this.hass, true) as INVALID_CONFIG;
+        console.log('Re-checking config validity', result.valid);
         if (typeof result === 'object' && result !== null) {
           this._invalidConfig = result;
           this.requestUpdate();
@@ -593,7 +617,6 @@ export class SidebarConfigDialog extends LitElement {
       case 'auto-correct':
         console.log('Auto-correcting invalid config');
         const correctedConfig = tryCorrectConfig(this._invalidConfig.config, this.hass);
-        console.log('Corrected config:', correctedConfig);
         this._invalidConfig = { ...this._invalidConfig, config: correctedConfig };
         this._handleInvalidConfig('check');
         this.requestUpdate();
@@ -634,6 +657,9 @@ export class SidebarConfigDialog extends LitElement {
     const hiddenItems = ARRAY_UTILS.without(configToValidate.hidden_items || [], defaultPanel);
 
     configToValidate.hidden_items = ARRAY_UTILS.uniq(hiddenItems);
+    if (isEmpty(configToValidate.hidden_items)) {
+      delete configToValidate.hidden_items;
+    }
 
     const hasConfigChanged = JSON.stringify(this._sidebarConfig) !== JSON.stringify(configToValidate);
 
@@ -702,6 +728,9 @@ export class SidebarConfigDialog extends LitElement {
         :host {
           --side-dialog-gutter: 0.5rem;
           --side-dialog-padding: 1rem;
+          max-width: 1400px;
+          display: flex;
+          margin: 0 auto;
         }
         .loading-content {
           display: flex;
@@ -782,8 +811,8 @@ export class SidebarConfigDialog extends LitElement {
           gap: var(--side-dialog-gutter);
           margin-top: 1rem;
           min-height: 250px;
-          flex: 1;
           justify-content: space-between;
+          flex: 1;
         }
 
         .header-row {

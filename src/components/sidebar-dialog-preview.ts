@@ -61,7 +61,7 @@ export class SidebarDialogPreview extends LitElement {
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
-    if (_changedProperties.has('invalidConfig') && Object.keys(this._sidebarConfig).length === 0) {
+    if (_changedProperties.has('invalidConfig') && this.invalidConfig === true) {
       this.invalidConfig = true;
       console.log('Sidebar config is empty, set blur');
     }
@@ -634,7 +634,9 @@ export class SidebarDialogPreview extends LitElement {
         .panels-list {
           display: flex;
           flex-direction: column;
-          height: calc(var(--mdc-dialog-min-height, 700px) - var(--preview-header-height));
+          height: calc(
+            var(--config-section-height, var(--mdc-dialog-min-height, 700px)) - var(--preview-header-height)
+          );
           max-height: calc(100% - var(--preview-header-height));
         }
         .wrapper {

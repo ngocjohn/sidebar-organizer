@@ -57,6 +57,7 @@ export class SidebarDialogCodeEditor extends LitElement {
         .copyToClipboard=${true}
         .hasExtraActions=${true}
         .required=${true}
+        in-dialog
         @value-changed=${this._handleConfigChange}
       >
         <div class="header-row" slot="extra-actions" ?hidden=${isConfigEmpty}>

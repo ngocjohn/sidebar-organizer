@@ -14,7 +14,7 @@ import { SidebarConfigDialog } from './sidebar-dialog';
 import { BottomTabPanel } from './sidebar-dialog-groups';
 
 const convertTitle = (title: string | undefined): string => {
-  return title ? capitalize(title.replace(/_/g, ' ')) : 'Ungrouped';
+  return title ? capitalize(title.trim()) : 'Ungrouped';
 };
 
 @customElement('sidebar-dialog-new-items')
