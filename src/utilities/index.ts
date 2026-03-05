@@ -19,3 +19,4 @@ export * from './compute-panels';
 export * from './merge-with-cleanup';
 export * from './array';
 export * from './user';
+export * from './object-differences';

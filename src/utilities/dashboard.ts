@@ -1,6 +1,7 @@
 import type { HA as HomeAssistant } from '../types';
 
 import { LitElement } from 'lit';
+
 import { getHiddenBuiltInPanels } from './compute-panels';
 
 export type LovelaceDashboard = LovelaceYamlDashboard | LovelaceStorageDashboard;

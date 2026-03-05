@@ -237,3 +237,14 @@ export const getHiddenBuiltInPanels = (hass: HomeAssistant): string[] => {
 
   return hiddenBuiltIn;
 };
+
+export const getPanelsNotShownInSidebar = (panels: HomeAssistant['panels']): string[] => {
+  if (!panels) {
+    return [];
+  }
+  const notShown = Object.values(panels)
+    .filter((p) => !FIXED_PANELS.includes(p.url_path) && (!p.title || p.show_in_sidebar === false))
+    .map((p) => p.url_path!);
+
+  return notShown;
+};
