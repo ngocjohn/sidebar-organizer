@@ -3,6 +3,7 @@ import { HaExtened, PANEL_TYPE, PanelInfo, SidebardPanelConfig } from '@types';
 import * as COMPUTE_PANELS from '@utilities/compute-panels';
 import { cleanItemsFromConfig } from '@utilities/configs';
 import { compareDashboardItems, DashboardComparison, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
+import * as DASHBOARD_UTILS from '@utilities/dashboard';
 import { subscribeFrontendUserData } from '@utilities/frontend';
 import * as PANEL_UTILS from '@utilities/panel';
 import { shallowEqual } from '@utilities/shallow-equal';
@@ -26,6 +27,7 @@ export default class Store {
   public hass: HomeAssistant;
   public _panelHelper = PANEL_UTILS;
   public _computePanels = COMPUTE_PANELS;
+  public _dashboardUtils = DASHBOARD_UTILS;
 
   public _dashboardState?: DashboardState = {};
   private unsubData?: Promise<UnsubscribeFunc>;
