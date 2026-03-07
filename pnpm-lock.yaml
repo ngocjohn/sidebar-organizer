@@ -15,11 +15,11 @@ importers:
         specifier: ^7.4.47
         version: 7.4.47
       get-promisable-result:
-        specifier: ^1.0.1
-        version: 1.0.1
+        specifier: ^1.0.2
+        version: 1.0.2
       home-assistant-query-selector:
-        specifier: ^4.3.0
-        version: 4.3.0
+        specifier: ^5.0.0
+        version: 5.0.0
       home-assistant-styles-manager:
         specifier: ^3.1.0
         version: 3.1.0
@@ -1204,8 +1204,8 @@ packages:
     resolution: {integrity: sha512-QZjmEOC+IT1uk6Rx0sX22V6uHWVwbdbxf1faPqJ1QhLdGgsRGCZoyaQBm/piRdJy/D2um6hM1UP7ZEeQ4EkP+Q==}
     engines: {node: '>=18'}
 
-  get-promisable-result@1.0.1:
-    resolution: {integrity: sha512-hUUKs/s8qoeH4gk3NPcKjCWaCjOv0S+kyT3oTuJXneEWYzwmyfEJHESU2ES7pMZNVHTjMt7X8hpmThFfggTVtg==}
+  get-promisable-result@1.0.2:
+    resolution: {integrity: sha512-sej/Qo0t+bKs1kl9OsFokNSARL7oQ5F3t6QnRiIka+yOOxXe4Rbng7y01tD7DNFjWdE16CCZzi89kO/Ng1T+ew==}
 
   get-stream@6.0.1:
     resolution: {integrity: sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg==}
@@ -1283,8 +1283,8 @@ packages:
   home-assistant-js-websocket@9.6.0:
     resolution: {integrity: sha512-TK8HWW6UjCsUdjIBQRB2sBbEya0VniOBFqFjgqSznJiB7YriNgN8jghyThxOkgxwrnt2eN6oWoZMCTSp1o7H+w==}
 
-  home-assistant-query-selector@4.3.0:
-    resolution: {integrity: sha512-L+TfdKKlqKAijIp/dWYKmtQWmTT+S9CZOM43L1lu1azPwVqIhJ2nlzf4GZ1MpWlGjY0+kn4sip0TYxvSCpZeeg==}
+  home-assistant-query-selector@5.0.0:
+    resolution: {integrity: sha512-QY1tR1FNIDbHocw5GNuPfZzIXg/7x8lLt58fNGMNvZgCHCjasFsQ6vk93/Fq+8kBO+J/jc8YrziFVknTfvjwCw==}
 
   home-assistant-styles-manager@3.1.0:
     resolution: {integrity: sha512-ui8JNAZUovDPBYODGNZgj7hjCKy2PlUYkW4MQJ0yTttbshfa4cAaNA536e4QQ3twEogpVp1TSD7Y4GZ5uBVwhQ==}
@@ -3786,7 +3786,7 @@ snapshots:
 
   get-east-asian-width@1.4.0: {}
 
-  get-promisable-result@1.0.1: {}
+  get-promisable-result@1.0.2: {}
 
   get-stream@6.0.1: {}
 
@@ -3871,7 +3871,7 @@ snapshots:
 
   home-assistant-js-websocket@9.6.0: {}
 
-  home-assistant-query-selector@4.3.0:
+  home-assistant-query-selector@5.0.0:
     dependencies:
       shadow-dom-selector: 5.0.1
 
@@ -4791,7 +4791,7 @@ snapshots:
 
   shadow-dom-selector@5.0.1:
     dependencies:
-      get-promisable-result: 1.0.1
+      get-promisable-result: 1.0.2
 
   shebang-command@2.0.0:
     dependencies:

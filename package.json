@@ -18,8 +18,8 @@
   "dependencies": {
     "@jaames/iro": "^5.5.2",
     "@mdi/js": "^7.4.47",
-    "get-promisable-result": "^1.0.1",
-    "home-assistant-query-selector": "^4.3.0",
+    "get-promisable-result": "^1.0.2",
+    "home-assistant-query-selector": "^5.0.0",
     "home-assistant-styles-manager": "^3.1.0",
     "lit": "^3.3.2",
     "rollup-plugin-filesize": "^10.0.0",
