@@ -65,10 +65,10 @@ export const DIVIDER_ADDED_STYLE = css`
   :host([expanded]) .grid-container > ha-md-list-item[grid-item] > ha-icon.badge,
   :host([expanded]) .grid-container > ha-md-list-item[grid-item] > span.badge {
     position: absolute;
-    top: 2px;
-    left: 30px;
+    top: 4px;
+    left: 26px;
     border-radius: var(--ha-border-radius-md);
-    font-size: 0.65rem;
+    font-size: 0.75em;
     line-height: var(--ha-line-height-expanded);
     padding: 0 var(--ha-space-1);
   }
@@ -267,6 +267,11 @@ export const DIVIDER_ADDED_STYLE = css`
       opacity: 0;
     }
   }
+  :host .tooltip {
+    opacity: 1 !important;
+    color: var(--primary-text-color) !important;
+    background-color: var(--secondary-background-color) !important;
+  }
 `;
 
 export const DIALOG_STYLE = css`
@@ -327,5 +332,11 @@ export const DIALOG_STYLE = css`
       width: 100%;
       max-width: none;
     }
+  }
+`;
+
+export const DRAWER_STYLE = css`
+  :host aside.mdc-drawer {
+    background-color: transparent !important;
   }
 `;

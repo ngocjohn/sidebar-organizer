@@ -604,7 +604,7 @@ export class SidebarDialogPreview extends LitElement {
         :host {
           --preview-header-height: 56px;
           --selected-container-color: rgb(from var(--primary-color) r g b / 0.4);
-          background-color: var(--clear-background-color, rgba(0, 0, 0, 0.2));
+          /* background-color: var(--clear-background-color, rgba(0, 0, 0, 0.2)); */
           min-height: 100%;
           display: flex;
           width: 100%;
@@ -666,16 +666,27 @@ export class SidebarDialogPreview extends LitElement {
 
         .divider-preview {
           display: block;
-          /* margin: 1rem auto; */
+          position: relative;
           align-items: center;
-          /* min-height: calc(var(--mdc-dialog-min-height, 700px) - 50px); */
-          /* max-height: max-content; */
           max-width: 260px;
           height: auto;
           width: 100%;
           background-color: var(--sidebar-background-color);
           overflow: hidden;
           margin: 0.5rem auto;
+          /* border: 1px solid var(--theme-border-color); */
+        }
+        .divider-preview::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border: 1px solid var(--theme-border-color);
+          pointer-events: none;
+          background-color: var(--drawer-background-color);
+          z-index: -1;
         }
 
         @media all and (max-width: 800px), all and (max-height: 500px) {

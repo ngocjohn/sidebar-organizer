@@ -802,7 +802,9 @@ export class SidebarConfigDialog extends LitElement {
           overflow: hidden;
           align-content: center;
           /* background-color: rgba(0, 0, 0, 0.2); */
-          background-color: var(--clear-background-color, rgba(0, 0, 0, 0.2));
+          background-color: var(--primary-background-color, var(--clear-background-color, rgba(0, 0, 0, 0.2)));
+          --theme-border-color: var(--divider-color, rgba(0, 0, 0, 0.12));
+          --drawer-background-color: var(--mdc-theme-surface);
         }
 
         .config-content {
