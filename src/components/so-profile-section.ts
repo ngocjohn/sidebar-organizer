@@ -1,9 +1,9 @@
 import type { SidebarOrganizer } from '../sidebar-organizer';
 
-import { CONFIG_NAME, NAMESPACE_TITLE, REPO_URL } from '@constants';
+import { CONFIG_NAME, NAMESPACE_TITLE } from '@constants';
 import { clearSidebarOrganizerStorage } from '@utilities/configs/misc';
 import { clearBrowserCache, fileDownload } from '@utilities/dom-utils';
-import { css, html, LitElement } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import YAML from 'yaml';
 
@@ -51,6 +51,9 @@ const ACTION_LIST: {
 export class SoProfileSection extends LitElement {
   @property({ attribute: false }) public organizer!: SidebarOrganizer;
 
+  protected createRenderRoot() {
+    return this;
+  }
   public connectedCallback() {
     super.connectedCallback();
   }
@@ -59,18 +62,9 @@ export class SoProfileSection extends LitElement {
     super.disconnectedCallback();
   }
 
-  protected firstUpdated() {
-    setTimeout(() => {
-      void this.scrollIntoView({ behavior: 'auto', block: 'center' });
-    }, 0);
-  }
   protected render() {
     return html`
-      <ha-card>
-        <div class="card-header">
-          ${NAMESPACE_TITLE}
-          <ha-icon icon="mdi:github" @click=${() => window.open(`${REPO_URL}`, '_blank')}></ha-icon>
-        </div>
+      <ha-card .header=${NAMESPACE_TITLE}>
         <div class="card-content">
           The following settings are used to control the behavior of the Sidebar Organizer plugin.
         </div>
@@ -134,21 +128,6 @@ export class SoProfileSection extends LitElement {
         break;
     }
   };
-  static styles = css`
-    ha-card .card-header {
-      display: flex;
-      justify-content: space-between;
-    }
-    ha-card .card-header ha-icon {
-      color: var(--secondary-text-color);
-      cursor: pointer;
-      &:hover {
-        color: var(--primary-color);
-      }
-    }
-    /* .card-content {
-    } */
-  `;
 }
 
 declare global {

@@ -1,6 +1,62 @@
 import { SidebarAppearanceConfig, TextTransformations } from '@types';
 import memoizeOne from 'memoize-one';
 
+export const headerSchema = (delayDisabled = false) =>
+  [
+    {
+      name: '',
+      type: 'expandable',
+      expanded: true,
+      flatten: true,
+      title: 'Configuration',
+      icon: 'mdi:format-text',
+      schema: [
+        {
+          name: '',
+          type: 'grid',
+          schema: [
+            {
+              name: 'header_title',
+              label: 'Header Title',
+              type: 'string',
+              default: '',
+            },
+            {
+              name: 'hide_header_toggle',
+              label: 'Hide Header Toggle',
+              type: 'boolean',
+              helper: 'Toggle button for collapsing/expanding groups',
+              default: false,
+            },
+          ] as const,
+        },
+        {
+          name: '',
+          type: 'grid',
+          schema: [
+            {
+              name: 'animation_off',
+              label: 'Disable Animation',
+              type: 'boolean',
+              helper: 'Disable slide-in/slide-out animation for group toggling',
+              default: false,
+            },
+            {
+              name: 'animation_delay',
+              label: 'Animation Delay (ms)',
+              type: 'integer',
+              helper: 'Delay for each item (default: 50ms)',
+              default: 50,
+              disabled: delayDisabled,
+              valueMin: 0,
+              valueMax: 100,
+            },
+          ] as const,
+        },
+      ],
+    },
+  ] as const;
+
 export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig) => {
   const delayDisabled = data?.animation_off === true;
   return [
@@ -31,39 +87,20 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
               helper: 'Disable slide-in/slide-out animation for group toggling',
               default: false,
             },
-            ...(delayDisabled
-              ? []
-              : [
-                  {
-                    name: 'animation_delay',
-                    label: 'Animation Delay (ms)',
-                    selector: {
-                      number: {
-                        min: 0,
-                        max: 100,
-                        step: 10,
-                        mode: 'slider',
-                        unit_of_measurement: 'ms',
-                      },
-                    },
-                    helper: 'Delay for each item (default: 50ms)',
-                    default: 50,
-                    disabled: delayDisabled,
-                  },
-                ]),
-
             {
-              name: 'move_settings_from_fixed',
-              label: 'Move Settings item from Fixed',
-              type: 'boolean',
-              helper: 'Move the Settings item from the fixed panels to be user-configurable',
-              default: false,
+              name: 'animation_delay',
+              label: 'Animation Delay (ms)',
+              type: 'integer',
+              helper: 'Delay for each item (default: 50ms)',
+              default: 50,
+              disabled: delayDisabled,
+              valueMin: 0,
+              valueMax: 100,
             },
             {
               name: 'text_transformation',
               label: 'Text Transformation',
               default: 'capitalize',
-              helper: 'Transform the text of group names',
               selector: {
                 select: {
                   mode: 'dropdown',
@@ -75,6 +112,13 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
                   ],
                 },
               },
+            },
+            {
+              name: 'move_settings_from_fixed',
+              label: 'Move Settings item from Fixed',
+              type: 'boolean',
+              helper: 'Move the Settings item from the fixed panels to be user-configurable',
+              default: false,
             },
           ] as const,
         },

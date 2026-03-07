@@ -65,10 +65,10 @@ export const DIVIDER_ADDED_STYLE = css`
   :host([expanded]) .grid-container > ha-md-list-item[grid-item] > ha-icon.badge,
   :host([expanded]) .grid-container > ha-md-list-item[grid-item] > span.badge {
     position: absolute;
-    top: 2px;
-    left: 30px;
+    top: 0;
+    left: 26px;
     border-radius: var(--ha-border-radius-md);
-    font-size: 0.65rem;
+    font-size: 0.65em;
     line-height: var(--ha-line-height-expanded);
     padding: 0 var(--ha-space-1);
   }
@@ -111,20 +111,20 @@ export const DIVIDER_ADDED_STYLE = css`
   }
   :host([expanded]) .grid-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, calc(25% - 0px));
+    grid-template-columns: repeat(auto-fill, calc(25% - 4px));
     padding: 0;
     margin: 0;
     overflow: clip;
     /* max-height: fit-content; */
     justify-content: center;
-    /* grid-gap: 4px 4px; */
+    grid-gap: 4px 4px;
   }
   :host([expanded]) .grid-container > ha-md-list-item[grid-item] {
     width: 48px;
     height: 48px;
-    /* justify-content: center;
-    align-items: center; */
-    /* margin: auto auto; */
+    justify-content: center;
+    align-items: center;
+    margin: auto auto;
   }
 
   :host .divider[added] .added-content {
