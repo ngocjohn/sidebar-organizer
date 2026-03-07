@@ -90,10 +90,15 @@ export interface DashboardComparison {
   added: string[];
   removed: string[];
 }
-export const compareDashboardItems = async (hass: HomeAssistant, panels: string[]): Promise<DashboardComparison> => {
+export const compareDashboardItems = async (
+  hass: HomeAssistant,
+  sidebarPanelList: string[]
+): Promise<DashboardComparison> => {
   const currentItems = await _getCurrentDashboardItems(hass);
-  const hiddenBuiltInPanels = getHiddenBuiltInPanels(hass) || [];
-  const added = currentItems.inSidebar.filter((item) => !panels.includes(item));
-  const removed = [currentItems.notInSidebar, hiddenBuiltInPanels].flat().filter((panel) => panels.includes(panel));
+  const hiddenBuiltInPanels = getHiddenBuiltInPanels(hass);
+  const added = currentItems.inSidebar.filter((item) => !sidebarPanelList.includes(item));
+  const removed = [currentItems.notInSidebar, hiddenBuiltInPanels]
+    .flat()
+    .filter((panel) => sidebarPanelList.includes(panel));
   return { currentItems, added, removed };
 };

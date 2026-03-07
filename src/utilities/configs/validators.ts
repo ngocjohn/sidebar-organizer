@@ -2,7 +2,7 @@ import { CONFIG_NAME, STORAGE } from '@constants';
 import { HaExtened, PANEL_TYPE, SidebarConfig, SidebardPanelConfig } from '@types';
 import { getPanelsNotShownInSidebar } from '@utilities/compute-panels';
 import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
-import { getDefaultPanel } from '@utilities/panel';
+import { getDefaultPanelUrlPath } from '@utilities/panel';
 import { pick } from 'es-toolkit/compat';
 
 import * as LOGGER from '../logger';
@@ -108,7 +108,7 @@ export const isItemsValid = (
   const newConfigItems = Array.from(config.new_items || []).map((item) => item.title!);
   allItems = allItems.filter((item) => !newConfigItems.includes(item));
 
-  const defaultPanel = getDefaultPanel(hass).url_path;
+  const defaultPanel = getDefaultPanelUrlPath(hass);
   const customGroups = Object.values(config.custom_groups || {}).flat();
   const bottomItems = config.bottom_items || [];
   const bottomGridItems = config.bottom_grid_items || [];
@@ -117,7 +117,8 @@ export const isItemsValid = (
   const hasDefaultInGroupsOrBottom = isDefaultIncluded(defaultPanel, customGroups, bottomItems, bottomGridItems);
   // Find duplicated items
   const duplicateItems = findDuplicateItems(customGroups, bottomItems, bottomGridItems);
-  const hiddenSidebarItems = getPanelsNotShownInSidebar(hass.panels) || [];
+  const hiddenSidebarItems = getPanelsNotShownInSidebar(hass.panels, defaultPanel) || [];
+
   const haPanelKeys = Object.keys(hass.panels);
 
   const invalidItems = allItems.filter((item) => !haPanelKeys.includes(item));
@@ -164,7 +165,7 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
   const haPanelKeys = Object.keys(hass.panels);
   let allItems = getAllConfigItems(config);
 
-  const defaultPanel = getDefaultPanel(hass).url_path;
+  const defaultPanel = getDefaultPanelUrlPath(hass);
 
   const customGroups = Object.values(config.custom_groups || {}).flat();
   const bottomItems = config.bottom_items || [];
@@ -175,7 +176,7 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
 
   const hasDefaultInGroupsOrBottom = isDefaultIncluded(defaultPanel, customGroups, bottomItems, bottomGridItems);
 
-  const hiddenSidebarItems = getPanelsNotShownInSidebar(hass.panels) || [];
+  const hiddenSidebarItems = getPanelsNotShownInSidebar(hass.panels, defaultPanel) || [];
 
   const diffItems = allItems.filter((item) => !haPanelKeys.includes(item));
   const noTitleItems = allItems.filter((item) => hiddenSidebarItems.includes(item));

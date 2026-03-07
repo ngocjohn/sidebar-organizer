@@ -575,43 +575,6 @@ export class SidebarOrganizer {
     this._addAdditionalStyles(color_config);
   }
 
-  // private _handleSidebarHeader(): void {
-  //   const menuEl = this.sideBarRoot?.querySelector(SELECTOR.MENU) as HTMLElement;
-  //   const titleEl = menuEl.querySelector(SELECTOR.MENU_TITLE) as HTMLElement;
-  //   if (!titleEl) return;
-  //   const customTitle = this._config.header_title;
-  //   if (customTitle && customTitle !== '') {
-  //     titleEl.innerText = customTitle;
-  //   }
-
-  //   titleEl.classList.add('toggle');
-  //   const hide_header_toggle = this._config.hide_header_toggle || false;
-  //   if (hide_header_toggle) return;
-  //   const groupKeys = Object.keys(this._config?.custom_groups || {});
-  //   if (groupKeys.length === 0 || Object.values(this._config.custom_groups || {}).flat().length === 0) return;
-  //   const groupsLength = groupKeys.length;
-  //   const collapsedSize = this.collapsedItems.size;
-  //   const isAllCollapsed = collapsedSize === groupsLength;
-
-  //   const collapseEl = document.createElement(ELEMENT.HA_ICON) as any;
-  //   collapseEl.icon = isAllCollapsed ? MDI.PLUS : MDI.MINUS;
-  //   collapseEl.classList.add(CLASS.COLLAPSE_TOGGLE);
-  //   collapseEl.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
-
-  //   const handleToggle = (ev: Event) => {
-  //     ev.stopPropagation();
-  //     this.collapsedItems.size === groupKeys.length
-  //       ? this.collapsedItems.clear()
-  //       : (this.collapsedItems = new Set([...groupKeys]));
-  //     this._handleCollapsed(this.collapsedItems);
-  //   };
-  //   ['mousedown', 'touchstart'].forEach((eventType) => {
-  //     collapseEl.addEventListener(eventType, handleToggle, { passive: true });
-  //   });
-
-  //   titleEl.appendChild(collapseEl);
-  // }
-
   private _handleSidebarHeader(): void {
     const menuEl = this.sideBarRoot?.querySelector(SELECTOR.MENU) as HTMLElement | null;
     const titleEl = menuEl?.querySelector(SELECTOR.MENU_TITLE) as HTMLElement | null;
@@ -1005,7 +968,7 @@ export class SidebarOrganizer {
     }
 
     // Check differences after a delay
-    setTimeout(() => this._checkDiffs(), 50);
+    setTimeout(() => this._checkDiffs(), 100);
   }
 
   private _compareDatasetWithHref(element: SidebarPanelItem): boolean {
@@ -1194,7 +1157,7 @@ export class SidebarOrganizer {
     this._handleCollapsedChange();
   }
 
-  public _reloadWindow(timeout: number = 2000): void {
+  public _reloadWindow(timeout: number = 1000): void {
     this._store._showToast('Reloading window to apply changes...');
     setTimeout(() => {
       window.location.reload();
