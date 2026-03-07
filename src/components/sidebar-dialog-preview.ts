@@ -35,6 +35,7 @@ export class SidebarDialogPreview extends LitElement {
   @state() private _ready = false;
 
   @query('.divider-preview') private _previewContainer!: HTMLElement;
+  @query('.panels-list') private _panelsList!: HTMLElement;
   @query('.groups-container') private _groupsContainer!: HTMLElement;
 
   protected willUpdate(_changedProperties: PropertyValues): void {
@@ -178,7 +179,7 @@ export class SidebarDialogPreview extends LitElement {
       return;
     }
 
-    const items = this._groupsContainer!.querySelectorAll('a') as NodeListOf<HTMLElement>;
+    const items = this._panelsList!.querySelectorAll('a') as NodeListOf<HTMLElement>;
     const { new_items, notification } = this._sidebarConfig || {};
     const newItemsNotify = Array.from(new_items || [])
       .filter((item) => item.notification !== undefined)
@@ -256,8 +257,7 @@ export class SidebarDialogPreview extends LitElement {
   }
 
   private _handleNotifyChange(): void {
-    const groups = this.shadowRoot?.querySelector('div.groups-container');
-    const notifyItems = groups?.querySelectorAll('.notification-badge') as NodeListOf<HTMLElement>;
+    const notifyItems = this._panelsList?.querySelectorAll('.notification-badge') as NodeListOf<HTMLElement>;
     if (!notifyItems) {
       console.log('No notify items found');
       return;
@@ -789,23 +789,35 @@ export class SidebarDialogPreview extends LitElement {
         .icon-item {
           box-sizing: border-box;
           margin: 4px;
-          padding-left: 12px;
           padding-inline-start: 12px;
-          padding-inline-end: initial;
           border-radius: 4px;
           display: flex;
           min-height: 40px;
           align-items: center;
-          /* padding: 0 16px; */
+          flex: 1 1 0%;
+          overflow: var(--md-item-overflow, hidden);
+          /* align-items: var(--md-item-align-items,center); */
+          gap: var(--ha-md-list-item-gap, 16px);
+          padding-inline-end: 12px;
         }
         .icon-item > ha-icon {
-          width: 56px;
+          width: 24px;
           color: var(--sidebar-icon-color);
         }
         .icon-item span.item-text {
-          display: block;
-          max-width: calc(100% - 56px);
+          /* display: block;
+          max-width: 100%; */
           text-transform: capitalize;
+          max-width: 100%;
+          opacity: 1;
+          transition-delay: 0s, 80ms;
+          display: flex;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          height: 100%;
+          align-items: center;
+          width: 100%;
         }
 
         .hight-light {
@@ -846,7 +858,7 @@ export class SidebarDialogPreview extends LitElement {
 
         .bottom-grid-panel {
           display: grid;
-          grid-template-columns: repeat(auto-fill, 25%);
+          grid-template-columns: repeat(auto-fit, calc(25% - 0px));
           padding: 0;
           max-height: fit-content;
         }
@@ -872,16 +884,18 @@ export class SidebarDialogPreview extends LitElement {
           display: none !important;
         }
 
-        .icon-item[grid-item] > ha-icon.notification-badge {
+        .icon-item[grid-item] > .notification-badge {
           left: 32px;
-          width: 22px;
           top: 8px;
+          width: fit-content;
+          min-width: 8px;
+          max-width: 28px;
         }
 
         .notification-badge {
           position: absolute;
-          left: calc(var(--app-drawer-width, 248px) - 42px);
-          inset-inline-start: calc(var(--app-drawer-width, 248px) - 42px);
+          left: calc(var(--app-drawer-width, 248px) - 26px);
+          inset-inline-start: calc(var(--app-drawer-width, 248px) - 26px);
           inset-inline-end: initial;
           min-width: 20px;
           box-sizing: border-box;
@@ -890,7 +904,7 @@ export class SidebarDialogPreview extends LitElement {
           background-color: var(--accent-color);
           line-height: 20px;
           text-align: center;
-          padding: 0px 5px;
+          padding: 0px 4px;
           color: var(--text-accent-color, var(--text-primary-color));
         }
         ha-icon.notification-badge {
