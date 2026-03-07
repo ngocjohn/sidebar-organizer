@@ -561,7 +561,6 @@ export class SidebarConfigDialog extends LitElement {
     const allPanels = ARRAY_UTILS.union(currentPanelOrder, hiddenItems);
     // console.log('Validating storage panels with current order and hidden items', allPanels);
     const { added, removed } = await compareDashboardItems(this.hass, allPanels);
-    console.debug('Storage panels comparison result:', { added, removed });
     if (Boolean(added.length || removed.length)) {
       // If there are changes, update the sidebar items
       window.location.reload();
