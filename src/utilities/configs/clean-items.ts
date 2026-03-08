@@ -1,6 +1,5 @@
-import type { SidebardPanelConfig } from '@types';
-
-import { forEach } from 'es-toolkit/compat';
+import { PANEL_TYPE, type SidebarConfig, type SidebardPanelConfig } from '@types';
+import { forEach, pick } from 'es-toolkit/compat';
 
 export const cleanItems = (items: string[], itemsToRemoveSet: Set<string>): string[] => {
   return items.filter((item) => !itemsToRemoveSet.has(item));
@@ -27,3 +26,19 @@ export function cleanItemsFromConfig(
 
   return updatesConfig;
 }
+export const cleanItemsFromAllPanels = (
+  baseConfig: SidebarConfig,
+  itemsToRemove: string[] | Set<string>
+): SidebardPanelConfig => {
+  const configToUpdate = pick(baseConfig, [
+    PANEL_TYPE.CUSTOM,
+    PANEL_TYPE.BOTTOM,
+    PANEL_TYPE.HIDDEN,
+    PANEL_TYPE.BOTTOM_GRID,
+  ]) as SidebardPanelConfig;
+  console.debug('Cleaning items from all panels...', { baseConfig, itemsToRemove, configToUpdate });
+  const cleanedConfigItems = cleanItemsFromConfig(configToUpdate, itemsToRemove);
+  console.debug('Cleaned config items:', cleanedConfigItems, 'before configToUpdate:', configToUpdate);
+
+  return cleanedConfigItems;
+};

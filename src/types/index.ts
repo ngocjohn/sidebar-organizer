@@ -109,7 +109,17 @@ export interface SidebarAppearanceConfig {
   animation_delay?: number;
   text_transformation?: TextTransformation;
   move_settings_from_fixed?: boolean;
+  force_transparent_background?: boolean;
 }
+export const AppearanceConfigKeys = [
+  'header_title',
+  'hide_header_toggle',
+  'animation_off',
+  'animation_delay',
+  'text_transformation',
+  'move_settings_from_fixed',
+  'force_transparent_background',
+] as const;
 
 export interface SidebarColorConfig {
   border_radius?: number;

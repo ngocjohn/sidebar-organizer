@@ -114,17 +114,13 @@ export class SidebarDialogPreview extends LitElement {
       },
       {} as Record<ItemShallowKeys, boolean>
     );
-
-    const settingsMovedChanged = oldConfig.move_settings_from_fixed !== newConfig.move_settings_from_fixed;
-
-    if (!Object.values(changedFlags).some(Boolean) && !settingsMovedChanged) {
-      return;
+    const settingsItemMovedChanged = oldConfig.move_settings_from_fixed !== newConfig.move_settings_from_fixed;
+    if (Object.values(changedFlags).some((changed) => changed)) {
+      // update the listbox if any of the panel groups config changed
+      this._updateListbox(newConfig);
+    } else if (settingsItemMovedChanged) {
+      this.requestUpdate();
     }
-    console.log('%cSIDEBAR-DIALOG-PREVIEW:', 'color: #40c057;', 'Panel config changed:', {
-      ...Object.fromEntries(Object.entries(changedFlags).filter(([, value]) => value)),
-      ...(settingsMovedChanged ? { move_settings_from_fixed: true } : {}),
-    });
-    this._updateListbox(newConfig);
   }
 
   private _updateThemeChange(oldConfig: SidebarConfig, newConfig: SidebarConfig): void {

@@ -24,6 +24,7 @@ import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
 import { compareDashboardItems } from '@utilities/dashboard';
 import * as DASHBOARD_UTILS from '@utilities/dashboard';
 import { TRANSLATED_LABEL } from '@utilities/localize';
+import * as OBJ_DIFF from '@utilities/object-differences';
 import { getDefaultPanelUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog } from '@utilities/show-dialog-box';
 import {
@@ -85,6 +86,7 @@ export class SidebarConfigDialog extends LitElement {
 
   public _dashboardUtils = DASHBOARD_UTILS;
   public _arrayUtils = ARRAY_UTILS;
+  public _objDiff = OBJ_DIFF;
 
   @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
@@ -151,19 +153,17 @@ export class SidebarConfigDialog extends LitElement {
       if (this._settingItemMoved && !this._initCombiPanels.includes('config')) {
         this._initCombiPanels.push('config');
       } else if (!this._settingItemMoved) {
-        const config = { ...this._sidebarConfig };
-        const configToUpdate = pick(config, [
-          PANEL_TYPE.CUSTOM,
-          PANEL_TYPE.BOTTOM,
-          PANEL_TYPE.HIDDEN,
-          PANEL_TYPE.BOTTOM_GRID,
-        ]) as SidebardPanelConfig;
-        const updatedPanels = cleanItemsFromConfig(configToUpdate, ['config']);
-        this._sidebarConfig = {
-          ...config,
-          ...updatedPanels,
-        };
         this._initCombiPanels = this._initCombiPanels.filter((item) => item !== 'config');
+        const configInPanel = this._getGroupOfPanel('config') as string | null;
+        if (configInPanel !== null) {
+          // Removing the config item from the panel it is currently in
+          const panelToUpdate = [PANEL_TYPE.BOTTOM, PANEL_TYPE.BOTTOM_GRID].includes(configInPanel as PANEL_TYPE)
+            ? configInPanel
+            : PANEL_TYPE.CUSTOM;
+          const updatedPanelConfig = this._cleanItemsFromGroups(panelToUpdate as PANEL_TYPE, ['config']);
+
+          this._sidebarConfig = { ...this._sidebarConfig, ...updatedPanelConfig };
+        }
       }
     }
     if (_changedProperties.has('_configLoaded') && this._configLoaded === true && !this._resizeObserver) {
@@ -239,8 +239,6 @@ export class SidebarConfigDialog extends LitElement {
       this._panelConfigMap = new Map(Object.entries(panelConfig));
       // Check for config changes from initial config
       const hasConfigChanged = JSON.stringify(this._initConfig) !== JSON.stringify(newConfig);
-      //info
-      console.log('%cSIDEBAR-DIALOG:%c ℹ️ Has Config Changed:', 'color: #40c057;', 'color: #228be6;', hasConfigChanged);
 
       this._mainDialog._saveDisabled = !hasConfigChanged;
     }
@@ -704,8 +702,9 @@ export class SidebarConfigDialog extends LitElement {
     return ungroupedItems;
   }
 
-  public _cleanItemsFromGroups = (groups: SidebardPanelConfig, itemToRemove: string[]): SidebardPanelConfig => {
-    return cleanItemsFromConfig(groups, itemToRemove);
+  public _cleanItemsFromGroups = (groupType: PANEL_TYPE, itemToRemove: string[]): SidebardPanelConfig => {
+    const configToClean = pick(this._sidebarConfig, groupType) as SidebardPanelConfig;
+    return cleanItemsFromConfig(configToClean, itemToRemove);
   };
 
   public _getGroupOfPanel = (panel: string): string | null => {
