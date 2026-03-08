@@ -929,7 +929,7 @@ export class SidebarOrganizer {
 
   private _applyDrawerStyles(forceTransparentBackground: boolean = false): void {
     if (!forceTransparentBackground) return;
-    //success
+
     console.log('%cSIDEBAR-ORGANIZER:%c ✅ Applied drawer styles', 'color: #bada55;', 'color: #40c057;');
 
     this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);

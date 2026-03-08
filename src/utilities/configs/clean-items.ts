@@ -36,9 +36,7 @@ export const cleanItemsFromAllPanels = (
     PANEL_TYPE.HIDDEN,
     PANEL_TYPE.BOTTOM_GRID,
   ]) as SidebardPanelConfig;
-  console.debug('Cleaning items from all panels...', { baseConfig, itemsToRemove, configToUpdate });
   const cleanedConfigItems = cleanItemsFromConfig(configToUpdate, itemsToRemove);
-  console.debug('Cleaned config items:', cleanedConfigItems, 'before configToUpdate:', configToUpdate);
 
   return cleanedConfigItems;
 };

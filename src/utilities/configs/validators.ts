@@ -35,7 +35,7 @@ export const InvalidItemLabels: Record<InvalidItemKeys, string> = {
 export const validateConfig = (config: SidebarConfig, hidden?: string[]): SidebarConfig => {
   const hiddenPanels: string[] = hidden || getHiddenPanels();
   if (!hiddenPanels.length) return config;
-  console.debug('Validating config with hidden panels', { config, hiddenPanels });
+
   const configToUpdate = pick(config, [
     PANEL_TYPE.CUSTOM,
     PANEL_TYPE.BOTTOM,
