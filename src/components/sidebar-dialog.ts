@@ -703,7 +703,7 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   public _cleanItemsFromGroups = (groupType: PANEL_TYPE, itemToRemove: string[]): SidebardPanelConfig => {
-    const configToClean = pick(this._sidebarConfig, groupType) as SidebardPanelConfig;
+    const configToClean = pick(this._sidebarConfig, [groupType]) as SidebardPanelConfig;
     return cleanItemsFromConfig(configToClean, itemToRemove);
   };
 

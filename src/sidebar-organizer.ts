@@ -930,9 +930,11 @@ export class SidebarOrganizer {
   private _applyDrawerStyles(forceTransparentBackground: boolean = false): void {
     if (!forceTransparentBackground) return;
 
-    console.log('%cSIDEBAR-ORGANIZER:%c ✅ Applied drawer styles', 'color: #bada55;', 'color: #40c057;');
+    if (!this._haDrawer || !this._haDrawer.shadowRoot) {
+      return;
+    }
 
-    this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
+    this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer.shadowRoot);
   }
 
   private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {
