@@ -1,6 +1,55 @@
 import { SidebarAppearanceConfig, TextTransformations } from '@types';
 import memoizeOne from 'memoize-one';
 
+interface BooleanItem<T = string> {
+  type: 'boolean';
+  name: T;
+  label?: string;
+  helper?: string;
+  default?: boolean;
+}
+
+const BOOLEAN_OPTIONS = [
+  {
+    name: 'hide_header_toggle',
+    helper: 'Toggle button for collapsing/expanding groups',
+  },
+  {
+    name: 'animation_off',
+    label: 'Disable Animation',
+    helper: 'Disable slide-in/slide-out animation for group toggling',
+  },
+  {
+    name: 'move_settings_from_fixed',
+    helper: 'Move the Settings item from the fixed panels to be user-configurable',
+    default: false,
+  },
+  {
+    name: 'force_transparent_background',
+    helper: 'Force apply transparent background (fully transparent)',
+  },
+];
+
+const commonBooleanSchema = (name?: BooleanItem['name'][]) => {
+  if (!name) {
+    name = BOOLEAN_OPTIONS.map((b) => b.name);
+  }
+  const list: BooleanItem[] = [];
+  name.forEach((n) => {
+    const b = BOOLEAN_OPTIONS.find((bb) => bb.name === n);
+    if (b) {
+      list.push({
+        name: b.name,
+        label: b.label,
+        helper: b.helper,
+        default: b.default || false,
+        type: 'boolean',
+      });
+    }
+  });
+  return list;
+};
+
 export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig) => {
   const delayDisabled = data?.animation_off === true;
   return [
@@ -18,22 +67,9 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
               name: 'header_title',
               type: 'string',
             },
-            {
-              name: 'hide_header_toggle',
-              type: 'boolean',
-              helper: 'Toggle button for collapsing/expanding groups',
-              default: false,
-            },
-            {
-              name: 'animation_off',
-              label: 'Disable Animation',
-              type: 'boolean',
-              helper: 'Disable slide-in/slide-out animation for group toggling',
-              default: false,
-            },
-            ...(delayDisabled
-              ? []
-              : [
+            ...commonBooleanSchema(['hide_header_toggle', 'animation_off']),
+            ...(!delayDisabled
+              ? [
                   {
                     name: 'animation_delay',
                     label: 'Animation Delay (ms)',
@@ -50,15 +86,9 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
                     default: 50,
                     disabled: delayDisabled,
                   },
-                ]),
-
-            {
-              name: 'move_settings_from_fixed',
-              label: 'Move Settings item from Fixed',
-              type: 'boolean',
-              helper: 'Move the Settings item from the fixed panels to be user-configurable',
-              default: false,
-            },
+                ]
+              : []),
+            ...commonBooleanSchema(['move_settings_from_fixed', 'force_transparent_background']),
             {
               name: 'text_transformation',
               label: 'Text Transformation',

@@ -1,7 +1,7 @@
 import { CONFIG_NAME, STORAGE } from '@constants';
 import { HaExtened, PANEL_TYPE, SidebarConfig, SidebardPanelConfig } from '@types';
 import { getPanelsNotShownInSidebar } from '@utilities/compute-panels';
-import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
+import { cleanItemsFromAllPanels, cleanItemsFromConfig } from '@utilities/configs/clean-items';
 import { getDefaultPanelUrlPath } from '@utilities/panel';
 import { pick } from 'es-toolkit/compat';
 
@@ -48,7 +48,7 @@ export const validateConfig = (config: SidebarConfig, hidden?: string[]): Sideba
     ...config,
     ...updatedPanels,
     ...(defaultCollapsed.length > 0 && { default_collapsed: defaultCollapsed }),
-    hidden_items: hiddenPanels,
+    ...(hiddenPanels.length > 0 && { hidden_items: hiddenPanels }),
   };
 
   return validatedConfig;
@@ -196,14 +196,8 @@ export const tryCorrectConfig = (config: SidebarConfig, hass: HaExtened['hass'])
   };
 
   // Remove invalid items from custom groups, bottom items, bottom grid items and hidden items
-  const configToUpdate = pick(config, [
-    PANEL_TYPE.CUSTOM,
-    PANEL_TYPE.BOTTOM,
-    PANEL_TYPE.BOTTOM_GRID,
-    PANEL_TYPE.HIDDEN,
-  ]) as SidebardPanelConfig;
-  const updatedPanels = cleanItemsFromConfig(configToUpdate, invalidItems);
 
+  const updatedPanels = cleanItemsFromAllPanels(config, invalidItems);
   let updatedGroups = updatedPanels.custom_groups || {};
   if (duplicateItems.length > 0) {
     // clean again to remove duplicates after removing invalid items

@@ -53,7 +53,7 @@ import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
 import { SoGroupDivider } from './components/so-group-divider';
-import { DIVIDER_ADDED_STYLE } from './sidebar-css';
+import { DIVIDER_ADDED_STYLE, DRAWER_STYLE } from './sidebar-css';
 
 export class SidebarOrganizer {
   constructor() {
@@ -559,6 +559,7 @@ export class SidebarOrganizer {
       bottom_grid_items,
       move_settings_from_fixed,
       pinned_groups,
+      force_transparent_background,
     } = this._config;
     this._configPanelMap = new Map(Object.entries(custom_groups || {}));
     this._configPanelMap.set(PANEL_TYPE.BOTTOM, bottom_items || []);
@@ -572,6 +573,7 @@ export class SidebarOrganizer {
     this._addNewItems(new_items || []);
     // Move settings from fixed to sidebar if specified
     this._moveSettingsFromFixed(move_settings_from_fixed || false);
+    this._applyDrawerStyles(force_transparent_background || false);
     this._addAdditionalStyles(color_config);
   }
 
@@ -923,6 +925,16 @@ export class SidebarOrganizer {
       [CUSTOM_COLOR_CONFIG, CUSTOM_STYLES, DIVIDER_ADDED_STYLE.toString()],
       this.sideBarRoot!
     );
+  }
+
+  private _applyDrawerStyles(forceTransparentBackground: boolean = false): void {
+    if (!forceTransparentBackground) return;
+
+    if (!this._haDrawer || !this._haDrawer.shadowRoot) {
+      return;
+    }
+
+    this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer.shadowRoot);
   }
 
   private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {

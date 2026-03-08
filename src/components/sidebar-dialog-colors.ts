@@ -1,7 +1,14 @@
 import { COLOR_CONFIG_KEYS } from '@constants';
 import iro from '@jaames/iro';
 import { mdiRefresh } from '@mdi/js';
-import { CustomTheme, DividerColorSettings, HaExtened, SidebarAppearanceConfig, SidebarConfig } from '@types';
+import {
+  AppearanceConfigKeys,
+  CustomTheme,
+  DividerColorSettings,
+  HaExtened,
+  SidebarAppearanceConfig,
+  SidebarConfig,
+} from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { createHaForm } from '@utilities/create-ha-form';
 import { getDefaultThemeColors } from '@utilities/custom-styles';
@@ -21,15 +28,6 @@ enum THEME_STATE {
   READY = 2,
   ERROR = 3,
 }
-
-const APPEARANCE_KEYS = [
-  'header_title',
-  'hide_header_toggle',
-  'animation_off',
-  'animation_delay',
-  'text_transformation',
-  'move_settings_from_fixed',
-] as const;
 
 @customElement('sidebar-dialog-colors')
 export class SidebarDialogColors extends LitElement {
@@ -51,16 +49,11 @@ export class SidebarDialogColors extends LitElement {
   @state() private _colorConfigByMode?: DividerColorSettings;
   @state() private _supportedModes: string[] = [];
 
-  connectedCallback(): void {
-    super.connectedCallback();
-  }
-
-  protected firstUpdated(_changedProperties: PropertyValues): void {
-    super.firstUpdated(_changedProperties);
-    if (!this._sidebarConfig) return;
-    const darkMode = _getDarkConfigMode(this._sidebarConfig.color_config, this.hass);
-
-    this._colorConfigMode = darkMode ? 'dark' : 'light';
+  protected willUpdate(_changedProperties: PropertyValues): void {
+    if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig && this._colorConfigMode === undefined) {
+      const darkMode = _getDarkConfigMode(this._sidebarConfig.color_config, this.hass);
+      this._colorConfigMode = darkMode ? 'dark' : 'light';
+    }
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
@@ -272,7 +265,7 @@ export class SidebarDialogColors extends LitElement {
 
   protected render(): TemplateResult {
     const config = { ...(this._sidebarConfig || {}) };
-    const DATA = pick(config, [...APPEARANCE_KEYS]) as SidebarAppearanceConfig;
+    const DATA = pick(config, [...AppearanceConfigKeys]) as SidebarAppearanceConfig;
     return html`
       <div id="theme-container"></div>
       ${createHaForm(this, BASE_APPEARANCE_SCHEMA(DATA), DATA, { configKey: 'appearance' })}
@@ -718,13 +711,13 @@ export class SidebarDialogColors extends LitElement {
 
     const configKey = (ev.target as any).configKey;
     const incoming = { ...ev.detail.value };
-
     let updates: Partial<SidebarConfig> = {};
     if (configKey && configKey === 'appearance') {
-      const appearanceSettings = pick(currentConfig, APPEARANCE_KEYS) as SidebarAppearanceConfig;
-      if (JSON.stringify(appearanceSettings) !== JSON.stringify(incoming)) {
-        Object.keys(incoming).forEach((key) => {
-          updates[key as keyof SidebarAppearanceConfig] = incoming[key as keyof SidebarAppearanceConfig];
+      const appearanceSettings = pick(currentConfig, AppearanceConfigKeys) as SidebarAppearanceConfig;
+      const changes = this._dialog._objDiff.getObjectDifferences(appearanceSettings, incoming);
+      if (!isEmpty(changes)) {
+        Object.keys(changes).forEach((key) => {
+          updates[key as keyof SidebarAppearanceConfig] = incoming[key];
         });
       }
     } else if (configKey && configKey === 'custom_theme') {

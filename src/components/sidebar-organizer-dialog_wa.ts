@@ -149,22 +149,25 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
     if (!this._open) {
       return nothing;
     }
+    const isMobile = window.matchMedia('all and (max-width: 450px), all and (max-height: 500px)').matches;
     const BTN_LABEL = TRANSLATED_LABEL.BTN_LABEL;
 
-    const headerContent = html` <span slot="headerTitle">${NAMESPACE_TITLE}</span>
+    const headerContent = html`<span slot="headerTitle" @click=${this._enlarge}>${NAMESPACE_TITLE}</span>
       <ha-icon-button
         slot="headerNavigationIcon"
         @click=${this.closeDialog}
         .label=${this.hass.localize('ui.common.close')}
         .path=${mdiClose}
       ></ha-icon-button>
-      <ha-icon-button
-        slot="headerActionItems"
-        .label=${'Toggle large'}
-        .path=${this.large ? mdiFullscreenExit : mdiFullscreen}
-        @click=${this._enlarge}
-      >
-      </ha-icon-button>
+      ${!isMobile &&
+      html`
+        <ha-icon-button
+          slot="headerActionItems"
+          .label=${'Toggle large'}
+          .path=${this.large ? mdiFullscreenExit : mdiFullscreen}
+          @click=${this._enlarge}
+        ></ha-icon-button>
+      `}
       <ha-icon-button
         slot="headerActionItems"
         .label=${'Documentation'}
