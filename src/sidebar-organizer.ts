@@ -559,7 +559,6 @@ export class SidebarOrganizer {
       bottom_grid_items,
       move_settings_from_fixed,
       pinned_groups,
-      force_transparent_background,
     } = this._config;
     this._configPanelMap = new Map(Object.entries(custom_groups || {}));
     this._configPanelMap.set(PANEL_TYPE.BOTTOM, bottom_items || []);
@@ -573,7 +572,7 @@ export class SidebarOrganizer {
     this._addNewItems(new_items || []);
     // Move settings from fixed to sidebar if specified
     this._moveSettingsFromFixed(move_settings_from_fixed || false);
-    this._applyDrawerStyles(force_transparent_background || false);
+    // Setup additional styles based on color config
     this._addAdditionalStyles(color_config);
   }
 
@@ -904,19 +903,23 @@ export class SidebarOrganizer {
       // console.log('Color:', key, color);
       return color;
     };
-
+    const forceTransparentBackground = this._config?.force_transparent_background || false;
     const colorCssConfig = {
       '--divider-color': getColor('divider_color'),
       '--divider-bg-color': getColor('background_color'),
       '--divider-border-top-color': getColor('border_top_color'),
       '--scrollbar-thumb-color': getColor('scrollbar_thumb_color'),
-      '--sidebar-background-color': getColor('custom_sidebar_background_color'),
+      '--sidebar-background-color': forceTransparentBackground
+        ? '#0000 !important;'
+        : getColor('custom_sidebar_background_color'),
       '--divider-border-radius': borderRadius,
       '--divider-margin-radius': marginRadius,
       '--sidebar-text-color': getColor('divider_text_color'),
       '--sidebar-text-transform': textTransform,
+      'backdrop-filter': forceTransparentBackground ? 'blur(10px) !important;' : undefined,
     };
 
+    console.debug('colorCssConfig:', colorCssConfig, 'forceTransparentBackground:', forceTransparentBackground);
     const CUSTOM_COLOR_CONFIG = `:host {${Object.entries(colorCssConfig)
       .map(([key, value]) => `${key}: ${value};`)
       .join('')}}`;
@@ -925,16 +928,7 @@ export class SidebarOrganizer {
       [CUSTOM_COLOR_CONFIG, CUSTOM_STYLES, DIVIDER_ADDED_STYLE.toString()],
       this.sideBarRoot!
     );
-  }
-
-  private _applyDrawerStyles(forceTransparentBackground: boolean = false): void {
-    if (!forceTransparentBackground) return;
-
-    if (!this._haDrawer || !this._haDrawer.shadowRoot) {
-      return;
-    }
-
-    this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer.shadowRoot);
+    forceTransparentBackground && this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
   }
 
   private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {

@@ -66,6 +66,9 @@ export class SidebarDialogPreview extends LitElement {
       this.invalidConfig = true;
       console.log('Sidebar config is empty, set blur');
     }
+    if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
+      return true;
+    }
     return true;
   }
 
@@ -114,8 +117,13 @@ export class SidebarDialogPreview extends LitElement {
       },
       {} as Record<ItemShallowKeys, boolean>
     );
+    const customGroupsOrderChanged = !shallowEqual(
+      Object.keys(oldConfig.custom_groups || {}),
+      Object.keys(newConfig.custom_groups || {})
+    );
     const settingsItemMovedChanged = oldConfig.move_settings_from_fixed !== newConfig.move_settings_from_fixed;
-    if (Object.values(changedFlags).some((changed) => changed)) {
+
+    if (Object.values(changedFlags).some((changed) => changed) || customGroupsOrderChanged) {
       // update the listbox if any of the panel groups config changed
       this._updateListbox(newConfig);
     } else if (settingsItemMovedChanged) {

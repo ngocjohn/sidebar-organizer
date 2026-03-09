@@ -59,11 +59,6 @@ export class SoProfileSection extends LitElement {
     super.disconnectedCallback();
   }
 
-  protected firstUpdated() {
-    setTimeout(() => {
-      void this.scrollIntoView({ behavior: 'auto', block: 'center' });
-    }, 0);
-  }
   protected render() {
     return html`
       <ha-card>
