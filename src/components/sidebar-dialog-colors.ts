@@ -49,11 +49,16 @@ export class SidebarDialogColors extends LitElement {
   @state() private _colorConfigByMode?: DividerColorSettings;
   @state() private _supportedModes: string[] = [];
 
-  protected willUpdate(_changedProperties: PropertyValues): void {
-    if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig && this._colorConfigMode === undefined) {
-      const darkMode = _getDarkConfigMode(this._sidebarConfig.color_config, this.hass);
-      this._colorConfigMode = darkMode ? 'dark' : 'light';
-    }
+  connectedCallback(): void {
+    super.connectedCallback();
+  }
+
+  protected firstUpdated(_changedProperties: PropertyValues): void {
+    super.firstUpdated(_changedProperties);
+    if (!this._sidebarConfig) return;
+    const darkMode = _getDarkConfigMode(this._sidebarConfig.color_config, this.hass);
+
+    this._colorConfigMode = darkMode ? 'dark' : 'light';
   }
 
   protected shouldUpdate(_changedProperties: PropertyValues): boolean {
