@@ -63,6 +63,8 @@ export interface PanelInfo {
   config_panel_domain?: string;
   notification?: string;
   default_visible?: boolean;
+  require_admin?: boolean;
+  show_in_sidebar?: boolean;
 }
 export type Panels = Record<string, PanelInfo>;
 
