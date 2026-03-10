@@ -121,8 +121,12 @@ export class SoProfileSection extends LitElement {
         // Create a blob from the data
         const blob = new Blob([yamlStr], { type: 'application/x-yaml' });
         const url = URL.createObjectURL(blob);
-        const filename = `${CONFIG_NAME + '_' + new Date().toISOString().replace(/:/g, '-').split('.', 1).join()}.yaml`;
-        fileDownload(url, filename);
+        const filename = `${CONFIG_NAME + '_' + new Date().toISOString().replace(/:/g, '-').split('.', 1).join()}`;
+        if (__DEBUG__) {
+          fileDownload(url, `${filename}-dev.yaml`);
+        } else {
+          fileDownload(url, `${filename}.yaml`);
+        }
         setTimeout(() => {
           URL.revokeObjectURL(url);
         }, 0);
