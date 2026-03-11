@@ -1,14 +1,18 @@
 import typescript from '@rollup/plugin-typescript';
 import serve from 'rollup-plugin-serve';
 import terser from '@rollup/plugin-terser';
+import replace from '@rollup/plugin-replace';
 import { version } from './package.json';
 import { logCardInfo, defaultPlugins } from './rollup.config.helper.mjs';
 
 const dev = process.env.ROLLUP_WATCH;
 const port = process.env.PORT || 8235;
+const debug = process.env.DEBUG || dev;
+
 const currentVersion = dev ? 'DEVELOPMENT' : `v${version}`;
 const custombanner = logCardInfo(currentVersion);
 const fileOutput = dev ? 'dist/sidebar-organizer.js' : 'build/sidebar-organizer.js';
+
 const serveopts = {
   contentBase: ['./dist'],
   port,
@@ -23,6 +27,11 @@ const terserOpt = {
     drop_console: ['log', 'error'],
     module: false,
   },
+};
+const replaceOpts = {
+  preventAssignment: true,
+  'process.env.DEBUG': JSON.stringify(debug),
+  __DEBUG__: debug || false,
 };
 
 const plugins = [dev && serve(serveopts), !dev && terser(terserOpt)];
@@ -44,6 +53,7 @@ export default [
       },
     ],
     plugins: [
+      replace(replaceOpts),
       typescript({
         tsconfig: './tsconfig.json',
         outDir: dev ? './dist' : './build',
