@@ -19,13 +19,13 @@ import { SidebarOrganizer } from '../../sidebar-organizer';
 export default class DialogHandler {
   private haElement: HaExtened;
   private _organizer: SidebarOrganizer;
-  private readonly _haDrawer: HaDrawer;
+  private _haDrawer: HaDrawer;
   public hass: HomeAssistant;
 
-  constructor(haDrawer: HaDrawer, ha: HaExtened, organizer: SidebarOrganizer) {
-    this._haDrawer = haDrawer;
+  constructor(ha: HaExtened, organizer: SidebarOrganizer) {
     this.haElement = ha;
     this._organizer = organizer;
+    this._haDrawer = this._organizer._haDrawer;
     this.hass = ha.hass;
   }
 

@@ -25,6 +25,7 @@ export const fetchFileConfig = async (): Promise<SidebarConfig | undefined> => {
 export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfig | undefined> => {
   let config = sidebarUseConfigFile() ? await fetchFileConfig() : getStorageConfig();
   if (config) {
+    config = { ...config };
     // console.log('Added with init config defaults', config);
     let isValid = isItemsValid(config, hass, true);
     if (typeof isValid === 'object') {

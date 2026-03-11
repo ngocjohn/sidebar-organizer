@@ -1,5 +1,7 @@
 export enum SELECTOR {
   SIDEBAR_SCROLLBAR = 'ha-md-list.ha-scrollbar',
+  SIDEBAR_BEFORE_SPACER_CONTAINER = 'ha-md-list.before-spacer',
+  SIDEBAR_AFTER_SPACER_CONTAINER = 'ha-md-list.after-spacer',
   SPACER = '.spacer',
   USER = '.user',
   MENU = '.menu',
@@ -24,8 +26,9 @@ export enum SELECTOR {
   BEFORE_SPACER = '.before-spacer',
   AFTER_SPACER = 'ha-md-list.after-spacer',
   GRID_CONTAINER = '.grid-container',
-  SETTINGS_ITEM = '.panels-list > ha-md-list > ha-md-list-item.configuration',
+  SETTINGS_ITEM = 'ha-md-list-item[href="/config"]',
   CONTENT = '.content',
+  SIDEBAR_LOADER = 'ha-fade-in',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',
@@ -49,6 +52,7 @@ export enum ELEMENT {
   HA_SIDEBAR = 'ha-sidebar',
   PROFILE_GENERAL = 'ha-profile-section-general',
   SO_PROFILE_SECTION = 'so-profile-section',
+  CONFIG_LOVELACE_DASHBOARDS = 'ha-config-lovelace-dashboards',
 }
 
 export enum CLASS {
@@ -62,6 +66,8 @@ export enum CLASS {
   COLLAPSE_TOGGLE = 'collapse-toggle',
   ACTIVE = 'active',
   ADDED_CONTENT = 'added-content',
+  USER = 'user',
+  NOTIFICATIONS = 'notifications',
 }
 
 export enum ATTRIBUTE {

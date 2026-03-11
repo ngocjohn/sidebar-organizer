@@ -58,15 +58,14 @@ import { DIVIDER_ADDED_STYLE, DRAWER_STYLE } from './sidebar-css';
 export class SidebarOrganizer {
   constructor() {
     const instance = new HAQuerySelector();
-
     instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, async (event) => {
       const { HOME_ASSISTANT, HA_DRAWER, HA_SIDEBAR } = event.detail;
-      this.ha = (await HOME_ASSISTANT.element) as HaExtened;
+      this._ha = (await HOME_ASSISTANT.element) as HaExtened;
       this._haDrawer = (await HA_DRAWER.element) as HaDrawer;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
-      this._store = new Store(this.ha!, this);
-      this._dialogManager = new DialogHandler(this._haDrawer, this.ha!, this);
+      this._store = new Store(this._ha!, this);
+      this._dialogManager = new DialogHandler(this._ha!, this);
       this.run();
     });
 
@@ -81,9 +80,7 @@ export class SidebarOrganizer {
       { once: true }
     );
 
-    instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
-      this._panelLoaded();
-    });
+    instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, this._panelLoaded.bind(this));
 
     instance.listen();
 
@@ -115,18 +112,18 @@ export class SidebarOrganizer {
 
   private _homeAssistant!: HAElement;
   private _haMain!: HAElement;
-  private ha?: HaExtened;
+  private _drawer!: HAElement;
+  private _ha!: HaExtened;
+  public _haDrawer!: HaDrawer;
   private _notCompatible: boolean = false;
   private _blockEditModeChange: boolean = false;
   public _config: SidebarConfig = {};
   private _currentPath: string;
   private _delayTimeout: number | null = null;
-  private _diffCheck: boolean = false;
-  private _haDrawer: any;
   private _configPanelMap = new Map<string, string[]>();
   private _pinnedGroups: Record<string, { icon?: string }> = {};
 
-  private _panelResolver!: HAElement;
+  public _panelResolver!: HAElement;
   private _prevPath: string | null = null;
   private _sidebar!: HAElement;
   private _sidebarItems: SidebarPanelItem[];
@@ -137,6 +134,7 @@ export class SidebarOrganizer {
 
   private collapsedItems = new Set<string>();
   private firstSetUpDone = false;
+  public _diffCheck: boolean = false;
 
   public HaSidebar: any;
   private setupConfigDone = false;
@@ -149,7 +147,7 @@ export class SidebarOrganizer {
   private _mouseLeaveBinded: () => void;
 
   get hass(): HaExtened['hass'] {
-    return this.ha!.hass;
+    return this._ha!.hass;
   }
 
   get darkMode(): boolean {
@@ -161,11 +159,18 @@ export class SidebarOrganizer {
   }
 
   get _scrollbar(): HTMLElement {
-    return this.sideBarRoot?.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement;
+    return (
+      (this.sideBarRoot?.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement) ||
+      (this._panelsList?.querySelector(SELECTOR.SIDEBAR_BEFORE_SPACER_CONTAINER) as HTMLElement)
+    );
   }
 
   get _scrollbarItems(): NodeListOf<SidebarPanelItem> {
     return this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
+  }
+
+  get _afterSpacerContainer(): HTMLElement {
+    return this._panelsList?.querySelector(SELECTOR.SIDEBAR_AFTER_SPACER_CONTAINER) as HTMLElement;
   }
 
   get _hasSidebarConfig(): boolean {
@@ -188,7 +193,7 @@ export class SidebarOrganizer {
       LOGGER.warn(msg);
       return;
     }
-    await this._checkHacsTagMismatch();
+    compareHacsTagDiff(this._ha.hass);
     await this._checkUserSidebarSettings();
     await this._watchEditLegacySidebar();
 
@@ -275,7 +280,7 @@ export class SidebarOrganizer {
       console.log('User has sidebar settings or base order is empty, skipping dashboard change check');
       return;
     }
-    const changed = await this._store._handleDashboardUpdate();
+    const changed = await this._store._shouldUpdateConfig();
 
     if (changed) {
       // Reload the window to apply changes
@@ -291,8 +296,9 @@ export class SidebarOrganizer {
     if (this._notCompatible) return;
 
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
-
-    const pathName = panelResolver.route?.path || '';
+    if (!panelResolver.route) return;
+    const pathName = panelResolver.route?.path ?? window.location.pathname;
+    if (!pathName) return;
     // const paperListBox = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_SCROLLBAR).element) as HTMLElement;
     const paperListBox = this._panelsList as HTMLElement;
     // console.log('Panel Loaded:', pathName, paperListBox);
@@ -303,7 +309,8 @@ export class SidebarOrganizer {
           onPanelLoaded(pathName, paperListBox);
           // this._getData(pathName);
           if (pathName === PATH.LOVELACE_DASHBOARD) {
-            this._store._subscribeDashboardData();
+            // this._store._subscribeDashboardData();
+            this._store._subscribePanels();
           }
         }
       }, 100);
@@ -320,22 +327,21 @@ export class SidebarOrganizer {
     }
   }
 
-  private async _checkHacsTagMismatch(): Promise<void> {
-    compareHacsTagDiff(this.hass);
-  }
-
-  private async _checkUserSidebarSettings() {
+  private async _checkUserSidebarSettings(): Promise<void> {
     const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
     this._userHasSidebarSettings = (userData?.panelOrder && userData.panelOrder.length > 0) || false;
-    this._store._subscribeUserDefaultPanel();
+    // this._store._subscribeUserDefaultPanel();
   }
 
   private async _setupConfigBtn(): Promise<void> {
-    let profileEl = this.sideBarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement;
+    const siderbarRoot = (await this._sidebar.selector.$.element) as ShadowRoot;
+    const profileEl =
+      (siderbarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement) ||
+      (siderbarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement);
     if (!profileEl) {
-      profileEl = this.sideBarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement;
+      console.log('Profile element not found in sidebar, cannot setup config button');
+      return;
     }
-    if (!profileEl) return;
     if (this._userHasSidebarSettings) {
       //info
       console.log(
@@ -480,7 +486,6 @@ export class SidebarOrganizer {
       },
       promisableResultOptions
     );
-
     return [sidebarItemsContainer, scrollbarItems];
   }
 
@@ -515,6 +520,7 @@ export class SidebarOrganizer {
         }, 100);
         break;
       case HA_EVENT.DEFAULT_PANEL:
+        console.log('Default Panel Changed Event:', detail);
         this._store._handleDefaultPanelChange(detail.defaultPanel);
         break;
 
@@ -639,13 +645,11 @@ export class SidebarOrganizer {
 
   private _addNewItems(newItems: NewItemConfig[]): void {
     if (!newItems || newItems.length === 0) return;
-    const scrollbarContainer = this._scrollbar;
-
-    const spacer = scrollbarContainer.querySelector(SELECTOR.SPACER) as HTMLElement;
+    const scrollbarContainer = this._panelsList?.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement;
     Array.from(newItems).map((item) => {
       const newItem = this._createNewItem(item);
       if (newItem) {
-        scrollbarContainer.insertBefore(newItem, spacer);
+        scrollbarContainer?.appendChild(newItem);
       }
     });
     // success
@@ -657,7 +661,7 @@ export class SidebarOrganizer {
   private _addBuiltInPanelsToSidebar(panels: PanelInfo[]): void {
     if (!panels || panels.length === 0) return;
     const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
-    const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
+    const scrollbarContainer = this._panelsList.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement;
 
     const addedPanels: string[] = [];
 
@@ -673,7 +677,7 @@ export class SidebarOrganizer {
       // const builtInItem = this._createBuiltInPanelItem(panel);
       const builtInItem = this._createNewItem(panel, true);
       if (builtInItem) {
-        this._scrollbar.insertBefore(builtInItem, spacer);
+        scrollbarContainer.appendChild(builtInItem);
         addedPanels.push(panel.url_path!);
       }
     });
@@ -919,7 +923,6 @@ export class SidebarOrganizer {
       'backdrop-filter': forceTransparentBackground ? 'blur(10px) !important;' : undefined,
     };
 
-    console.debug('colorCssConfig:', colorCssConfig, 'forceTransparentBackground:', forceTransparentBackground);
     const CUSTOM_COLOR_CONFIG = `:host {${Object.entries(colorCssConfig)
       .map(([key, value]) => `${key}: ${value};`)
       .join('')}}`;
@@ -1193,5 +1196,6 @@ declare global {
 // Initial Run
 
 if (!window.SidebarOrganizer) {
+  console.log('ENV DEBUG:', __DEBUG__);
   window.SidebarOrganizer = new SidebarOrganizer();
 }

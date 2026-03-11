@@ -1,7 +1,10 @@
 import type { HomeAssistant } from '../types/ha';
 import type { NewItemConfig, PanelInfo, SidebarPanelItem } from '@types';
+import type { Panels } from '@types';
+import type { Connection } from 'home-assistant-js-websocket';
 
 import { ATTRIBUTE, CLASS, ELEMENT } from '@constants';
+import { createCollection } from 'home-assistant-js-websocket';
 
 import { hasItemAction, NavigateActionConfig, UrlActionConfig } from './action';
 import { ACTION_TYPES, addHandlerActions, getActionConfig } from './tap-action';
@@ -75,6 +78,17 @@ export const getPanelIcon = (panel: PanelInfo): string | undefined => {
 
   return panel.icon || undefined;
 };
+
+export const fetchPanels = (conn) =>
+  conn.sendMessagePromise({
+    type: 'get_panels',
+  });
+
+export const subscribeUpdates = (conn, store) =>
+  conn.subscribeEvents(() => fetchPanels(conn).then((panels) => store.setState(panels, true)), 'panels_updated');
+
+export const subscribePanels = (conn: Connection, onChange: (panels: Panels) => void) =>
+  createCollection<Panels>('_pnl', fetchPanels, subscribeUpdates, conn, onChange);
 
 export const FIXED_PANELS = [PROFILE_PANEL, 'config', NOT_FOUND_PANEL];
 export const SHOW_AFTER_SPACER_PANELS = ['developer-tools'];

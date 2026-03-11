@@ -12,7 +12,15 @@ export function getObjectDifferences(obj1: Record<string, any>, obj2: Record<str
   for (const key of uniqueKeys) {
     const value1 = obj1[key];
     const value2 = obj2[key];
-
+    // if value is null or undefined, consider it as a difference if the other value is not null/undefined
+    if ((value1 === null || value1 === undefined) && value2 !== null && value2 !== undefined) {
+      differences[key] = [value1, value2];
+      continue;
+    }
+    if ((value2 === null || value2 === undefined) && value1 !== null && value1 !== undefined) {
+      differences[key] = [value1, value2];
+      continue;
+    }
     if (typeof value1 === 'object' && typeof value2 === 'object') {
       const nestedDifferences = getObjectDifferences(value1, value2);
       if (nestedDifferences) {
