@@ -30,7 +30,6 @@ export function compareHacsTagDiff(hass: HomeAssistant): void {
   if (!loadedUrl || !configUrl) {
     return;
   }
-  console.log('%cCOMPARE-URLS:', 'color: #4dabf7;', `Loaded URL: ${loadedUrl}, Config URL: ${configUrl}`);
   const hacsUrlMatch = loadedUrl?.match(HACS_URL_RGX)?.[0];
   if (!hacsUrlMatch) {
     return;

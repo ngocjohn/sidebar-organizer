@@ -1,20 +1,19 @@
 import type { Panels } from '@types';
 
 import { ELEMENT, NAMESPACE, STORAGE } from '@constants';
-import { HaExtened, PANEL_TYPE, PanelInfo, SidebardPanelConfig } from '@types';
+import { HaExtened, PanelInfo } from '@types';
 import * as COMPUTE_PANELS from '@utilities/compute-panels';
-import { cleanItemsFromConfig } from '@utilities/configs';
 import * as CONFIG from '@utilities/configs';
-import { compareDashboardItems, DashboardComparison, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
+import { LovelaceDashboard } from '@utilities/dashboard';
 import * as DASHBOARD_HELPERS from '@utilities/dashboard';
+import { nextRender } from '@utilities/dom-utils';
 import { subscribeFrontendUserData } from '@utilities/frontend';
 import * as OBJECT_DIFF from '@utilities/object-differences';
 import * as PANEL_HELPER from '@utilities/panel';
 import { shallowEqual } from '@utilities/shallow-equal';
 import { setStorage } from '@utilities/storage-utils';
 import { showToast } from '@utilities/toast-notify';
-import { isEmpty, pick } from 'es-toolkit/compat';
-import { UnsubscribeFunc } from 'home-assistant-js-websocket';
+import { isEmpty } from 'es-toolkit/compat';
 
 import { SidebarOrganizer } from '../../sidebar-organizer';
 import { HomeAssistant } from '../../types/ha';
@@ -29,11 +28,6 @@ type DataTableItem = Pick<
   type: string;
 };
 
-interface DashboardState {
-  defaultPanel?: PanelInfo;
-  dashboards?: LovelaceDashboard[];
-}
-
 interface DashboardPanels {
   initialPanels?: DataTableItem[];
   added?: PanelInfo[];
@@ -45,13 +39,10 @@ export default class Store {
   private _organizer: SidebarOrganizer;
   public hass: HomeAssistant;
 
-  public _dashboardState?: DashboardState = {};
   public _dasboardPanels?: DashboardPanels = {};
 
   public _panelHasChanged = false;
   public _defaultPanelHasChanged = false;
-
-  private unsubData?: Promise<UnsubscribeFunc>;
 
   public _utils = {
     PANEL: PANEL_HELPER,
@@ -65,41 +56,32 @@ export default class Store {
     this.haElement = ha;
     this._organizer = organizer;
     this.hass = ha.hass;
+    this.resetDashboardState();
   }
 
   get notConfigured(): boolean {
     return Boolean(this._organizer._hasSidebarConfig && !this._organizer._userHasSidebarSettings);
   }
 
-  public _subscribeUserDefaultPanel(): void {
+  public _subscribeUserDefaultPanelChange() {
     if (Boolean(this._organizer._userHasSidebarSettings || !this._organizer._hasSidebarConfig)) {
       return;
     }
-
-    this.unsubData = subscribeFrontendUserData(this.hass.connection, 'core', ({ value }) => {
+    const currentUserDefaultPanel = PANEL_HELPER.getDefaultPanelUrlPath(this.hass);
+    subscribeFrontendUserData(this.hass.connection, 'core', async ({ value }) => {
       if (value !== null) {
-        const defaultPanel = value.default_panel;
-        if (defaultPanel && this._organizer._baseOrder[0] !== defaultPanel) {
+        this._defaultPanelHasChanged = Boolean(value.default_panel && currentUserDefaultPanel !== value.default_panel);
+        if (this._defaultPanelHasChanged) {
           console.log(
             '%cSTORE:',
             'color: #4dabf7;',
-            'Default panel changed to',
-            defaultPanel,
+            'User default panel changed to',
+            value.default_panel,
             'from',
-            this._organizer._baseOrder[0]
+            currentUserDefaultPanel
           );
-          const newDefaultPanel = PANEL_HELPER.getPanelTitleFromUrlPath(this.hass, defaultPanel) || defaultPanel;
-          const toastParams = {
-            id: 'sidebar-organizer-default-panel-changed',
-            message: `${NAMESPACE.toUpperCase()}: Default panel changed to ${newDefaultPanel}. Reload page to apply changes.`,
-            action: {
-              text: 'Reload',
-              action: () => this._handleDefaultPanelChange(defaultPanel),
-            },
-            duration: -1,
-            dismissable: false,
-          };
-          showToast(this.haElement, toastParams);
+          await nextRender();
+          this._organizer._checkDiffs();
         }
       }
     });
@@ -129,12 +111,6 @@ export default class Store {
           notShowInSidebar:
             items.filter((item) => !item.show_in_sidebar).map((item) => this.hass.panels[item.url_path]!) || [],
         };
-        console.log(
-          '%cSTORE:',
-          'color: #4dabf7;',
-          'Fetched initial panels and computed not_show_in_sidebar',
-          this._dasboardPanels
-        );
       });
     }
 
@@ -170,8 +146,9 @@ export default class Store {
           this._dasboardPanels
         );
         this._panelHasChanged = true;
+        await nextRender();
+        this._needReloadToast();
       } else {
-        console.log('%cSTORE:', 'color: #4dabf7;', 'No changes detected in sidebar panels');
         this._panelHasChanged = false;
       }
     });
@@ -180,7 +157,6 @@ export default class Store {
   public _shouldUpdateConfig = async (): Promise<Boolean> => {
     let shouldReload = false;
     if (!this._panelHasChanged || !this._dasboardPanels) {
-      console.log('%cSTORE:', 'color: #4dabf7;', 'No panel changes to handle');
       return shouldReload;
     }
     const { notShowInSidebar, removed } = this._dasboardPanels;
@@ -210,77 +186,7 @@ export default class Store {
     return shouldReload;
   };
 
-  public async _subscribeDashboardData(): Promise<void> {
-    console.log('%cSTORE:', 'color: #4dabf7;', 'Subscribing to frontend system core data changes');
-    const dashboardState: DashboardState = {};
-    dashboardState.dashboards = await fetchDashboards(this.hass);
-    dashboardState.defaultPanel = PANEL_HELPER.getDefaultPanel(this.hass);
-    this._dashboardState = dashboardState;
-    console.log('%cSTORE:', 'color: #4dabf7;', 'Fetched dashboards and default panel', this._dashboardState);
-  }
-
-  public async _handleDashboardUpdate(): Promise<Boolean> {
-    let hasChanged = false;
-    const { dashboards, defaultPanel } = this._dashboardState || {};
-    const { _baseOrder, _config } = this._organizer;
-
-    const updatedDefaultPanel = PANEL_HELPER.getDefaultPanel(this.hass);
-    const defaultPanelChanged = !shallowEqual(defaultPanel, updatedDefaultPanel);
-
-    const { currentItems, added, removed } = (await compareDashboardItems(
-      this.hass,
-      _baseOrder
-    )) as DashboardComparison;
-    const currentItemsLength = Object.values(currentItems).flat().length;
-    const addedOrItemChanged = Boolean(
-      added.length > 0 || dashboards?.length !== currentItemsLength || dashboards?.length < currentItemsLength
-    );
-    if (defaultPanelChanged || removed.length > 0) {
-      const itemToRemove = [...removed, defaultPanel?.url_path || ''].filter(Boolean);
-      const config = { ..._config };
-      const configToUpdate = pick(config, [
-        PANEL_TYPE.CUSTOM,
-        PANEL_TYPE.BOTTOM,
-        PANEL_TYPE.BOTTOM_GRID,
-        PANEL_TYPE.HIDDEN,
-      ]) as SidebardPanelConfig;
-      const updatedPanels = cleanItemsFromConfig(configToUpdate, itemToRemove);
-      const configChanged = !shallowEqual(configToUpdate, updatedPanels);
-      if (configChanged) {
-        console.log('%cSTORE:', 'color: #4dabf7;', 'Dashboard items changed. Updating config...');
-
-        const newConfig = { ...config, ...updatedPanels };
-        setStorage(STORAGE.UI_CONFIG, newConfig);
-        hasChanged = true;
-      } else {
-        console.log('%cSTORE:', 'color: #4dabf7;', 'No config changes detected.');
-      }
-    } else if (addedOrItemChanged) {
-      console.log('%cSTORE:', 'color: #4dabf7;', 'Dashboard items added or changed. reload page to apply changes.');
-      hasChanged = true;
-    }
-
-    return hasChanged;
-  }
-
-  public _handleDefaultPanelChange(defaultPanel: string): void {
-    console.log(
-      '%cSTORE:',
-      'color: #4dabf7;',
-      'Handling default panel change to',
-      defaultPanel,
-      'Updating config and reloading page...'
-    );
-    const config = { ...this._organizer._config };
-    const updatedConfig = this._utils.CONFIG.cleanItemsFromAllPanels(config, [defaultPanel]);
-    const newConfig = { ...config, ...updatedConfig };
-    setStorage(STORAGE.UI_CONFIG, newConfig);
-    this._organizer._reloadWindow();
-  }
-
   public resetDashboardState(): void {
-    this._dashboardState = undefined;
-    this.unsubData = undefined;
     this._dasboardPanels = undefined;
     this._panelHasChanged = false;
     this._defaultPanelHasChanged = false;
