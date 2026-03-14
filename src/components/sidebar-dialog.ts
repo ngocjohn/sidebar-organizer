@@ -21,12 +21,18 @@ import {
 } from '@utilities/configs';
 import { INVALID_CONFIG } from '@utilities/configs';
 import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
-import { compareDashboardItems } from '@utilities/dashboard';
+import { comparePanelItems } from '@utilities/dashboard';
 import * as DASHBOARD_UTILS from '@utilities/dashboard';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import * as OBJ_DIFF from '@utilities/object-differences';
 import { getDefaultPanelUrlPath } from '@utilities/panel';
-import { showAlertDialog, showConfirmDialog } from '@utilities/show-dialog-box';
+import {
+  DialogBoxParams,
+  DialogType,
+  showAlertDialog,
+  showConfirmDialog,
+  showDialogBox,
+} from '@utilities/show-dialog-box';
 import {
   getStorage,
   setStorage,
@@ -62,12 +68,14 @@ export class SidebarConfigDialog extends LitElement {
   @property({ attribute: false }) readonly _initConfig!: SidebarConfig;
   @property({ type: Boolean, reflect: true, attribute: 'fullscreen' }) fullscreen: boolean = false;
   @state() _connected: boolean = false;
+
   @state() public _sidebarConfig = {} as SidebarConfig;
   @state() public _useConfigFile = false;
 
   @state() public _tabState: TAB_STATE = TAB_STATE.BASE;
 
   @state() private _configLoaded = false;
+  @state() private _panelOrderDirty = false;
   @state() private _currTab: (typeof tabs)[number] = tabs[0];
 
   @state() public _initPanelOrder: string[] = [];
@@ -84,9 +92,11 @@ export class SidebarConfigDialog extends LitElement {
   private _resizeObserver?: ResizeObserver;
   public _styleManager: HomeAssistantStylesManager = new HomeAssistantStylesManager({ prefix: 'sidebar-dialog' });
 
-  public _dashboardUtils = DASHBOARD_UTILS;
-  public _arrayUtils = ARRAY_UTILS;
-  public _objDiff = OBJ_DIFF;
+  public _utils = {
+    dashboard: DASHBOARD_UTILS,
+    array: ARRAY_UTILS,
+    objDiff: OBJ_DIFF,
+  };
 
   @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
   @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
@@ -118,6 +128,17 @@ export class SidebarConfigDialog extends LitElement {
 
   public get _currentConfig(): SidebarConfig {
     return this._sidebarConfig;
+  }
+
+  private async _showDialogBox(type: DialogType, params: DialogBoxParams): Promise<any> {
+    return await showDialogBox(this, type, params);
+  }
+
+  async _alert(message: string, confirmText?: string): Promise<void> {
+    return await this._showDialogBox('alert', {
+      text: message,
+      confirmText,
+    });
   }
 
   protected willUpdate(_changedProperties: PropertyValues): void {
@@ -557,11 +578,24 @@ export class SidebarConfigDialog extends LitElement {
     const hiddenItems = getHiddenPanels();
 
     const allPanels = ARRAY_UTILS.union(currentPanelOrder, hiddenItems);
-    // console.log('Validating storage panels with current order and hidden items', allPanels);
-    const { added, removed } = await compareDashboardItems(this.hass, allPanels);
+
+    const { added, removed } = await comparePanelItems(this.hass, allPanels);
     if (Boolean(added.length || removed.length)) {
       // If there are changes, update the sidebar items
-      window.location.reload();
+      console.log('Storage panels have changes compared to current panels:', { added, removed });
+      const mesg =
+        added.length > 0
+          ? `New panels added: ${added.map((panel) => this.hass.panels[panel]?.title || panel).join(', ')}. `
+          : '';
+      const mesg2 =
+        removed.length > 0
+          ? `Panels not show in sidebar: ${removed.map((panel) => this.hass.panels[panel]?.title || panel).join(', ')}. `
+          : '';
+      const alertMesg = `Panels have changed since last configuration: <br>${mesg}${mesg2}<br><br> Reload sidebar configuration to update panels.`;
+      await this._alert(alertMesg, 'Reload page').then(() => {
+        this._mainDialog.closeDialog();
+        window.location.href = window.location.origin;
+      });
       return;
     } else {
       //success

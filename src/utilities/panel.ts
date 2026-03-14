@@ -17,6 +17,8 @@ export const LOVELACE_PANEL = 'lovelace';
 /** Panel to show when no panel is picked. */
 export const DEFAULT_PANEL = HOME_PANEL;
 
+export const PANEL_DASHBOARDS = ['home', 'light', 'security', 'climate', 'energy'] as string[];
+
 export const hasLegacyOverviewPanel = (hass: HomeAssistant): boolean => Boolean(hass.panels.lovelace?.config);
 
 export const getLegacyDefaultPanelUrlPath = (): string | null => {
