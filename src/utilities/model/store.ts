@@ -1,11 +1,11 @@
 import type { Panels } from '@types';
 
 import { ELEMENT, NAMESPACE, STORAGE } from '@constants';
-import { HaExtened, PanelInfo } from '@types';
+import { HaExtened } from '@types';
 import * as COMPUTE_PANELS from '@utilities/compute-panels';
 import * as CONFIG from '@utilities/configs';
-import { LovelaceDashboard } from '@utilities/dashboard';
 import * as DASHBOARD_HELPERS from '@utilities/dashboard';
+import { DashboardPanels, DataTableItem } from '@utilities/dashboard';
 import { nextRender } from '@utilities/dom-utils';
 import { subscribeFrontendUserData } from '@utilities/frontend';
 import * as OBJECT_DIFF from '@utilities/object-differences';
@@ -18,22 +18,6 @@ import { isEmpty } from 'es-toolkit/compat';
 import { SidebarOrganizer } from '../../sidebar-organizer';
 import { HomeAssistant } from '../../types/ha';
 
-type DataTableItem = Pick<
-  LovelaceDashboard,
-  'icon' | 'title' | 'show_in_sidebar' | 'require_admin' | 'mode' | 'url_path'
-> & {
-  default: boolean;
-  filename: string;
-  localized_type: string;
-  type: string;
-};
-
-interface DashboardPanels {
-  initialPanels?: DataTableItem[];
-  added?: PanelInfo[];
-  notShowInSidebar?: PanelInfo[];
-  removed?: string[];
-}
 export default class Store {
   private haElement: HaExtened;
   private _organizer: SidebarOrganizer;
