@@ -38,7 +38,7 @@ import {
   normalizePinnedGroups,
 } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { addAction, nextRender, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, clearBrowserCache, nextRender, onPanelLoaded } from '@utilities/dom-utils';
 import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
@@ -82,6 +82,8 @@ export class SidebarOrganizer {
 
     instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, this._panelLoaded.bind(this));
 
+    instance.listen();
+
     this._styleManager = new HomeAssistantStylesManager({
       prefix: NAMESPACE,
       throwWarnings: false,
@@ -106,8 +108,6 @@ export class SidebarOrganizer {
     this._watchPathChanges();
     this._mouseEnterBinded = this._mouseEnter.bind(this);
     this._mouseLeaveBinded = this._mouseLeave.bind(this);
-
-    instance.listen();
   }
 
   private _homeAssistant!: HAElement;
@@ -199,7 +199,6 @@ export class SidebarOrganizer {
 
     this._setupConfigBtn();
     if (!this.firstSetUpDone && this._hasSidebarConfig) {
-      this._watchHaSidebarShouldUpdate();
       // Load built-in panels for versions before 2026.3 to ensure they are included in the sidebar configuration process
       if (!atLeastVersion(this.hass.config.version, 2026, 3)) {
         await this._getDataDashboards();
@@ -503,6 +502,7 @@ export class SidebarOrganizer {
 
       this.setupConfigDone = true;
       this._panelLoaded();
+      this._watchHaSidebarShouldUpdate();
     });
   }
 
@@ -606,9 +606,14 @@ export class SidebarOrganizer {
       new_items,
       move_settings_from_fixed,
     } = this._config;
-    this._configPanelMap = new Map(Object.entries(custom_groups || {}));
-    this._configPanelMap.set(PANEL_TYPE.BOTTOM, bottom_items || []);
-    this._configPanelMap.set(PANEL_TYPE.BOTTOM_GRID, bottom_grid_items || []);
+
+    this._configPanelMap = new Map(
+      Object.entries({
+        ...(custom_groups || {}),
+        [PANEL_TYPE.BOTTOM]: bottom_items || [],
+        [PANEL_TYPE.BOTTOM_GRID]: bottom_grid_items || [],
+      })
+    );
     // Normalize pinned groups config to ensure consistent structure
     this._pinnedGroups = normalizePinnedGroups(pinned_groups || {});
 
@@ -739,8 +744,7 @@ export class SidebarOrganizer {
       );
       return;
     }
-    const spacer = this._scrollbar.querySelector(SELECTOR.SPACER) as HTMLElement;
-    this._scrollbar.insertBefore(settingsItem, spacer);
+    this._scrollbar.insertBefore(settingsItem, null);
     // success
     console.log(
       '%cSIDEBAR-ORGANIZER:%c ✅ Setting moved from fixed',
@@ -798,6 +802,8 @@ export class SidebarOrganizer {
       groupDivEl.classList.toggle(CLASS.COLLAPSED, isCollapsed);
       groupDivEl.customIcon = this._pinnedGroups[group].icon!!;
       groupDivEl.haSidebar = this.HaSidebar;
+      // groupDivEl.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
+      // groupDivEl.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
       return groupDivEl;
     }
 
@@ -962,24 +968,28 @@ export class SidebarOrganizer {
 
     // If force transparent background is enabled, override related colors and add backdrop filter styles
     if (forceTransparentBackground) {
-      colorCssConfig['-webkit-backdrop-filter'] = 'blur(10px)';
-      colorCssConfig['backdrop-filter'] = 'blur(10px)';
       colorCssConfig['--sidebar-background-color'] = 'transparent';
-      colorCssConfig['--so-tooltip-background-color'] = 'var(--primary-background-color)';
-      colorCssConfig['--so-tooltip-text-color'] = 'var(--primary-text-color)';
+      colorCssConfig['--so-tooltip-background-color'] = 'var(--primary-background-color);';
+      colorCssConfig['--so-tooltip-text-color'] = 'var(--primary-text-color);';
+      colorCssConfig['--so-backdrop-filter'] = 'blur(10px)';
     }
 
     const CUSTOM_COLOR_CONFIG = `:host {${Object.entries(colorCssConfig)
       .map(([key, value]) => `${key}: ${value};`)
       .join('')}}`;
 
-    if (forceTransparentBackground) {
-      this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer.shadowRoot!);
-    }
     this._styleManager.addStyle(
       [CUSTOM_COLOR_CONFIG, CUSTOM_STYLES, DIVIDER_ADDED_STYLE.toString()],
       this.sideBarRoot!
     );
+    if (forceTransparentBackground) {
+      this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
+    }
+  }
+
+  private _applyDrawerStyles() {
+    if (!this._haDrawer) return;
+    this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer.shadowRoot!);
   }
 
   private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {
@@ -1218,6 +1228,7 @@ export class SidebarOrganizer {
     this._store._showToast('Reloading window to apply changes...');
     this._store.resetDashboardState();
     setTimeout(() => {
+      clearBrowserCache();
       window.location.reload();
     }, timeout);
   };
