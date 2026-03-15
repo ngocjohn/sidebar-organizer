@@ -218,7 +218,6 @@ export default class DialogHandler {
   public _showConfigDialogEditor = async (): Promise<void> => {
     const shouldLoadNewDialog = atLeastVersion(this.hass.config.version, 2026, 3);
 
-    // this._haDrawer.open = false;
     this._organizer.HaSidebar.editMode = false;
     await this._checkStorageOrder();
 

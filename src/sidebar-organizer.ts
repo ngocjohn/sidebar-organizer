@@ -303,9 +303,7 @@ export class SidebarOrganizer {
     if (pathName && paperListBox) {
       setTimeout(() => {
         if (this._diffCheck && this.firstSetUpDone && this.setupConfigDone) {
-          // console.log('Diff Check and first setup done');
           onPanelLoaded(pathName, paperListBox);
-          // this._getData(pathName);
           if (pathName === PATH.LOVELACE_DASHBOARD) {
             // this._store._subscribeDashboardData();
             this._store._subscribePanels();
@@ -687,11 +685,11 @@ export class SidebarOrganizer {
 
   private _addNewItems(newItems: NewItemConfig[]): void {
     if (!newItems || newItems.length === 0) return;
-    const scrollbarContainer = this._panelsList?.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement;
+
     Array.from(newItems).map((item) => {
       const newItem = this._createNewItem(item);
       if (newItem) {
-        scrollbarContainer?.appendChild(newItem);
+        this._scrollbar?.appendChild(newItem);
       }
     });
     // success
@@ -703,7 +701,6 @@ export class SidebarOrganizer {
   private _addBuiltInPanelsToSidebar(panels: PanelInfo[]): void {
     if (!panels || panels.length === 0) return;
     const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
-    const scrollbarContainer = this._panelsList.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement;
 
     const addedPanels: string[] = [];
 
@@ -719,7 +716,7 @@ export class SidebarOrganizer {
       // const builtInItem = this._createBuiltInPanelItem(panel);
       const builtInItem = this._createNewItem(panel, true);
       if (builtInItem) {
-        scrollbarContainer.appendChild(builtInItem);
+        this._scrollbar?.appendChild(builtInItem);
         addedPanels.push(panel.url_path!);
       }
     });
@@ -744,7 +741,7 @@ export class SidebarOrganizer {
       );
       return;
     }
-    this._scrollbar.insertBefore(settingsItem, null);
+    this._scrollbar?.insertBefore(settingsItem, null);
     // success
     console.log(
       '%cSIDEBAR-ORGANIZER:%c ✅ Setting moved from fixed',
@@ -1229,7 +1226,6 @@ export class SidebarOrganizer {
     this._store.resetDashboardState();
     setTimeout(() => {
       clearBrowserCache();
-      window.location.reload();
     }, timeout);
   };
 

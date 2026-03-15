@@ -75,7 +75,6 @@ export class SidebarConfigDialog extends LitElement {
   @state() public _tabState: TAB_STATE = TAB_STATE.BASE;
 
   @state() private _configLoaded = false;
-  @state() private _panelOrderDirty = false;
   @state() private _currTab: (typeof tabs)[number] = tabs[0];
 
   @state() public _initPanelOrder: string[] = [];
@@ -591,7 +590,8 @@ export class SidebarConfigDialog extends LitElement {
         removed.length > 0
           ? `Panels not show in sidebar: ${removed.map((panel) => this.hass.panels[panel]?.title || panel).join(', ')}. `
           : '';
-      const alertMesg = `Panels have changed since last configuration: <br>${mesg}${mesg2}<br><br> Reload sidebar configuration to update panels.`;
+      const alertMesg = `Panels have changed since last configuration: ${mesg}${mesg2}
+      Reload sidebar configuration to update panels.`;
       await this._alert(alertMesg, 'Reload page').then(() => {
         this._mainDialog.closeDialog();
         window.location.href = window.location.origin;

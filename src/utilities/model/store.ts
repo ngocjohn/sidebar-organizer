@@ -23,7 +23,7 @@ export default class Store {
   private _organizer: SidebarOrganizer;
   public hass: HomeAssistant;
 
-  public _dasboardPanels?: DashboardPanels = {};
+  public _dashboardPanels?: DashboardPanels = {};
 
   public _panelHasChanged = false;
   public _defaultPanelHasChanged = false;
@@ -88,9 +88,9 @@ export default class Store {
 
     console.log('%cSTORE:', 'color: #4dabf7;', 'Subscribing to sidebar panels changes');
     const hasUserDefaultPanel = Boolean(this.hass.userData?.default_panel);
-    if (!this._dasboardPanels?.initialPanels) {
+    if (!this._dashboardPanels?.initialPanels) {
       this._getPanelItems(hasUserDefaultPanel).then((items) => {
-        this._dasboardPanels = {
+        this._dashboardPanels = {
           initialPanels: [...items],
           notShowInSidebar:
             items.filter((item) => !item.show_in_sidebar).map((item) => this.hass.panels[item.url_path]!) || [],
@@ -99,7 +99,7 @@ export default class Store {
     }
 
     this._utils.PANEL.subscribePanels(this.hass.connection, async (panels: Panels) => {
-      const initDasboardPanels = this._dasboardPanels!;
+      const initDasboardPanels = this._dashboardPanels!;
       const initialPanels = initDasboardPanels.initialPanels || [];
       const newDasboards = await this._getPanelItems(hasUserDefaultPanel);
       // Get deleted panels and added panels, by comparing new dashboards with initial panels
@@ -115,7 +115,7 @@ export default class Store {
         removed.length > 0 ||
         !shallowEqual(notShowInSidebar, initDasboardPanels.notShowInSidebar || [])
       ) {
-        this._dasboardPanels = {
+        this._dashboardPanels = {
           ...initDasboardPanels,
           ...(!isEmpty(added) && { added: added.map((item) => panels[item.url_path]!) }),
           ...(!isEmpty(removed) && { removed: removed }),
@@ -127,7 +127,7 @@ export default class Store {
           'Detected changes in sidebar panels',
           { added, removed, notShowInSidebar },
           'Updated dashboard panels state:',
-          this._dasboardPanels
+          this._dashboardPanels
         );
         this._panelHasChanged = true;
         await nextRender();
@@ -140,10 +140,10 @@ export default class Store {
 
   public _shouldUpdateConfig = async (): Promise<Boolean> => {
     let shouldReload = false;
-    if (!this._panelHasChanged || !this._dasboardPanels) {
+    if (!this._panelHasChanged || !this._dashboardPanels) {
       return shouldReload;
     }
-    const { notShowInSidebar, removed } = this._dasboardPanels;
+    const { notShowInSidebar, removed } = this._dashboardPanels;
     const configHelper = this._utils.CONFIG;
     const itemToRemove = new Set([...(removed || []), ...(notShowInSidebar?.map((item) => item.url_path) || [])]);
     if (itemToRemove.size !== 0) {
@@ -171,7 +171,7 @@ export default class Store {
   };
 
   public resetDashboardState(): void {
-    this._dasboardPanels = undefined;
+    this._dashboardPanels = undefined;
     this._panelHasChanged = false;
     this._defaultPanelHasChanged = false;
     console.log('%cSTORE:', 'color: #4dabf7;', 'Reset dashboard state');
