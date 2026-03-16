@@ -10,10 +10,9 @@ import { SidebarConfigDialogParams } from '@utilities/show-dialog-sidebar-organi
 import { getStorageConfig } from '@utilities/storage-utils';
 import { showToast } from '@utilities/toast-notify';
 import { cloneDeep, isEmpty } from 'es-toolkit/compat';
-import { LitElement, TemplateResult, html, nothing } from 'lit';
+import { LitElement, TemplateResult, css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 
-import { DIALOG_STYLE } from '../sidebar-css';
 import { HA, SidebarConfig } from '../types';
 import { HassDialog } from '../types/dialog-manager';
 import { fireEvent } from '../utilities/fire_event';
@@ -87,7 +86,6 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
     }
     return JSON.stringify(this._initConfig) !== JSON.stringify(this._configDialog._sidebarConfig);
   }
-
 
   private async _handleClose() {
     const confirmSaveChange = await showConfirmDialog(this, ALERT_MSG.CONFIG_CHANGED, 'SAVE', 'DISCARD');
@@ -233,7 +231,66 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
   }
 
   static get styles() {
-    return DIALOG_STYLE;
+    return css`
+      ha-dialog {
+        --mdc-dialog-max-width: 90vw;
+        --mdc-dialog-min-height: 700px;
+        /* --mdc-dialog-min-height: calc(90vh - 72px); */
+        --dialog-backdrop-filter: blur(2px);
+        --justify-action-buttons: space-between;
+        --dialog-content-padding: 0 1rem;
+      }
+      sidebar-organizer-config-dialog {
+        width: calc(90vw - 48px);
+        max-width: 1000px;
+        margin-left: auto;
+        margin-right: auto;
+        display: flex;
+        flex-direction: column;
+      }
+      :host([large]) ha-dialog {
+        --mdc-dialog-min-width: 90vw;
+        --mdc-dialog-max-width: 90vw;
+      }
+      :host([large]) ha-dialog sidebar-organizer-config-dialog {
+        max-width: none;
+        width: 100%;
+      }
+
+      @media all and (max-width: 450px), all and (max-height: 500px) {
+        ha-dialog {
+          height: 100%;
+          --mdc-dialog-max-height: 100%;
+          --dialog-surface-top: 0px;
+          --mdc-dialog-max-width: 100vw;
+        }
+        sidebar-organizer-config-dialog {
+          width: 100%;
+          max-width: 100%;
+        }
+      }
+      @media all and (min-width: 451px) and (min-height: 501px) {
+        :host([large]) ha-dialog sidebar-organizer-config-dialog {
+          max-width: none;
+          width: 100%;
+        }
+      }
+      @media all and (max-width: 600px), all and (max-height: 500px) {
+        ha-dialog,
+        ha-dialog[large] {
+          --mdc-dialog-min-width: 100vw;
+          --mdc-dialog-max-width: 100vw;
+          --mdc-dialog-min-height: 100%;
+          --mdc-dialog-max-height: 100%;
+          --vertical-align-dialog: flex-end;
+          --ha-dialog-border-radius: 0;
+        }
+        sidebar-organizer-config-dialog {
+          width: 100%;
+          max-width: none;
+        }
+      }
+    `;
   }
 }
 

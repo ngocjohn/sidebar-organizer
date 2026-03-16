@@ -594,7 +594,8 @@ export class SidebarConfigDialog extends LitElement {
       Reload sidebar configuration to update panels.`;
       await this._alert(alertMesg, 'Reload page').then(() => {
         this._mainDialog.closeDialog();
-        window.location.href = window.location.origin;
+        // Reload the page to update the panels, to initial page
+        window.location.href = '/';
       });
       return;
     } else {

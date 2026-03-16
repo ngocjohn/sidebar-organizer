@@ -1,5 +1,14 @@
 import { css } from 'lit';
 export const DIVIDER_ADDED_STYLE = css`
+  :host .divider[added] ha-tooltip {
+    text-transform: var(--sidebar-text-transform, 'capitalize');
+    --ha-tooltip-font-size: var(--ha-font-size-m);
+    --ha-tooltip-line-height: var(--ha-line-height-normal);
+    --ha-tooltip-font-weight: var(--ha-font-weight-medium, 500);
+    --ha-tooltip-padding: var(--ha-space-1, 4px);
+    --ha-tooltip-background-color: var(--so-tooltip-background-color, inherit);
+    --ha-tooltip-text-color: var(--so-tooltip-text-color, inherit);
+  }
   :host .tooltip {
     color: var(--so-tooltip-text-color);
     background-color: var(--so-tooltip-background-color);
@@ -181,6 +190,9 @@ export const DIVIDER_ADDED_STYLE = css`
   :host([expanded]) .ha-scrollbar .divider[added]::before {
     display: none !important;
   }
+  :host([expanded]) .divider[added] > ha-tooltip {
+    display: none !important;
+  }
 
   :host(:not([expanded])) .divider.collapsed[added]::before {
     content: '';
@@ -275,67 +287,6 @@ export const DIVIDER_ADDED_STYLE = css`
   :host([narrow][expanded]) {
     -webkit-backdrop-filter: var(--so-backdrop-filter, none);
     backdrop-filter: var(--so-backdrop-filter, none);
-  }
-`;
-
-export const DIALOG_STYLE = css`
-  ha-dialog {
-    --mdc-dialog-max-width: 90vw;
-    --mdc-dialog-min-height: 700px;
-    /* --mdc-dialog-min-height: calc(90vh - 72px); */
-    --dialog-backdrop-filter: blur(2px);
-    --justify-action-buttons: space-between;
-    --dialog-content-padding: 0 1rem;
-  }
-  sidebar-organizer-config-dialog {
-    width: calc(90vw - 48px);
-    max-width: 1000px;
-    margin-left: auto;
-    margin-right: auto;
-    display: flex;
-    flex-direction: column;
-  }
-  :host([large]) ha-dialog {
-    --mdc-dialog-min-width: 90vw;
-    --mdc-dialog-max-width: 90vw;
-  }
-  :host([large]) ha-dialog sidebar-organizer-config-dialog {
-    max-width: none;
-    width: 100%;
-  }
-
-  @media all and (max-width: 450px), all and (max-height: 500px) {
-    ha-dialog {
-      height: 100%;
-      --mdc-dialog-max-height: 100%;
-      --dialog-surface-top: 0px;
-      --mdc-dialog-max-width: 100vw;
-    }
-    sidebar-organizer-config-dialog {
-      width: 100%;
-      max-width: 100%;
-    }
-  }
-  @media all and (min-width: 451px) and (min-height: 501px) {
-    :host([large]) ha-dialog sidebar-organizer-config-dialog {
-      max-width: none;
-      width: 100%;
-    }
-  }
-  @media all and (max-width: 600px), all and (max-height: 500px) {
-    ha-dialog,
-    ha-dialog[large] {
-      --mdc-dialog-min-width: 100vw;
-      --mdc-dialog-max-width: 100vw;
-      --mdc-dialog-min-height: 100%;
-      --mdc-dialog-max-height: 100%;
-      --vertical-align-dialog: flex-end;
-      --ha-dialog-border-radius: 0;
-    }
-    sidebar-organizer-config-dialog {
-      width: 100%;
-      max-width: none;
-    }
   }
 `;
 
