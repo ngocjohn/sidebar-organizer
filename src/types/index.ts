@@ -2,6 +2,11 @@ import { ActionConfig } from '@utilities/action';
 
 import { HomeAssistant } from './ha';
 
+declare global {
+  var __DEV__: boolean;
+  var __DEBUG__: boolean;
+}
+
 export type HA = HomeAssistant;
 
 export interface HaExtened extends HTMLElement {
@@ -27,8 +32,10 @@ export interface Route {
 
 export interface PartialPanelResolver extends Router {
   narrow: boolean;
-  route: Route;
+  route?: Route | null;
   panel?: PanelInfo;
+  hass: HomeAssistant;
+  _updateRoutes: () => void;
 }
 
 export interface HaDrawer extends HTMLElement {
@@ -63,6 +70,8 @@ export interface PanelInfo {
   config_panel_domain?: string;
   notification?: string;
   default_visible?: boolean;
+  require_admin?: boolean;
+  show_in_sidebar?: boolean;
 }
 export type Panels = Record<string, PanelInfo>;
 

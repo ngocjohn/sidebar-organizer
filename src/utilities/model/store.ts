@@ -1,151 +1,202 @@
-import { NAMESPACE, STORAGE } from '@constants';
-import { HaExtened, PANEL_TYPE, PanelInfo, SidebardPanelConfig } from '@types';
+import type { Panels } from '@types';
+
+import { ELEMENT, NAMESPACE, STORAGE } from '@constants';
+import { HaExtened } from '@types';
 import * as COMPUTE_PANELS from '@utilities/compute-panels';
-import { cleanItemsFromConfig } from '@utilities/configs';
-import { compareDashboardItems, DashboardComparison, fetchDashboards, LovelaceDashboard } from '@utilities/dashboard';
-import * as DASHBOARD_UTILS from '@utilities/dashboard';
-import { subscribeFrontendUserData } from '@utilities/frontend';
-import * as PANEL_UTILS from '@utilities/panel';
+import * as CONFIG from '@utilities/configs';
+import * as DASHBOARD_HELPERS from '@utilities/dashboard';
+import { DashboardPanels, DataTableItem } from '@utilities/dashboard';
+import { nextRender } from '@utilities/dom-utils';
+import { CoreFrontendUserData, subscribeFrontendUserData } from '@utilities/frontend';
+import * as OBJECT_DIFF from '@utilities/object-differences';
+import * as PANEL_HELPER from '@utilities/panel';
 import { shallowEqual } from '@utilities/shallow-equal';
 import { setStorage } from '@utilities/storage-utils';
 import { showToast } from '@utilities/toast-notify';
-import { fetchUsers } from '@utilities/user';
-import { pick } from 'es-toolkit/compat';
+import { isEmpty } from 'es-toolkit/compat';
 import { UnsubscribeFunc } from 'home-assistant-js-websocket';
 
 import { SidebarOrganizer } from '../../sidebar-organizer';
 import { HomeAssistant } from '../../types/ha';
 
-interface DashboardState {
-  defaultPanel?: PanelInfo;
-  dashboards?: LovelaceDashboard[];
-}
-
 export default class Store {
-  readonly haElement: HaExtened;
+  private haElement: HaExtened;
   private _organizer: SidebarOrganizer;
   public hass: HomeAssistant;
-  public _panelHelper = PANEL_UTILS;
-  public _computePanels = COMPUTE_PANELS;
-  public _dashboardUtils = DASHBOARD_UTILS;
 
-  public _dashboardState?: DashboardState = {};
-  private unsubData?: Promise<UnsubscribeFunc>;
+  public _dashboardPanels?: DashboardPanels = {};
+
+  public _panelHasChanged = false;
+  public _defaultPanelHasChanged = false;
+
+  public _coreUserData?: CoreFrontendUserData | null;
+  private _unsubCoreData?: Promise<UnsubscribeFunc>;
+
+  public _utils = {
+    PANEL: PANEL_HELPER,
+    COMPUTE_PANELS,
+    DASHBOARD: DASHBOARD_HELPERS,
+    OBJECT: OBJECT_DIFF,
+    CONFIG,
+  };
 
   constructor(ha: HaExtened, organizer: SidebarOrganizer) {
     this.haElement = ha;
     this._organizer = organizer;
     this.hass = ha.hass;
+    this.resetDashboardState();
   }
 
-  public _getUsers = async () => {
-    return await fetchUsers(this.hass);
+  get pluginConfigured(): boolean {
+    return Boolean(this._organizer._hasSidebarConfig && !this._organizer._userHasSidebarSettings);
+  }
+  public _getCoreData() {
+    if (!this.pluginConfigured) {
+      return;
+    }
+    const defaultPanel = PANEL_HELPER.getDefaultPanelUrlPath(this.hass);
+    console.log(
+      '%cSTORE:',
+      'color: #4dabf7;',
+      'Subscribing to core frontend user data',
+      'Current user default panel:',
+      defaultPanel
+    );
+    this._unsubCoreData = subscribeFrontendUserData(this.hass.connection, 'core', async ({ value }) => {
+      this._coreUserData = value;
+      // console.log('%cSTORE:', 'color: #4dabf7;', 'Received core frontend user data:', value);
+      const userDefaultPanel = value?.default_panel;
+      const hasChangeInDefaultPanel = Boolean(userDefaultPanel && defaultPanel !== userDefaultPanel);
+      if (hasChangeInDefaultPanel) {
+        console.log(
+          '%cSTORE:',
+          'color: #4dabf7;',
+          'User default panel changed to',
+          userDefaultPanel,
+          'from',
+          defaultPanel
+        );
+        this._needReloadToast();
+        return;
+      }
+      await nextRender();
+      this._organizer._checkDiffs();
+    });
+  }
+  public _profilePageDisconnect() {
+    if (this._unsubCoreData) {
+      this._unsubCoreData.then((unsub) => unsub());
+      this._unsubCoreData = undefined;
+      console.log('%cSTORE:', 'color: #4dabf7;', 'Unsubscribed from core frontend user data', this._coreUserData);
+    }
+  }
+
+  private _getPanelItems = async (userDefault: boolean = false): Promise<DataTableItem[]> => {
+    const configLovelaceDashboards = (await this._organizer._panelResolver.selector.query(
+      ELEMENT.CONFIG_LOVELACE_DASHBOARDS
+    ).element) as any;
+    const defaultPanel = !userDefault
+      ? this.hass.systemData?.default_panel || 'home'
+      : PANEL_HELPER.getDefaultPanelUrlPath(this.hass);
+    return configLovelaceDashboards._getItems(configLovelaceDashboards._dashboards, defaultPanel, this.hass.panels);
   };
 
-  public _subscribeUserDefaultPanel(): void {
+  public async _subscribePanels(): Promise<void> {
     if (Boolean(this._organizer._userHasSidebarSettings || !this._organizer._hasSidebarConfig)) {
       return;
     }
 
-    this.unsubData = subscribeFrontendUserData(this.hass.connection, 'core', ({ value }) => {
-      if (value !== null) {
-        const defaultPanel = value.default_panel;
-        if (defaultPanel && this._organizer._baseOrder[0] !== defaultPanel) {
-          console.log(
-            '%cSTORE:',
-            'color: #4dabf7;',
-            'Default panel changed to',
-            defaultPanel,
-            'from',
-            this._organizer._baseOrder[0]
-          );
-          const newDefaultPanel = PANEL_UTILS.getPanelTitleFromUrlPath(this.hass, defaultPanel) || defaultPanel;
-          const toastParams = {
-            id: 'sidebar-organizer-default-panel-changed',
-            message: `${NAMESPACE.toUpperCase()}: Default panel changed to ${newDefaultPanel}. Reload page to apply changes.`,
-            action: {
-              text: 'Reload',
-              action: () => this._handleDefaultPanelChange(defaultPanel),
-            },
-            duration: -1,
-            dismissable: false,
-          };
-          showToast(this.haElement, toastParams);
-        }
+    console.log('%cSTORE:', 'color: #4dabf7;', 'Subscribing to sidebar panels changes');
+    const hasUserDefaultPanel = Boolean(this.hass.userData?.default_panel);
+    if (!this._dashboardPanels?.initialPanels) {
+      console.log('%cSTORE:', 'color: #4dabf7;', 'Initializing dashboard panels state');
+      await this._getPanelItems(hasUserDefaultPanel).then((items) => {
+        this._dashboardPanels = {
+          initialPanels: [...items],
+          notShowInSidebar:
+            items.filter((item) => !item.show_in_sidebar).map((item) => this.hass.panels[item.url_path]!) || [],
+        };
+      });
+      console.log('%cSTORE:', 'color: #4dabf7;', 'Initial dashboard panels state set to', this._dashboardPanels);
+    }
+
+    this._utils.PANEL.subscribePanels(this.hass.connection, async (panels: Panels) => {
+      const initDasboardPanels = this._dashboardPanels ?? { initialPanels: [], notShowInSidebar: [] };
+      const initialPanels = initDasboardPanels.initialPanels || [];
+      const newDasboards = await this._getPanelItems(hasUserDefaultPanel);
+      // Get deleted panels and added panels, by comparing new dashboards with initial panels
+      const removed = initialPanels
+        .filter((item) => Object.values(newDasboards).every((newItem) => newItem.url_path !== item.url_path))
+        .map((item) => item.url_path);
+      // Get added panels, by filtering new dashboards that are not in initial panels
+      const added = newDasboards.filter((item) => !initialPanels.some((oldItem) => oldItem.url_path === item.url_path));
+      const notShowInSidebar =
+        newDasboards.filter((item) => !item.show_in_sidebar).map((item) => panels[item.url_path]!) || [];
+      if (
+        added.length > 0 ||
+        removed.length > 0 ||
+        !shallowEqual(notShowInSidebar, initDasboardPanels.notShowInSidebar || [])
+      ) {
+        this._dashboardPanels = {
+          ...initDasboardPanels,
+          ...(!isEmpty(added) && { added: added.map((item) => panels[item.url_path]!) }),
+          ...(!isEmpty(removed) && { removed: removed }),
+          ...(!isEmpty(notShowInSidebar) && { notShowInSidebar }),
+        };
+        console.log(
+          '%cSTORE:',
+          'color: #4dabf7;',
+          'Detected changes in sidebar panels',
+          { added, removed, notShowInSidebar },
+          'Updated dashboard panels state:',
+          this._dashboardPanels
+        );
+        this._panelHasChanged = true;
+        await nextRender();
+        this._needReloadToast();
+      } else {
+        this._panelHasChanged = false;
       }
     });
   }
 
-  public async _subscribeDashboardData(): Promise<void> {
-    console.log('%cSTORE:', 'color: #4dabf7;', 'Subscribing to frontend system core data changes');
-    const dashboardState: DashboardState = {};
-    dashboardState.dashboards = await fetchDashboards(this.hass);
-    dashboardState.defaultPanel = PANEL_UTILS.getDefaultPanel(this.hass);
-    this._dashboardState = dashboardState;
-    console.log('%cSTORE:', 'color: #4dabf7;', 'Fetched dashboards and default panel', this._dashboardState);
-  }
-
-  public async _handleDashboardUpdate(): Promise<Boolean> {
-    let hasChanged = false;
-    const { dashboards, defaultPanel } = this._dashboardState || {};
-    const { _baseOrder, _config } = this._organizer;
-
-    const updatedDefaultPanel = PANEL_UTILS.getDefaultPanel(this.hass);
-    const defaultPanelChanged = !shallowEqual(defaultPanel, updatedDefaultPanel);
-
-    const { currentItems, added, removed } = (await compareDashboardItems(
-      this.hass,
-      _baseOrder
-    )) as DashboardComparison;
-    const currentItemsLength = Object.values(currentItems).flat().length;
-    const addedOrItemChanged = Boolean(
-      added.length > 0 || dashboards?.length !== currentItemsLength || dashboards?.length < currentItemsLength
-    );
-    if (defaultPanelChanged || removed.length > 0) {
-      const itemToRemove = [...removed, defaultPanel?.url_path || ''].filter(Boolean);
-      const config = { ..._config };
-      const configToUpdate = pick(config, [
-        PANEL_TYPE.CUSTOM,
-        PANEL_TYPE.BOTTOM,
-        PANEL_TYPE.BOTTOM_GRID,
-        PANEL_TYPE.HIDDEN,
-      ]) as SidebardPanelConfig;
-      const updatedPanels = cleanItemsFromConfig(configToUpdate, itemToRemove);
-      const configChanged = !shallowEqual(configToUpdate, updatedPanels);
-      if (configChanged) {
-        console.log('%cSTORE:', 'color: #4dabf7;', 'Dashboard items changed. Updating config...');
-
-        const newConfig = { ...config, ...updatedPanels };
-        setStorage(STORAGE.UI_CONFIG, newConfig);
-        hasChanged = true;
-      } else {
-        console.log('%cSTORE:', 'color: #4dabf7;', 'No config changes detected.');
-      }
-    } else if (addedOrItemChanged) {
-      console.log('%cSTORE:', 'color: #4dabf7;', 'Dashboard items added or changed. reload page to apply changes.');
-      hasChanged = true;
+  public _shouldUpdateConfig = async (): Promise<Boolean> => {
+    let shouldReload = false;
+    if (!this._panelHasChanged || !this._dashboardPanels) {
+      return shouldReload;
     }
-
-    return hasChanged;
-  }
-
-  public _handleDefaultPanelChange(defaultPanel: string): void {
-    const config = { ...this._organizer._config };
-    const configToUpdate = pick(config, [
-      PANEL_TYPE.CUSTOM,
-      PANEL_TYPE.BOTTOM,
-      PANEL_TYPE.BOTTOM_GRID,
-      PANEL_TYPE.HIDDEN,
-    ]) as SidebardPanelConfig;
-    const updatedPanels = cleanItemsFromConfig(configToUpdate, [defaultPanel]);
-    const newConfig = { ...config, ...updatedPanels };
-    setStorage(STORAGE.UI_CONFIG, newConfig);
-    this._organizer._reloadWindow();
-  }
+    const { notShowInSidebar, removed } = this._dashboardPanels;
+    const configHelper = this._utils.CONFIG;
+    const itemToRemove = new Set([...(removed || []), ...(notShowInSidebar?.map((item) => item.url_path) || [])]);
+    if (itemToRemove.size !== 0) {
+      const config = { ...this._organizer._config };
+      const hasItemsToRemove = configHelper.getAllConfigItems(config).some((item) => itemToRemove.has(item));
+      if (hasItemsToRemove) {
+        console.log(
+          '%cSTORE:',
+          'color: #4dabf7;',
+          'Panel changes affect current config. Updating config to remove deleted panels...'
+        );
+        const updatedConfig = configHelper.cleanItemsFromAllPanels(config, itemToRemove as Set<string>);
+        const newConfig = { ...config, ...updatedConfig };
+        setStorage(STORAGE.UI_CONFIG, newConfig);
+        shouldReload = true;
+      } else {
+        console.log(
+          '%cSTORE:',
+          'color: #4dabf7;',
+          'Panel changes do not affect current config. No need to update config.'
+        );
+      }
+    }
+    return shouldReload;
+  };
 
   public resetDashboardState(): void {
-    this._dashboardState = undefined;
-    this.unsubData = undefined;
+    this._dashboardPanels = undefined;
+    this._panelHasChanged = false;
+    this._defaultPanelHasChanged = false;
+    console.log('%cSTORE:', 'color: #4dabf7;', 'Reset dashboard state');
   }
 
   public _needReloadToast = (): void => {

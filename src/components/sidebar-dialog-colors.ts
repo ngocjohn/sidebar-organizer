@@ -14,6 +14,7 @@ import { createHaForm } from '@utilities/create-ha-form';
 import { getDefaultThemeColors } from '@utilities/custom-styles';
 import { createExpansionPanel } from '@utilities/dom-utils';
 import { fireEvent } from '@utilities/fire_event';
+import { getObjectDifferences } from '@utilities/index';
 import { isEmpty, pick } from 'es-toolkit/compat';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -719,7 +720,7 @@ export class SidebarDialogColors extends LitElement {
     let updates: Partial<SidebarConfig> = {};
     if (configKey && configKey === 'appearance') {
       const appearanceSettings = pick(currentConfig, AppearanceConfigKeys) as SidebarAppearanceConfig;
-      const changes = this._dialog._objDiff.getObjectDifferences(appearanceSettings, incoming);
+      const changes = getObjectDifferences(appearanceSettings, incoming);
       if (!isEmpty(changes)) {
         Object.keys(changes).forEach((key) => {
           updates[key as keyof SidebarAppearanceConfig] = incoming[key];

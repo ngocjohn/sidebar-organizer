@@ -1,5 +1,9 @@
 import { css } from 'lit';
 export const DIVIDER_ADDED_STYLE = css`
+  :host .tooltip {
+    color: var(--so-tooltip-text-color);
+    background-color: var(--so-tooltip-background-color);
+  }
   :host .ha-scrollbar {
     padding: 0;
   }
@@ -267,10 +271,11 @@ export const DIVIDER_ADDED_STYLE = css`
       opacity: 0;
     }
   }
-  :host .tooltip {
-    opacity: 1 !important;
-    color: var(--primary-text-color) !important;
-    background-color: var(--secondary-background-color) !important;
+  @media all and (max-width: 450px), all and (max-height: 500px) {
+    :host {
+      -webkit-backdrop-filter: var(--so-backdrop-filter, none);
+      backdrop-filter: var(--so-backdrop-filter, none);
+    }
   }
 `;
 
@@ -337,6 +342,6 @@ export const DIALOG_STYLE = css`
 
 export const DRAWER_STYLE = css`
   :host aside.mdc-drawer {
-    background-color: transparent !important;
+    background-color: transparent;
   }
 `;

@@ -30,9 +30,7 @@ export function compareHacsTagDiff(hass: HomeAssistant): void {
   if (!loadedUrl || !configUrl) {
     return;
   }
-
   const hacsUrlMatch = loadedUrl?.match(HACS_URL_RGX)?.[0];
-
   if (!hacsUrlMatch) {
     return;
   }

@@ -1,13 +1,23 @@
 import type { HomeAssistant } from '../types/ha';
 import type { NewItemConfig, PanelInfo, SidebarPanelItem } from '@types';
+import type { Panels } from '@types';
+import type { Connection } from 'home-assistant-js-websocket';
 
 import { ATTRIBUTE, CLASS, ELEMENT } from '@constants';
+import { createCollection } from 'home-assistant-js-websocket';
 
 import { hasItemAction, NavigateActionConfig, UrlActionConfig } from './action';
 import { ACTION_TYPES, addHandlerActions, getActionConfig } from './tap-action';
 
+export const HOME_PANEL = 'home';
+export const NOT_FOUND_PANEL = 'notfound';
+export const PROFILE_PANEL = 'profile';
+export const LOVELACE_PANEL = 'lovelace';
+
 /** Panel to show when no panel is picked. */
-export const DEFAULT_PANEL = 'home';
+export const DEFAULT_PANEL = HOME_PANEL;
+
+export const PANEL_DASHBOARDS = ['home', 'light', 'security', 'climate', 'energy'] as string[];
 
 export const hasLegacyOverviewPanel = (hass: HomeAssistant): boolean => Boolean(hass.panels.lovelace?.config);
 
@@ -20,7 +30,7 @@ export const getDefaultPanelUrlPath = (hass: HomeAssistant): string => {
   const defaultPanel =
     hass.userData?.default_panel || hass.systemData?.default_panel || getLegacyDefaultPanelUrlPath() || DEFAULT_PANEL;
   // If default panel is lovelace and no old overview exists, fall back to home
-  if (defaultPanel === 'lovelace' && !hasLegacyOverviewPanel(hass)) {
+  if (defaultPanel === LOVELACE_PANEL && !hasLegacyOverviewPanel(hass)) {
     return DEFAULT_PANEL;
   }
   return defaultPanel;
@@ -29,12 +39,12 @@ export const getDefaultPanelUrlPath = (hass: HomeAssistant): string => {
 export const getDefaultPanel = (hass: HomeAssistant): PanelInfo => {
   const panel = getDefaultPanelUrlPath(hass);
 
-  return (panel ? hass.panels[panel] : undefined) ?? hass.panels[DEFAULT_PANEL];
+  return (panel ? hass.panels[panel] : undefined) ?? hass.panels[DEFAULT_PANEL] ?? hass.panels[NOT_FOUND_PANEL];
 };
 
 export const getPanelNameTranslationKey = (panel: PanelInfo) => {
-  if (panel.url_path === 'profile') {
-    return 'panel.profile' as const;
+  if ([PROFILE_PANEL, NOT_FOUND_PANEL].includes(panel.url_path!)) {
+    return `panel.${panel.url_path}` as const;
   }
 
   return `panel.${panel.title}` as const;
@@ -65,15 +75,24 @@ export const getPanelIcon = (panel: PanelInfo): string | undefined => {
     switch (panel.component_name) {
       case 'profile':
         return 'mdi:account';
-      case 'lovelace':
-        return 'mdi:view-dashboard';
     }
   }
 
   return panel.icon || undefined;
 };
 
-export const FIXED_PANELS = ['profile', 'config'];
+export const fetchPanels = (conn) =>
+  conn.sendMessagePromise({
+    type: 'get_panels',
+  });
+
+export const subscribeUpdates = (conn, store) =>
+  conn.subscribeEvents(() => fetchPanels(conn).then((panels) => store.setState(panels, true)), 'panels_updated');
+
+export const subscribePanels = (conn: Connection, onChange: (panels: Panels) => void) =>
+  createCollection<Panels>('_pnl', fetchPanels, subscribeUpdates, conn, onChange);
+
+export const FIXED_PANELS = [PROFILE_PANEL, 'config', NOT_FOUND_PANEL];
 export const SHOW_AFTER_SPACER_PANELS = ['developer-tools'];
 export const BUILT_IN_PANELS = ['home', 'light', 'climate', 'security'];
 
