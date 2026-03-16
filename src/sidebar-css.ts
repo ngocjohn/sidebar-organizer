@@ -271,11 +271,10 @@ export const DIVIDER_ADDED_STYLE = css`
       opacity: 0;
     }
   }
-  @media all and (max-width: 450px), all and (max-height: 500px) {
-    :host {
-      -webkit-backdrop-filter: var(--so-backdrop-filter, none);
-      backdrop-filter: var(--so-backdrop-filter, none);
-    }
+
+  :host([narrow][expanded]) {
+    -webkit-backdrop-filter: var(--so-backdrop-filter, none);
+    backdrop-filter: var(--so-backdrop-filter, none);
   }
 `;
 
