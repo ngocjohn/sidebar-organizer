@@ -37,7 +37,7 @@ export class SoGroupDivider extends LitElement {
   protected render() {
     return html`
       ${!this.expanded
-        ? html` <ha-icon custom .icon=${this.customIcon}> </ha-icon> `
+        ? html`<ha-icon custom .icon=${this.customIcon}></ha-icon>`
         : html`<ha-icon icon="mdi:chevron-down"></ha-icon><span>${this.group.trim()}</span>`}
     `;
   }

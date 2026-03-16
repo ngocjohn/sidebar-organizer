@@ -38,7 +38,7 @@ import {
   normalizePinnedGroups,
 } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { addAction, clearBrowserCache, nextRender, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, compareDatasetWithHref, mapItemsForDebug, nextRender, onPanelLoaded } from '@utilities/dom-utils';
 import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
@@ -128,7 +128,7 @@ export class SidebarOrganizer {
   private _sidebar!: HAElement;
   private _sidebarItems: SidebarPanelItem[];
   private _styleManager: HomeAssistantStylesManager;
-  private _store!: Store;
+  public _store!: Store;
   public _dialogManager!: DialogHandler;
   public _userHasSidebarSettings: boolean = false;
 
@@ -190,6 +190,9 @@ export class SidebarOrganizer {
     return useConfigFile || (sidebarConfig !== null && sidebarConfig !== undefined);
   }
 
+  get _pluginConfigured(): boolean {
+    return Boolean(this._hasSidebarConfig && !this._userHasSidebarSettings);
+  }
   public async run() {
     if (!this.hass || this.hass.config?.state !== HA_STATE.RUNNING) {
       this._store._haNotRunningToast();
@@ -214,6 +217,8 @@ export class SidebarOrganizer {
       if (!atLeastVersion(this.hass.config.version, 2026, 3)) {
         await this._getDataDashboards();
       }
+      this._watchHaSidebarShouldUpdate();
+
       this.firstSetUpDone = true;
     }
 
@@ -328,13 +333,9 @@ export class SidebarOrganizer {
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     const pathName = panelResolver?.route?.path ?? window.location.pathname;
     if (pathName && PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
-      this._store._getCoreData();
-
       await this._dialogManager._injectSidebarOrganizerElement(panelResolver);
-      // this._store._subscribeUserDefaultPanelChange();
       return;
     } else {
-      this._store._profilePageDisconnect();
       return;
     }
   }
@@ -376,36 +377,6 @@ export class SidebarOrganizer {
     });
   }
 
-  private _mapItemsForDebug(
-    items: NodeListOf<SidebarPanelItem> | SidebarPanelItem[],
-    checkValid = false,
-    includeElement = false
-  ): {
-    panelId: string;
-    title: string;
-    group?: string;
-    hrefPanelId?: string;
-    isValid?: boolean;
-    element?: SidebarPanelItem;
-  }[] {
-    return Array.from(items).map((element: SidebarPanelItem) => {
-      const panelId = element.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
-      const hrefPanelId = element.href.replace('/', '');
-      const intemText = element.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT);
-      const title = intemText!.textContent.trim();
-      const group = element.getAttribute(ATTRIBUTE.GROUP) || undefined;
-      const isValid = checkValid ? this._compareDatasetWithHref(element) : undefined;
-      return {
-        panelId,
-        hrefPanelId,
-        title,
-        isValid,
-        group,
-        element: includeElement ? element : undefined,
-      };
-    });
-  }
-
   private async _getContainerItems(
     container: HTMLElement,
     promisableResultOptions?: PromisableOptions
@@ -430,6 +401,7 @@ export class SidebarOrganizer {
     );
     return items;
   }
+
   private _processConfig(): void {
     if (!this._config || Object.keys(this._config).length === 0) {
       console.log('No config found, skipping processing');
@@ -529,7 +501,6 @@ export class SidebarOrganizer {
 
       this.setupConfigDone = true;
       this._panelLoaded();
-      this._watchHaSidebarShouldUpdate();
     });
   }
 
@@ -816,6 +787,15 @@ export class SidebarOrganizer {
     divider.classList.toggle(CLASS.COLLAPSED, isCollapsed);
     const contentDiv = this._createAddedGroupContent(group, isCollapsed) as HTMLElement;
     divider.appendChild(contentDiv);
+    if (this._pinnedGroups[group]) {
+      contentDiv.id = `pinned-${group}`;
+      const haTooltip = document.createElement('ha-tooltip') as any;
+      haTooltip.for = `pinned-${group}`;
+      haTooltip.innerText = `${group.trim()}`;
+      haTooltip.placement = 'right';
+      // haTooltip.withoutArrow = true;
+      divider.appendChild(haTooltip);
+    }
     divider.addEventListener('click', this._toggleGroup.bind(this));
     return divider;
   };
@@ -828,8 +808,6 @@ export class SidebarOrganizer {
       groupDivEl.classList.toggle(CLASS.COLLAPSED, isCollapsed);
       groupDivEl.customIcon = this._pinnedGroups[group].icon!!;
       groupDivEl.haSidebar = this.HaSidebar;
-      // groupDivEl.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
-      // groupDivEl.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
       return groupDivEl;
     }
 
@@ -976,11 +954,10 @@ export class SidebarOrganizer {
 
     const defaultColors = getDefaultThemeColors(customTheme !== undefined ? this.HaSidebar : undefined);
 
-    this._baseColorFromTheme = defaultColors;
     // console.log('Default Colors:', defaultColors);
     // console.log('theme', customTheme, 'colorConfig', colorConfig, 'defaultColors', defaultColors);
     const getColor = (key: string): string => {
-      const color = colorConfig?.[key] ? `${colorConfig[key]} !important` : this._baseColorFromTheme[key];
+      const color = colorConfig?.[key] ? `${colorConfig[key]} !important` : defaultColors[key];
       // console.log('Color:', key, color);
       return color;
     };
@@ -1001,9 +978,10 @@ export class SidebarOrganizer {
     // If force transparent background is enabled, override related colors and add backdrop filter styles
     if (forceTransparentBackground) {
       colorCssConfig['--sidebar-background-color'] = 'transparent';
-      colorCssConfig['--so-tooltip-background-color'] = 'var(--primary-background-color);';
-      colorCssConfig['--so-tooltip-text-color'] = 'var(--primary-text-color);';
+      colorCssConfig['--so-tooltip-background-color'] = 'var(--secondary-background-color)';
+      colorCssConfig['--so-tooltip-text-color'] = 'var(--primary-text-color)';
       colorCssConfig['--so-backdrop-filter'] = 'blur(10px)';
+      this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
     }
 
     const CUSTOM_COLOR_CONFIG = `:host {${Object.entries(colorCssConfig)
@@ -1014,14 +992,9 @@ export class SidebarOrganizer {
       [CUSTOM_COLOR_CONFIG, CUSTOM_STYLES, DIVIDER_ADDED_STYLE.toString()],
       this.sideBarRoot!
     );
-    if (forceTransparentBackground) {
-      this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
-    }
-  }
-
-  private _applyDrawerStyles() {
-    if (!this._haDrawer) return;
-    this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer.shadowRoot!);
+    // if (forceTransparentBackground) {
+    //   this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
+    // }
   }
 
   private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {
@@ -1070,25 +1043,19 @@ export class SidebarOrganizer {
     setTimeout(() => this._checkDiffs(), 100);
   }
 
-  private _compareDatasetWithHref(element: SidebarPanelItem): boolean {
-    const panelId = element.dataset.panel;
-    const hrefPanelId = element.href?.replace('/', '');
-    const isValid = hrefPanelId === '#' || panelId === hrefPanelId;
-    return isValid;
-  }
-
   public _hasTopItemDiff(): boolean {
-    const topItemsChanges = this._mapItemsForDebug(this._scrollbarItems, true);
+    const topItemsChanges = mapItemsForDebug(this._scrollbarItems, true);
     console.log(
       'Top Items Changes:',
       topItemsChanges.filter((item) => item.isValid === false)
     );
     return topItemsChanges.some((item) => item.isValid === false);
   }
+
   public _checkDiffs = (): void => {
     const baseOrder = this._baseOrder;
     const itemsNamed = Array.from(this._allItems).map((e) => e.dataset.panel) as string[];
-    const notValidItem = Array.from(this._allItems).find((item) => !this._compareDatasetWithHref(item));
+    const notValidItem = Array.from(this._allItems).find((item) => !compareDatasetWithHref(item));
     const orderDiff = !shallowEqual(baseOrder, itemsNamed);
     if (orderDiff || notValidItem != undefined) {
       this._diffCheck = false;
@@ -1150,6 +1117,7 @@ export class SidebarOrganizer {
     if (sidebarElement.alwaysExpand && !targetIsGridItem) {
       return;
     }
+
     if (sidebarElement._mouseLeaveTimeout) {
       clearTimeout(sidebarElement._mouseLeaveTimeout);
       sidebarElement._mouseLeaveTimeout = undefined;
@@ -1267,8 +1235,8 @@ export class SidebarOrganizer {
   public _reloadWindow = (timeout: number = 1000): void => {
     this._store._showToast('Reloading window to apply changes...');
     this._store.resetDashboardState();
-    setTimeout(() => {
-      clearBrowserCache();
+    setTimeout(async () => {
+      window.location.href = '/';
     }, timeout);
   };
 
