@@ -6,15 +6,13 @@ import * as COMPUTE_PANELS from '@utilities/compute-panels';
 import * as CONFIG from '@utilities/configs';
 import * as DASHBOARD_HELPERS from '@utilities/dashboard';
 import { DashboardPanels, DataTableItem } from '@utilities/dashboard';
-import { nextRender } from '@utilities/dom-utils';
-import { CoreFrontendUserData, subscribeFrontendUserData } from '@utilities/frontend';
+import { nextRender, mapItemsForDebug } from '@utilities/dom-utils';
 import * as OBJECT_DIFF from '@utilities/object-differences';
 import * as PANEL_HELPER from '@utilities/panel';
 import { shallowEqual } from '@utilities/shallow-equal';
 import { setStorage } from '@utilities/storage-utils';
 import { showToast } from '@utilities/toast-notify';
 import { isEmpty } from 'es-toolkit/compat';
-import { UnsubscribeFunc } from 'home-assistant-js-websocket';
 
 import { SidebarOrganizer } from '../../sidebar-organizer';
 import { HomeAssistant } from '../../types/ha';
@@ -25,12 +23,7 @@ export default class Store {
   public hass: HomeAssistant;
 
   public _dashboardPanels?: DashboardPanels = {};
-
   public _panelHasChanged = false;
-  public _defaultPanelHasChanged = false;
-
-  public _coreUserData?: CoreFrontendUserData | null;
-  private _unsubCoreData?: Promise<UnsubscribeFunc>;
 
   public _utils = {
     PANEL: PANEL_HELPER,
@@ -38,57 +31,13 @@ export default class Store {
     DASHBOARD: DASHBOARD_HELPERS,
     OBJECT: OBJECT_DIFF,
     CONFIG,
+    DOM: { mapItemsForDebug },
   };
 
   constructor(ha: HaExtened, organizer: SidebarOrganizer) {
     this.haElement = ha;
     this._organizer = organizer;
     this.hass = ha.hass;
-    this.resetDashboardState();
-  }
-
-  get pluginConfigured(): boolean {
-    return Boolean(this._organizer._hasSidebarConfig && !this._organizer._userHasSidebarSettings);
-  }
-  public _getCoreData() {
-    if (!this.pluginConfigured) {
-      return;
-    }
-    const defaultPanel = PANEL_HELPER.getDefaultPanelUrlPath(this.hass);
-    console.log(
-      '%cSTORE:',
-      'color: #4dabf7;',
-      'Subscribing to core frontend user data',
-      'Current user default panel:',
-      defaultPanel
-    );
-    this._unsubCoreData = subscribeFrontendUserData(this.hass.connection, 'core', async ({ value }) => {
-      this._coreUserData = value;
-      // console.log('%cSTORE:', 'color: #4dabf7;', 'Received core frontend user data:', value);
-      const userDefaultPanel = value?.default_panel;
-      const hasChangeInDefaultPanel = Boolean(userDefaultPanel && defaultPanel !== userDefaultPanel);
-      if (hasChangeInDefaultPanel) {
-        console.log(
-          '%cSTORE:',
-          'color: #4dabf7;',
-          'User default panel changed to',
-          userDefaultPanel,
-          'from',
-          defaultPanel
-        );
-        this._needReloadToast();
-        return;
-      }
-      await nextRender();
-      this._organizer._checkDiffs();
-    });
-  }
-  public _profilePageDisconnect() {
-    if (this._unsubCoreData) {
-      this._unsubCoreData.then((unsub) => unsub());
-      this._unsubCoreData = undefined;
-      console.log('%cSTORE:', 'color: #4dabf7;', 'Unsubscribed from core frontend user data', this._coreUserData);
-    }
   }
 
   private _getPanelItems = async (userDefault: boolean = false): Promise<DataTableItem[]> => {
@@ -102,14 +51,14 @@ export default class Store {
   };
 
   public async _subscribePanels(): Promise<void> {
-    if (Boolean(this._organizer._userHasSidebarSettings || !this._organizer._hasSidebarConfig)) {
+    if (!this._organizer._pluginConfigured) {
+      console.log('%cSTORE:', 'color: #4dabf7;', 'Plugin not configured. Skipping panels subscription.');
       return;
     }
 
     console.log('%cSTORE:', 'color: #4dabf7;', 'Subscribing to sidebar panels changes');
     const hasUserDefaultPanel = Boolean(this.hass.userData?.default_panel);
     if (!this._dashboardPanels?.initialPanels) {
-      console.log('%cSTORE:', 'color: #4dabf7;', 'Initializing dashboard panels state');
       await this._getPanelItems(hasUserDefaultPanel).then((items) => {
         this._dashboardPanels = {
           initialPanels: [...items],
@@ -195,8 +144,7 @@ export default class Store {
   public resetDashboardState(): void {
     this._dashboardPanels = undefined;
     this._panelHasChanged = false;
-    this._defaultPanelHasChanged = false;
-    console.log('%cSTORE:', 'color: #4dabf7;', 'Reset dashboard state');
+    console.log('%cSTORE:', 'color: #4dabf7;', 'Reset dashboard state', this._dashboardPanels, this._panelHasChanged);
   }
 
   public _needReloadToast = (): void => {

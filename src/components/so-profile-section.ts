@@ -2,8 +2,11 @@ import type { SidebarOrganizer } from '../sidebar-organizer';
 
 import { CONFIG_NAME, NAMESPACE_TITLE, REPO_URL } from '@constants';
 import { clearSidebarOrganizerStorage } from '@utilities/configs/misc';
-import { clearBrowserCache, fileDownload } from '@utilities/dom-utils';
-import { css, html, LitElement } from 'lit';
+import { clearBrowserCache, fileDownload, nextRender } from '@utilities/dom-utils';
+import { CoreFrontendUserData, subscribeFrontendUserData } from '@utilities/index';
+import { getDefaultPanelUrlPath } from '@utilities/panel';
+import { UnsubscribeFunc } from 'home-assistant-js-websocket/dist/types';
+import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import YAML from 'yaml';
 
@@ -51,12 +54,62 @@ const ACTION_LIST: {
 export class SoProfileSection extends LitElement {
   @property({ attribute: false }) public organizer!: SidebarOrganizer;
 
+  public _coreUserData?: CoreFrontendUserData | null;
+  private _unsubCoreData?: Promise<UnsubscribeFunc>;
+
   public connectedCallback() {
     super.connectedCallback();
+    if (this.organizer.hass) {
+      this._getCoreData();
+    }
   }
 
   public disconnectedCallback() {
     super.disconnectedCallback();
+    if (this._unsubCoreData) {
+      this._unsubCoreData.then((unsub) => unsub());
+      this._unsubCoreData = undefined;
+    }
+  }
+
+  protected firstUpdated(_changedProperties: PropertyValues): void {
+    super.firstUpdated(_changedProperties);
+    if (!this._unsubCoreData) {
+      this._getCoreData();
+    }
+  }
+  public _getCoreData() {
+    if (!this.organizer._pluginConfigured) {
+      return;
+    }
+    const defaultPanel = getDefaultPanelUrlPath(this.organizer.hass);
+    console.log(
+      '%cSO-PROFILE-SECTION:',
+      'color: #4dabf7;',
+      'Subscribing to core frontend user data',
+      'Current user default panel:',
+      defaultPanel
+    );
+    this._unsubCoreData = subscribeFrontendUserData(this.organizer.hass.connection, 'core', async ({ value }) => {
+      this._coreUserData = value;
+      // console.log('%cSO-PROFILE-SECTION:', 'color: #4dabf7;', 'Received core frontend user data:', value);
+      const userDefaultPanel = value?.default_panel;
+      const hasChangeInDefaultPanel = Boolean(userDefaultPanel && defaultPanel !== userDefaultPanel);
+      if (hasChangeInDefaultPanel) {
+        console.log(
+          '%cSO-PROFILE-SECTION:',
+          'color: #4dabf7;',
+          'User default panel changed to',
+          userDefaultPanel,
+          'from',
+          defaultPanel
+        );
+        this.organizer._store._needReloadToast();
+        return;
+      }
+      await nextRender();
+      this.organizer._checkDiffs();
+    });
   }
 
   protected render() {

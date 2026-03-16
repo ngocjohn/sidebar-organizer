@@ -1,4 +1,4 @@
-import { CLASS, ELEMENT, SELECTOR } from '@constants';
+import { ATTRIBUTE, CLASS, ELEMENT, SELECTOR } from '@constants';
 import { HaExtened, SidebarPanelItem } from '@types';
 import { getPromisableResult } from 'get-promisable-result';
 import { html, TemplateResult } from 'lit';
@@ -269,3 +269,40 @@ export const nextRender = () =>
   new Promise((resolve) => {
     afterNextRender(resolve);
   });
+
+export const compareDatasetWithHref = (element: SidebarPanelItem): boolean => {
+  const panelId = element.dataset.panel;
+  const hrefPanelId = element.href?.replace('/', '');
+  const isValid = hrefPanelId === '#' || panelId === hrefPanelId;
+  return isValid;
+};
+
+export const mapItemsForDebug = (
+  items: NodeListOf<SidebarPanelItem> | SidebarPanelItem[],
+  checkValid = false,
+  includeElement = false
+): {
+  panelId: string;
+  title: string;
+  group?: string;
+  hrefPanelId?: string;
+  isValid?: boolean;
+  element?: SidebarPanelItem;
+}[] => {
+  return Array.from(items).map((element: SidebarPanelItem) => {
+    const panelId = element.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
+    const hrefPanelId = element.href.replace('/', '');
+    const intemText = element.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT);
+    const title = intemText!.textContent.trim();
+    const group = element.getAttribute(ATTRIBUTE.GROUP) || undefined;
+    const isValid = checkValid ? compareDatasetWithHref(element) : undefined;
+    return {
+      panelId,
+      hrefPanelId,
+      title,
+      isValid,
+      group,
+      element: includeElement ? element : undefined,
+    };
+  });
+};
