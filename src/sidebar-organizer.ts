@@ -169,8 +169,19 @@ export class SidebarOrganizer {
     return this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
   }
 
-  get _afterSpacerContainer(): HTMLElement {
-    return this._panelsList?.querySelector(SELECTOR.SIDEBAR_AFTER_SPACER_CONTAINER) as HTMLElement;
+  get _bottomItems(): NodeListOf<SidebarPanelItem> {
+    const bottomContainerItems = this._panelsList
+      ?.querySelector(SELECTOR.BOTTOM_CONTAINER)
+      ?.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
+    const bottomGridContainerItems = this._panelsList
+      ?.querySelector(SELECTOR.GRID_CONTAINER)
+      ?.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
+
+    return [...bottomContainerItems, ...bottomGridContainerItems] as unknown as NodeListOf<SidebarPanelItem>;
+  }
+
+  get _allItems(): NodeListOf<SidebarPanelItem> {
+    return [...this._scrollbarItems, ...this._bottomItems] as unknown as NodeListOf<SidebarPanelItem>;
   }
 
   get _hasSidebarConfig(): boolean {
@@ -241,7 +252,7 @@ export class SidebarOrganizer {
 
       this._delayTimeout = window.setTimeout(() => {
         const newPath = window.location.pathname;
-        void this._checkProfileSection();
+        this._checkProfileSection();
         if (newPath !== this._currentPath) {
           this._prevPath = this._currentPath;
           this._currentPath = newPath;
@@ -317,9 +328,13 @@ export class SidebarOrganizer {
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     const pathName = panelResolver?.route?.path ?? window.location.pathname;
     if (pathName && PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
-      this._store._subscribeUserDefaultPanelChange();
+      this._store._getCoreData();
+
       await this._dialogManager._injectSidebarOrganizerElement(panelResolver);
+      // this._store._subscribeUserDefaultPanelChange();
+      return;
     } else {
+      this._store._profilePageDisconnect();
       return;
     }
   }
@@ -362,17 +377,31 @@ export class SidebarOrganizer {
   }
 
   private _mapItemsForDebug(
-    items: NodeListOf<SidebarPanelItem> | SidebarPanelItem[]
-  ): { panelId: string; title: string; group?: string }[] {
+    items: NodeListOf<SidebarPanelItem> | SidebarPanelItem[],
+    checkValid = false,
+    includeElement = false
+  ): {
+    panelId: string;
+    title: string;
+    group?: string;
+    hrefPanelId?: string;
+    isValid?: boolean;
+    element?: SidebarPanelItem;
+  }[] {
     return Array.from(items).map((element: SidebarPanelItem) => {
-      const panelId = element.getAttribute(ATTRIBUTE.DATA_PANEL) || element.href.replace('/', '');
+      const panelId = element.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
+      const hrefPanelId = element.href.replace('/', '');
       const intemText = element.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT);
-      const text = intemText!.textContent.trim();
+      const title = intemText!.textContent.trim();
       const group = element.getAttribute(ATTRIBUTE.GROUP) || undefined;
+      const isValid = checkValid ? this._compareDatasetWithHref(element) : undefined;
       return {
         panelId,
-        title: text,
+        hrefPanelId,
+        title,
+        isValid,
         group,
+        element: includeElement ? element : undefined,
       };
     });
   }
@@ -824,9 +853,11 @@ export class SidebarOrganizer {
     const afterSpacer = panelsList.querySelector(SELECTOR.AFTER_SPACER) as HTMLElement;
     // console.log({ bottomItems, bottomGridItems }, { panelsList, scrollbarItems, afterSpacer });
     const resetExistingElements = () => {
+      const existingBottomContainer = panelsList.querySelectorAll(SELECTOR.BOTTOM_CONTAINER);
       const emptyExistingGridContainer = panelsList.querySelectorAll(SELECTOR.GRID_CONTAINER);
       const dividerExisting = panelsList.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`);
-      if (emptyExistingGridContainer.length > 0 || dividerExisting.length > 0) {
+      if (existingBottomContainer.length > 0 || emptyExistingGridContainer.length > 0 || dividerExisting.length > 0) {
+        existingBottomContainer.forEach((el) => el.remove());
         emptyExistingGridContainer.forEach((el) => el.remove());
         dividerExisting.forEach((el) => el.remove());
       }
@@ -845,6 +876,8 @@ export class SidebarOrganizer {
       // Move all bottom panels to the correct region (right before afterSpacer)
       panelsToMove.forEach((panel) => {
         panel.setAttribute(ATTRIBUTE.MOVED, '');
+        panel.removeAttribute(ATTRIBUTE.GROUP);
+        panel.classList.remove(CLASS.COLLAPSED);
         bottomContainer.appendChild(panel);
       });
       panelsList.insertBefore(bottomContainer, afterSpacer);
@@ -860,6 +893,8 @@ export class SidebarOrganizer {
         if (!panel) return;
 
         panel.setAttribute(ATTRIBUTE.GRID_ITEM, '');
+        panel.removeAttribute(ATTRIBUTE.GROUP);
+        panel.classList.remove(CLASS.COLLAPSED);
         panel.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
         panel.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
         gridContainer.appendChild(panel);
@@ -1042,10 +1077,18 @@ export class SidebarOrganizer {
     return isValid;
   }
 
+  public _hasTopItemDiff(): boolean {
+    const topItemsChanges = this._mapItemsForDebug(this._scrollbarItems, true);
+    console.log(
+      'Top Items Changes:',
+      topItemsChanges.filter((item) => item.isValid === false)
+    );
+    return topItemsChanges.some((item) => item.isValid === false);
+  }
   public _checkDiffs = (): void => {
     const baseOrder = this._baseOrder;
-    const itemsNamed = Array.from(this._sidebarItems).map((e) => e.dataset.panel) as string[];
-    const notValidItem = Array.from(this._sidebarItems).find((item) => !this._compareDatasetWithHref(item));
+    const itemsNamed = Array.from(this._allItems).map((e) => e.dataset.panel) as string[];
+    const notValidItem = Array.from(this._allItems).find((item) => !this._compareDatasetWithHref(item));
     const orderDiff = !shallowEqual(baseOrder, itemsNamed);
     if (orderDiff || notValidItem != undefined) {
       this._diffCheck = false;

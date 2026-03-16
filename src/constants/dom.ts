@@ -26,6 +26,7 @@ export enum SELECTOR {
   BEFORE_SPACER = '.before-spacer',
   AFTER_SPACER = 'ha-md-list.after-spacer',
   GRID_CONTAINER = '.grid-container',
+  BOTTOM_CONTAINER = '.bottom-container',
   SETTINGS_ITEM = 'ha-md-list-item[href="/config"]',
   CONTENT = '.content',
   SIDEBAR_LOADER = 'ha-fade-in',

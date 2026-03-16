@@ -7,13 +7,14 @@ import * as CONFIG from '@utilities/configs';
 import * as DASHBOARD_HELPERS from '@utilities/dashboard';
 import { DashboardPanels, DataTableItem } from '@utilities/dashboard';
 import { nextRender } from '@utilities/dom-utils';
-import { subscribeFrontendUserData } from '@utilities/frontend';
+import { CoreFrontendUserData, subscribeFrontendUserData } from '@utilities/frontend';
 import * as OBJECT_DIFF from '@utilities/object-differences';
 import * as PANEL_HELPER from '@utilities/panel';
 import { shallowEqual } from '@utilities/shallow-equal';
 import { setStorage } from '@utilities/storage-utils';
 import { showToast } from '@utilities/toast-notify';
 import { isEmpty } from 'es-toolkit/compat';
+import { UnsubscribeFunc } from 'home-assistant-js-websocket';
 
 import { SidebarOrganizer } from '../../sidebar-organizer';
 import { HomeAssistant } from '../../types/ha';
@@ -27,6 +28,9 @@ export default class Store {
 
   public _panelHasChanged = false;
   public _defaultPanelHasChanged = false;
+
+  public _coreUserData?: CoreFrontendUserData | null;
+  private _unsubCoreData?: Promise<UnsubscribeFunc>;
 
   public _utils = {
     PANEL: PANEL_HELPER,
@@ -43,32 +47,48 @@ export default class Store {
     this.resetDashboardState();
   }
 
-  get notConfigured(): boolean {
+  get pluginConfigured(): boolean {
     return Boolean(this._organizer._hasSidebarConfig && !this._organizer._userHasSidebarSettings);
   }
-
-  public _subscribeUserDefaultPanelChange() {
-    if (Boolean(this._organizer._userHasSidebarSettings || !this._organizer._hasSidebarConfig)) {
+  public _getCoreData() {
+    if (!this.pluginConfigured) {
       return;
     }
-    const currentUserDefaultPanel = PANEL_HELPER.getDefaultPanelUrlPath(this.hass);
-    subscribeFrontendUserData(this.hass.connection, 'core', async ({ value }) => {
-      if (value !== null) {
-        this._defaultPanelHasChanged = Boolean(value.default_panel && currentUserDefaultPanel !== value.default_panel);
-        if (this._defaultPanelHasChanged) {
-          console.log(
-            '%cSTORE:',
-            'color: #4dabf7;',
-            'User default panel changed to',
-            value.default_panel,
-            'from',
-            currentUserDefaultPanel
-          );
-          await nextRender();
-          this._organizer._checkDiffs();
-        }
+    const defaultPanel = PANEL_HELPER.getDefaultPanelUrlPath(this.hass);
+    console.log(
+      '%cSTORE:',
+      'color: #4dabf7;',
+      'Subscribing to core frontend user data',
+      'Current user default panel:',
+      defaultPanel
+    );
+    this._unsubCoreData = subscribeFrontendUserData(this.hass.connection, 'core', async ({ value }) => {
+      this._coreUserData = value;
+      // console.log('%cSTORE:', 'color: #4dabf7;', 'Received core frontend user data:', value);
+      const userDefaultPanel = value?.default_panel;
+      const hasChangeInDefaultPanel = Boolean(userDefaultPanel && defaultPanel !== userDefaultPanel);
+      if (hasChangeInDefaultPanel) {
+        console.log(
+          '%cSTORE:',
+          'color: #4dabf7;',
+          'User default panel changed to',
+          userDefaultPanel,
+          'from',
+          defaultPanel
+        );
+        this._needReloadToast();
+        return;
       }
+      await nextRender();
+      this._organizer._checkDiffs();
     });
+  }
+  public _profilePageDisconnect() {
+    if (this._unsubCoreData) {
+      this._unsubCoreData.then((unsub) => unsub());
+      this._unsubCoreData = undefined;
+      console.log('%cSTORE:', 'color: #4dabf7;', 'Unsubscribed from core frontend user data', this._coreUserData);
+    }
   }
 
   private _getPanelItems = async (userDefault: boolean = false): Promise<DataTableItem[]> => {
@@ -81,7 +101,7 @@ export default class Store {
     return configLovelaceDashboards._getItems(configLovelaceDashboards._dashboards, defaultPanel, this.hass.panels);
   };
 
-  public _subscribePanels(): void {
+  public async _subscribePanels(): Promise<void> {
     if (Boolean(this._organizer._userHasSidebarSettings || !this._organizer._hasSidebarConfig)) {
       return;
     }
@@ -89,17 +109,19 @@ export default class Store {
     console.log('%cSTORE:', 'color: #4dabf7;', 'Subscribing to sidebar panels changes');
     const hasUserDefaultPanel = Boolean(this.hass.userData?.default_panel);
     if (!this._dashboardPanels?.initialPanels) {
-      this._getPanelItems(hasUserDefaultPanel).then((items) => {
+      console.log('%cSTORE:', 'color: #4dabf7;', 'Initializing dashboard panels state');
+      await this._getPanelItems(hasUserDefaultPanel).then((items) => {
         this._dashboardPanels = {
           initialPanels: [...items],
           notShowInSidebar:
             items.filter((item) => !item.show_in_sidebar).map((item) => this.hass.panels[item.url_path]!) || [],
         };
       });
+      console.log('%cSTORE:', 'color: #4dabf7;', 'Initial dashboard panels state set to', this._dashboardPanels);
     }
 
     this._utils.PANEL.subscribePanels(this.hass.connection, async (panels: Panels) => {
-      const initDasboardPanels = this._dashboardPanels!;
+      const initDasboardPanels = this._dashboardPanels ?? { initialPanels: [], notShowInSidebar: [] };
       const initialPanels = initDasboardPanels.initialPanels || [];
       const newDasboards = await this._getPanelItems(hasUserDefaultPanel);
       // Get deleted panels and added panels, by comparing new dashboards with initial panels
