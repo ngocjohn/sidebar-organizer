@@ -81,7 +81,6 @@ export class SidebarDialogPreview extends LitElement {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig) {
       const oldConfig = _changedProperties.get('_sidebarConfig') as SidebarConfig | undefined;
       const newConfig = this._sidebarConfig;
-
       if (oldConfig && newConfig) {
         this._updatePanelConfig(oldConfig, newConfig);
         this._updateThemeChange(oldConfig, newConfig);
@@ -326,6 +325,7 @@ export class SidebarDialogPreview extends LitElement {
     setTimeout(() => {
       this._getDefaultColors();
     }, 200);
+
     // console.log('Preview Theme applied', theme, mode);
   }
 
@@ -562,13 +562,14 @@ export class SidebarDialogPreview extends LitElement {
       // console.log('getColor', key, color);
       return color;
     };
+    const forceTransparent = this._sidebarConfig?.force_transparent_background === true;
 
     const styleAdded = {
       '--divider-color': getColor('divider_color'),
       '--divider-bg-color': getColor('background_color'),
       '--divider-border-top-color': getColor('border_top_color'),
       '--scrollbar-thumb-color': getColor('scrollbar_thumb_color'),
-      '--sidebar-background-color': getColor('custom_sidebar_background_color'),
+      '--sidebar-background-color': forceTransparent ? 'transparent' : getColor('custom_sidebar_background_color'),
       '--divider-border-radius': `${borderRadius}px`,
       '--sidebar-text-color': getColor('divider_text_color'),
       '--sidebar-icon-color': getColor('sidebar_icon_color'),
@@ -882,7 +883,7 @@ export class SidebarDialogPreview extends LitElement {
           display: flex;
         }
         .icon-item[grid-item] {
-          /* padding: 0; */
+          padding: 0;
           padding-inline-start: 0;
           /* margin: auto auto; */
           width: 100%;

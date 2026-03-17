@@ -166,7 +166,7 @@ export const getPanelItems = async (hass: HomeAssistant): Promise<DataTableItem[
 
 export const comparePanelItems = async (hass: HomeAssistant, panelOrder: string[]): Promise<DashboardComparison> => {
   const currentItems = await getPanelItems(hass).then((items) => {
-    const notInSidebar = items.filter((item) => !item.show_in_sidebar).map((item) => item.url_path);
+    const notInSidebar = items.filter((item) => !item.show_in_sidebar && !item.default).map((item) => item.url_path);
     const inSidebar = items.filter((item) => item.show_in_sidebar).map((item) => item.url_path);
     return { inSidebar, notInSidebar };
   });

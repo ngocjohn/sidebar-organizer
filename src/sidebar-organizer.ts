@@ -217,7 +217,6 @@ export class SidebarOrganizer {
       if (!atLeastVersion(this.hass.config.version, 2026, 3)) {
         await this._getDataDashboards();
       }
-      this._watchHaSidebarShouldUpdate();
 
       this.firstSetUpDone = true;
     }
@@ -321,24 +320,22 @@ export class SidebarOrganizer {
         if (this._diffCheck && this.firstSetUpDone && this.setupConfigDone) {
           onPanelLoaded(pathName, paperListBox);
           if (pathName === PATH.LOVELACE_DASHBOARD) {
-            // this._store._subscribeDashboardData();
             this._store._subscribePanels();
           }
         }
-      }, 100);
+      }, 200);
     }
   }
 
-  private async _checkProfileSection() {
+  private _checkProfileSection = async (): Promise<void> => {
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     const pathName = panelResolver?.route?.path ?? window.location.pathname;
     if (pathName && PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
       await this._dialogManager._injectSidebarOrganizerElement(panelResolver);
-      return;
     } else {
       return;
     }
-  }
+  };
 
   private async _checkUserSidebarSettings(): Promise<void> {
     const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
@@ -854,8 +851,6 @@ export class SidebarOrganizer {
       // Move all bottom panels to the correct region (right before afterSpacer)
       panelsToMove.forEach((panel) => {
         panel.setAttribute(ATTRIBUTE.MOVED, '');
-        panel.removeAttribute(ATTRIBUTE.GROUP);
-        panel.classList.remove(CLASS.COLLAPSED);
         bottomContainer.appendChild(panel);
       });
       panelsList.insertBefore(bottomContainer, afterSpacer);
@@ -871,8 +866,6 @@ export class SidebarOrganizer {
         if (!panel) return;
 
         panel.setAttribute(ATTRIBUTE.GRID_ITEM, '');
-        panel.removeAttribute(ATTRIBUTE.GROUP);
-        panel.classList.remove(CLASS.COLLAPSED);
         panel.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
         panel.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
         gridContainer.appendChild(panel);
@@ -1002,7 +995,7 @@ export class SidebarOrganizer {
     const customGroups = this._config.custom_groups || {};
     const bottomMovedItems = this._config.bottom_items || [];
     const bottomGridItems = this._config.bottom_grid_items || [];
-    const settingsNotMoved = this._config.move_settings_from_fixed !== true;
+
     // Get grouped items
     const groupedItems = Object.values(customGroups)
       .flat()
@@ -1022,10 +1015,10 @@ export class SidebarOrganizer {
 
     // Combine grouped, default, and bottom items
     const reorderedPanels = [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems];
-    if (settingsNotMoved && reorderedPanels.includes('config')) {
-      // delete config from panels
-      reorderedPanels.splice(reorderedPanels.indexOf('config'), 1);
-    }
+    // if (settingsNotMoved && reorderedPanels.includes('config')) {
+    //   // delete config from panels
+    //   reorderedPanels.splice(reorderedPanels.indexOf('config'), 1);
+    // }
 
     return reorderedPanels;
   }

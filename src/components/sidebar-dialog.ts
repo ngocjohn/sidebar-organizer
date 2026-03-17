@@ -45,6 +45,7 @@ import { isEmpty, pick } from 'es-toolkit/compat';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { styleMap } from 'lit/directives/style-map.js';
 import YAML from 'yaml';
 
 import { SidebarDialogCodeEditor } from './sidebar-dialog-code-editor';
@@ -337,8 +338,12 @@ export class SidebarConfigDialog extends LitElement {
   }
 
   private _renderSidebarPreview(): TemplateResult {
+    const previewStyles = {
+      '--so-force-transparent-background':
+        this._sidebarConfig.force_transparent_background === true ? 'transparent' : undefined,
+    };
     return html`
-      <div id="sidebar-preview">
+      <div id="sidebar-preview" style=${styleMap(previewStyles)}>
         <sidebar-dialog-preview
           .invalidConfig=${!this.isValidConfig}
           .hass=${this.hass}
@@ -595,9 +600,8 @@ export class SidebarConfigDialog extends LitElement {
       await this._alert(alertMesg, 'Reload page').then(() => {
         this._mainDialog.closeDialog();
         // Reload the page to update the panels, to initial page
-        window.location.href = '/';
+        window.location.reload();
       });
-      return;
     } else {
       //success
       console.log(
@@ -838,7 +842,7 @@ export class SidebarConfigDialog extends LitElement {
           /* background-color: rgba(0, 0, 0, 0.2); */
           background-color: var(--primary-background-color, var(--clear-background-color, rgba(0, 0, 0, 0.2)));
           --theme-border-color: var(--divider-color, rgba(0, 0, 0, 0.12));
-          --drawer-background-color: var(--mdc-theme-surface);
+          --drawer-background-color: var(--so-force-transparent-background, var(--mdc-theme-surface));
         }
 
         .config-content {
