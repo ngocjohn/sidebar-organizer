@@ -38,14 +38,13 @@ import {
   normalizePinnedGroups,
 } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { addAction, compareDatasetWithHref, mapItemsForDebug, nextRender, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, mapItemsForDebug, nextRender, onPanelLoaded } from '@utilities/dom-utils';
 import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
 import DialogHandler from '@utilities/model/dialog-handler';
 import Store from '@utilities/model/store';
 import { computeBadge, computeNewItem, computeNotifyIcon, getDefaultPanelUrlPath } from '@utilities/panel';
-import { shallowEqual } from '@utilities/shallow-equal';
 import { setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { getPromisableResult, PromisableOptions } from 'get-promisable-result';
@@ -80,9 +79,9 @@ export class SidebarOrganizer {
       { once: true }
     );
 
-    instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, this._panelLoaded.bind(this));
-
-    instance.listen();
+    instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
+      this._panelLoaded();
+    });
 
     this._styleManager = new HomeAssistantStylesManager({
       prefix: NAMESPACE,
@@ -108,6 +107,7 @@ export class SidebarOrganizer {
     this._watchPathChanges();
     this._mouseEnterBinded = this._mouseEnter.bind(this);
     this._mouseLeaveBinded = this._mouseLeave.bind(this);
+    instance.listen();
   }
 
   private _homeAssistant!: HAElement;
@@ -159,10 +159,7 @@ export class SidebarOrganizer {
   }
 
   get _scrollbar(): HTMLElement {
-    return (
-      (this.sideBarRoot?.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement) ||
-      (this._panelsList?.querySelector(SELECTOR.SIDEBAR_BEFORE_SPACER_CONTAINER) as HTMLElement)
-    );
+    return this.sideBarRoot?.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement;
   }
 
   get _scrollbarItems(): NodeListOf<SidebarPanelItem> {
@@ -177,7 +174,10 @@ export class SidebarOrganizer {
       ?.querySelector(SELECTOR.GRID_CONTAINER)
       ?.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
 
-    return [...bottomContainerItems, ...bottomGridContainerItems] as unknown as NodeListOf<SidebarPanelItem>;
+    return [
+      ...(bottomContainerItems || []),
+      ...(bottomGridContainerItems || []),
+    ] as unknown as NodeListOf<SidebarPanelItem>;
   }
 
   get _allItems(): NodeListOf<SidebarPanelItem> {
@@ -193,7 +193,7 @@ export class SidebarOrganizer {
   get _pluginConfigured(): boolean {
     return Boolean(this._hasSidebarConfig && !this._userHasSidebarSettings);
   }
-  public async run() {
+  public async run(): Promise<void> {
     if (!this.hass || this.hass.config?.state !== HA_STATE.RUNNING) {
       this._store._haNotRunningToast();
       return;
@@ -217,13 +217,15 @@ export class SidebarOrganizer {
       if (!atLeastVersion(this.hass.config.version, 2026, 3)) {
         await this._getDataDashboards();
       }
-
       this.firstSetUpDone = true;
     }
 
     if (this.firstSetUpDone && !this._userHasSidebarSettings) {
       await this._getConfig();
       this._processConfig();
+    }
+    if (this.setupConfigDone) {
+      this._watchHaSidebarShouldUpdate();
     }
   }
 
@@ -323,7 +325,7 @@ export class SidebarOrganizer {
             this._store._subscribePanels();
           }
         }
-      }, 200);
+      }, 100);
     }
   }
 
@@ -399,7 +401,7 @@ export class SidebarOrganizer {
     return items;
   }
 
-  private _processConfig(): void {
+  private _processConfig() {
     if (!this._config || Object.keys(this._config).length === 0) {
       console.log('No config found, skipping processing');
       return;
@@ -726,7 +728,7 @@ export class SidebarOrganizer {
       );
   }
 
-  private _moveSettingsFromFixed(move: boolean = false): void {
+  private _moveSettingsFromFixed(move: boolean = false) {
     if (!move) return;
     const settingsItem = this.sideBarRoot?.querySelector(SELECTOR.SETTINGS_ITEM) as SidebarPanelItem;
     if (!settingsItem) {
@@ -817,52 +819,50 @@ export class SidebarOrganizer {
     return contentDiv;
   };
 
-  private _addBottomItems() {
+  private _addBottomItems(): void {
     const bottomItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM) || [];
     const bottomGridItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID) || [];
     if (bottomItems.length === 0 && bottomGridItems.length === 0) {
       return;
     }
     const panelsList = this._panelsList;
-    const scrollbarItems = Array.from(this._sidebarItems) as SidebarPanelItem[];
     const afterSpacer = panelsList.querySelector(SELECTOR.AFTER_SPACER) as HTMLElement;
-    // console.log({ bottomItems, bottomGridItems }, { panelsList, scrollbarItems, afterSpacer });
-    const resetExistingElements = () => {
-      const existingBottomContainer = panelsList.querySelectorAll(SELECTOR.BOTTOM_CONTAINER);
-      const emptyExistingGridContainer = panelsList.querySelectorAll(SELECTOR.GRID_CONTAINER);
-      const dividerExisting = panelsList.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`);
-      if (existingBottomContainer.length > 0 || emptyExistingGridContainer.length > 0 || dividerExisting.length > 0) {
-        existingBottomContainer.forEach((el) => el.remove());
-        emptyExistingGridContainer.forEach((el) => el.remove());
-        dividerExisting.forEach((el) => el.remove());
-      }
-    };
-    resetExistingElements();
+    panelsList.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`)?.forEach((el) => el.remove());
+    // // console.log({ bottomItems, bottomGridItems }, { panelsList, scrollbarItems, afterSpacer });
+    // const resetExistingElements = () => {
+    //   const existingBottomContainer = panelsList.querySelectorAll(SELECTOR.BOTTOM_CONTAINER);
+    //   const emptyExistingGridContainer = panelsList.querySelectorAll(SELECTOR.GRID_CONTAINER);
+    //   const dividerExisting = panelsList.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`);
+    //   if (existingBottomContainer.length > 0 || emptyExistingGridContainer.length > 0 || dividerExisting.length > 0) {
+    //     existingBottomContainer.forEach((el) => el.remove());
+    //     emptyExistingGridContainer.forEach((el) => el.remove());
+    //     dividerExisting.forEach((el) => el.remove());
+    //   }
+    // };
+    // resetExistingElements();
 
     if (bottomItems.length > 0) {
       const bottomContainer = document.createElement('div') as HTMLElement;
       bottomContainer.classList.add('bottom-container');
-      const panelsToMove = bottomItems
-        .map((id) => scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === id))
-        .filter(Boolean) as SidebarPanelItem[];
-
-      if (panelsToMove.length === 0) return;
-
-      // Move all bottom panels to the correct region (right before afterSpacer)
-      panelsToMove.forEach((panel) => {
-        panel.setAttribute(ATTRIBUTE.MOVED, '');
-        bottomContainer.appendChild(panel);
+      bottomItems.forEach((item) => {
+        const bottomItem = this._sidebarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
+        if (!bottomItem) return;
+        bottomItem.setAttribute(ATTRIBUTE.MOVED, '');
+        bottomContainer.appendChild(bottomItem);
       });
-      panelsList.insertBefore(bottomContainer, afterSpacer);
-      const bottomItemDivider = this._createDivider(ATTRIBUTE.BOTTOM);
-      panelsList.insertBefore(bottomItemDivider, afterSpacer);
+
+      if (bottomContainer.children.length > 0) {
+        const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
+        panelsList.insertBefore(bottomContainer, afterSpacer);
+        panelsList.insertBefore(bottomDivider, afterSpacer);
+      }
     }
 
     if (bottomGridItems.length > 0) {
       const gridContainer = document.createElement('div') as HTMLElement;
       gridContainer.classList.add('grid-container');
       bottomGridItems.forEach((item) => {
-        const panel = scrollbarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
+        const panel = this._sidebarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
         if (!panel) return;
 
         panel.setAttribute(ATTRIBUTE.GRID_ITEM, '');
@@ -872,6 +872,7 @@ export class SidebarOrganizer {
       });
 
       if (gridContainer.children.length > 0) {
+        panelsList.querySelector(SELECTOR.GRID_CONTAINER)?.remove();
         const divider = this._createDivider(ATTRIBUTE.BOTTOM);
         panelsList.insertBefore(gridContainer, afterSpacer);
         panelsList.insertBefore(divider, afterSpacer);
@@ -971,7 +972,7 @@ export class SidebarOrganizer {
     // If force transparent background is enabled, override related colors and add backdrop filter styles
     if (forceTransparentBackground) {
       colorCssConfig['--sidebar-background-color'] = 'transparent';
-      colorCssConfig['--so-tooltip-background-color'] = 'var(--secondary-background-color)';
+      colorCssConfig['--so-tooltip-background-color'] = 'var(--primary-background-color)';
       colorCssConfig['--so-tooltip-text-color'] = 'var(--primary-text-color)';
       colorCssConfig['--so-backdrop-filter'] = 'blur(10px)';
       this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
@@ -985,9 +986,6 @@ export class SidebarOrganizer {
       [CUSTOM_COLOR_CONFIG, CUSTOM_STYLES, DIVIDER_ADDED_STYLE.toString()],
       this.sideBarRoot!
     );
-    // if (forceTransparentBackground) {
-    //   this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
-    // }
   }
 
   private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {
@@ -1033,7 +1031,7 @@ export class SidebarOrganizer {
     }
 
     // Check differences after a delay
-    setTimeout(() => this._checkDiffs(), 100);
+    setTimeout(() => this._checkDiffs(), 200);
   }
 
   public _hasTopItemDiff(): boolean {
@@ -1047,22 +1045,20 @@ export class SidebarOrganizer {
 
   public _checkDiffs = (): void => {
     const baseOrder = this._baseOrder;
-    const itemsNamed = Array.from(this._allItems).map((e) => e.dataset.panel) as string[];
-    const notValidItem = Array.from(this._allItems).find((item) => !compareDatasetWithHref(item));
-    const orderDiff = !shallowEqual(baseOrder, itemsNamed);
-    if (orderDiff || notValidItem != undefined) {
-      this._diffCheck = false;
+    const _allItems = Array.from(this._allItems);
+    const itemsValidation = mapItemsForDebug(_allItems, true);
+
+    if (itemsValidation.some((item) => item.isValid === false)) {
       const logs = {
-        orderDiff: orderDiff,
         baseOrder: baseOrder,
-        itemsNamed: itemsNamed,
-        notValidItem: notValidItem,
+        notValidItems: itemsValidation.filter((item) => item.isValid === false),
       };
       // warning
       console.log('%cMAIN:%c ⚠️ DIFF DETECTED', 'color: #bada55;', 'color: #fab005; font-weight: 600;', logs);
 
       LOGGER.warn('Changes detected:', logs);
 
+      this._diffCheck = false;
       this._store._needReloadToast();
     } else {
       this._diffCheck = true;
@@ -1225,13 +1221,13 @@ export class SidebarOrganizer {
     this._handleCollapsedChange();
   }
 
-  public _reloadWindow = (timeout: number = 1000): void => {
+  public _reloadWindow(timeout: number = 1000): void {
     this._store._showToast('Reloading window to apply changes...');
-    this._store.resetDashboardState();
-    setTimeout(async () => {
-      window.location.href = '/';
+    // this._store.resetDashboardState();
+    setTimeout(() => {
+      window.location.reload();
     }, timeout);
-  };
+  }
 
   public _getGroupOfPanel = (panel: string): string | null => {
     const group = [...this._configPanelMap.entries()].find(([, items]) => items.includes(panel));
