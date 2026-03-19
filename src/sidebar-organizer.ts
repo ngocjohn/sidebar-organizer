@@ -224,9 +224,6 @@ export class SidebarOrganizer {
       await this._getConfig();
       this._processConfig();
     }
-    if (this.setupConfigDone) {
-      this._watchHaSidebarShouldUpdate();
-    }
   }
 
   private async _watchEditLegacySidebar(): Promise<void> {
@@ -303,7 +300,6 @@ export class SidebarOrganizer {
     } else {
       this._checkDiffs();
       this._store.resetDashboardState();
-      // this._addBottomItems();
     }
   }
 
@@ -342,7 +338,6 @@ export class SidebarOrganizer {
   private async _checkUserSidebarSettings(): Promise<void> {
     const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
     this._userHasSidebarSettings = (userData?.panelOrder && userData.panelOrder.length > 0) || false;
-    // this._store._subscribeUserDefaultPanel();
   }
 
   private async _setupConfigBtn(): Promise<void> {
@@ -438,6 +433,9 @@ export class SidebarOrganizer {
         );
       }
 
+      const bottomContainerFragment = document.createDocumentFragment();
+      const bottomGridContainerFragment = document.createDocumentFragment();
+
       const initOrder = Array.from(scrollbarItems).map(
         (item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '')
       );
@@ -445,20 +443,16 @@ export class SidebarOrganizer {
       const combinedOrder = this._reorderPanelItemsByConfig(initOrder);
       this._baseOrder = combinedOrder;
 
-      // raarnge items based on the combined order, item not found in the combined order will be placed at the end
-
-      this._sidebarItems = this._sidebarItems.sort((a, b) => {
+      this._sidebarItems.sort((a, b) => {
         const aIndex = combinedOrder.indexOf(a.getAttribute(ATTRIBUTE.DATA_PANEL) || a.href.replace('/', ''));
         const bIndex = combinedOrder.indexOf(b.getAttribute(ATTRIBUTE.DATA_PANEL) || b.href.replace('/', ''));
         return aIndex - bIndex;
       });
 
-      // this._sidebarItems = orderedItems;
-
       const firstChildNextSibling = sidebarItemsContainer.firstChild?.nextSibling || null;
-      // rearrange the items in the sidebar by their new order
+
       this._sidebarItems.forEach((item) => {
-        const itemPanelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
+        const itemPanelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '');
         const itemsGroup = this._getGroupOfPanel(itemPanelId);
         const itemsNotificationValue = notificationMap.get(itemPanelId);
         const itemToMove = Array.from(scrollbarItems).find(
@@ -469,28 +463,51 @@ export class SidebarOrganizer {
           // Move the item to the new position
           sidebarItemsContainer.insertBefore(itemToMove, firstChildNextSibling);
         }
-
         if (itemsNotificationValue !== undefined) {
           this._subscribeNotification(item, itemsNotificationValue);
         }
-        // Handle custom groups
 
-        if (itemsGroup && itemsGroup !== PANEL_TYPE.BOTTOM && itemsGroup !== PANEL_TYPE.BOTTOM_GRID) {
-          const isCollapsed = this.collapsedItems.has(itemsGroup);
-          const isFirstInGroup = this._configPanelMap.get(itemsGroup)?.[0] === itemPanelId;
+        if (itemsGroup) {
+          if (itemsGroup === PANEL_TYPE.BOTTOM) {
+            item.setAttribute(ATTRIBUTE.MOVED, '');
+            bottomContainerFragment.appendChild(item);
+          } else if (itemsGroup === PANEL_TYPE.BOTTOM_GRID) {
+            item.setAttribute(ATTRIBUTE.GRID_ITEM, '');
+            item.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
+            item.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
+            bottomGridContainerFragment.appendChild(item);
+          } else {
+            const isCollapsed = this.collapsedItems.has(itemsGroup);
+            const isFirstInGroup = this._configPanelMap.get(itemsGroup)?.[0] === itemPanelId;
 
-          if (isFirstInGroup) {
-            // Handle collapsed state toggle
-            const groupDivider = this._createDividerWithGroup(itemsGroup, isCollapsed);
-            sidebarItemsContainer.insertBefore(groupDivider, item);
+            if (isFirstInGroup) {
+              const groupDivider = this._createDividerWithGroup(itemsGroup, isCollapsed);
+              item.insertAdjacentElement('beforebegin', groupDivider);
+            }
+            item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
+            item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
           }
-          item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
-          item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
         }
       });
 
-      // Handle bottom items
-      this._addBottomItems();
+      const spacer = this._panelsList.querySelector(SELECTOR.AFTER_SPACER) as HTMLElement;
+      if (bottomContainerFragment.children.length > 0) {
+        const bottomContainer = document.createElement('div') as HTMLElement;
+        bottomContainer.classList.add(SELECTOR.BOTTOM_CONTAINER.replace('.', ''));
+        bottomContainer.appendChild(bottomContainerFragment);
+        const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
+        this._panelsList.insertBefore(bottomContainer, spacer);
+        this._panelsList.insertBefore(bottomDivider, spacer);
+      }
+
+      if (bottomGridContainerFragment.children.length > 0) {
+        const bottomGridContainer = document.createElement('div') as HTMLElement;
+        bottomGridContainer.classList.add(SELECTOR.GRID_CONTAINER.replace('.', ''));
+        bottomGridContainer.appendChild(bottomGridContainerFragment);
+        const bottomGridDivider = this._createDivider(ATTRIBUTE.BOTTOM);
+        this._panelsList.insertBefore(bottomGridContainer, spacer);
+        this._panelsList.insertBefore(bottomGridDivider, spacer);
+      }
 
       // Reorder grouped items
       this._reorderGroupedSidebar();
@@ -499,6 +516,7 @@ export class SidebarOrganizer {
       this._handleSidebarHeader();
 
       this.setupConfigDone = true;
+      this._watchHaSidebarShouldUpdate();
       this._panelLoaded();
     });
   }
@@ -509,21 +527,21 @@ export class SidebarOrganizer {
       delay: 50,
       shouldReject: false,
     };
+    const sidebarShadowRoot = await this._sidebar.selector.$.element;
+
+    if (sidebarShadowRoot) {
+      await getPromisableResult(
+        () => sidebarShadowRoot.querySelector(SELECTOR.SIDEBAR_LOADER),
+        (sidebarLoader: Element | null) => sidebarLoader === null,
+        promisableResultOptions
+      );
+    }
     const sidebarItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_SCROLLBAR)
       .element) as HTMLElement;
 
-    const scrollbarItems = await getPromisableResult<NodeListOf<SidebarPanelItem>>(
-      () => sidebarItemsContainer.querySelectorAll<SidebarPanelItem>(ELEMENT.ITEM),
-      (elements: NodeListOf<SidebarPanelItem>): boolean => {
-        return Array.from(elements).every((el: SidebarPanelItem): boolean => {
-          const itemTextElement = el.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT);
-          const text = itemTextElement ? itemTextElement.innerText.trim() : '';
-          return text.length > 0;
-        });
-      },
-      promisableResultOptions
-    );
-    return [sidebarItemsContainer, scrollbarItems];
+    const sidebarItems = await this._getContainerItems(sidebarItemsContainer, promisableResultOptions);
+
+    return [sidebarItemsContainer, sidebarItems];
   }
 
   private _storageListener(event: StorageEvent) {
@@ -893,14 +911,17 @@ export class SidebarOrganizer {
       return;
     } else {
       console.log('Changes Detected');
-      // remove empty custom group or alert to abort
-
-      setStorage(STORAGE.UI_CONFIG, config);
-      // setStorage(STORAGE.HIDDEN_PANELS, config.hidden_items);
       this._config = config;
-
-      this._reloadWindow();
-      return;
+      const resetConfigPromise = () =>
+        new Promise<void>((resolve) => {
+          setStorage(STORAGE.UI_CONFIG, this._config);
+          localStorage.removeItem(STORAGE.PANEL_ORDER);
+          localStorage.removeItem(STORAGE.HIDDEN_PANELS);
+          resolve();
+        });
+      resetConfigPromise().then(() => {
+        this._reloadWindow();
+      });
     }
   }
 
@@ -1013,10 +1034,6 @@ export class SidebarOrganizer {
 
     // Combine grouped, default, and bottom items
     const reorderedPanels = [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems];
-    // if (settingsNotMoved && reorderedPanels.includes('config')) {
-    //   // delete config from panels
-    //   reorderedPanels.splice(reorderedPanels.indexOf('config'), 1);
-    // }
 
     return reorderedPanels;
   }
@@ -1223,7 +1240,6 @@ export class SidebarOrganizer {
 
   public _reloadWindow(timeout: number = 1000): void {
     this._store._showToast('Reloading window to apply changes...');
-    // this._store.resetDashboardState();
     setTimeout(() => {
       window.location.reload();
     }, timeout);

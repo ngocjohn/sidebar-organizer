@@ -36,8 +36,8 @@ export default class Store {
 
   constructor(ha: HaExtened, organizer: SidebarOrganizer) {
     this.haElement = ha;
-    this._organizer = organizer;
     this.hass = ha.hass;
+    this._organizer = organizer;
   }
 
   private _getPanelItems = async (userDefault: boolean = false): Promise<DataTableItem[]> => {
@@ -52,11 +52,9 @@ export default class Store {
 
   public async _subscribePanels(): Promise<void> {
     if (!this._organizer._pluginConfigured) {
-      console.log('%cSTORE:', 'color: #4dabf7;', 'Plugin not configured. Skipping panels subscription.');
       return;
     }
 
-    console.log('%cSTORE:', 'color: #4dabf7;', 'Subscribing to sidebar panels changes');
     const hasUserDefaultPanel = Boolean(this.hass.userData?.default_panel);
     if (!this._dashboardPanels?.initialPanels) {
       await this._getPanelItems(hasUserDefaultPanel).then((items) => {
@@ -66,7 +64,7 @@ export default class Store {
             items.filter((item) => !item.show_in_sidebar).map((item) => this.hass.panels[item.url_path]!) || [],
         };
       });
-      console.log('%cSTORE:', 'color: #4dabf7;', 'Initial dashboard panels state set to', this._dashboardPanels);
+      console.debug('%cSTORE:', 'color: #4dabf7;', 'Initial dashboard panels state set to', this._dashboardPanels);
     }
 
     this._utils.PANEL.subscribePanels(this.hass.connection, async (panels: Panels) => {
@@ -92,7 +90,7 @@ export default class Store {
           ...(!isEmpty(removed) && { removed: removed }),
           ...(!isEmpty(notShowInSidebar) && { notShowInSidebar }),
         };
-        console.log(
+        console.debug(
           '%cSTORE:',
           'color: #4dabf7;',
           'Detected changes in sidebar panels',
@@ -121,7 +119,7 @@ export default class Store {
       const config = { ...this._organizer._config };
       const hasItemsToRemove = configHelper.getAllConfigItems(config).some((item) => itemToRemove.has(item));
       if (hasItemsToRemove) {
-        console.log(
+        console.debug(
           '%cSTORE:',
           'color: #4dabf7;',
           'Panel changes affect current config. Updating config to remove deleted panels...'

@@ -103,12 +103,6 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
     return;
   }
 
-  private _showSuccessToast(): void {
-    showToast(this, {
-      message: 'Test config saved successfully.',
-    });
-  }
-
   private async _handleSaveConfig(): Promise<void> {
     if (!this._canSaveConfig) {
       console.warn('Cannot save config, it is not valid or has unsaved changes.');
@@ -120,7 +114,6 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
     } else if (this._configDialog._useConfigFile && this._configValid) {
       // If using config file, we save the config to the file
       await this._configDialog._handleInvalidConfig('save');
-      this._showSuccessToast();
       // After saving to storage, _useConfigFile will be set to false by _handleInvalidConfig
       // Continue with the rest of the save logic below
     }
@@ -130,6 +123,7 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
       config,
       useConfigFile: useConfigFile,
     };
+
     fireEvent(this, HA_EVENT.SIDEBAR_CONFIG_SAVED, detail);
     this._dialogClosed();
   }

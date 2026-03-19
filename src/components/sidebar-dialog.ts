@@ -527,7 +527,7 @@ export class SidebarConfigDialog extends LitElement {
         try {
           const content = ev.target?.result as string;
           const newConfig = YAML.parse(content);
-          const checkedConfig = isItemsValid(newConfig, this.hass, true);
+          const checkedConfig = await isItemsValid(newConfig, this.hass, true);
           if (typeof checkedConfig !== 'object' || checkedConfig === null) {
             return;
           }
@@ -620,7 +620,7 @@ export class SidebarConfigDialog extends LitElement {
     const config = await fetchFileConfig();
     if (!config) return;
 
-    const result = isItemsValid(config, this.hass, true);
+    const result = (await isItemsValid(config, this.hass, true)) as INVALID_CONFIG;
     console.log('Config file validation result', result);
     if (typeof result === 'object' && result !== null) {
       this._invalidConfig = result;
@@ -644,7 +644,7 @@ export class SidebarConfigDialog extends LitElement {
     switch (action) {
       case 'check':
         const config = this._invalidConfig.config as SidebarConfig;
-        const result = isItemsValid(config, this.hass, true) as INVALID_CONFIG;
+        const result = (await isItemsValid(config, this.hass, true)) as INVALID_CONFIG;
         console.log('Re-checking config validity', result.valid);
         if (typeof result === 'object' && result !== null) {
           this._invalidConfig = result;
@@ -653,7 +653,7 @@ export class SidebarConfigDialog extends LitElement {
         break;
       case 'auto-correct':
         console.log('Auto-correcting invalid config');
-        const correctedConfig = tryCorrectConfig(this._invalidConfig.config, this.hass);
+        const correctedConfig = await tryCorrectConfig(this._invalidConfig.config, this.hass);
         this._invalidConfig = { ...this._invalidConfig, config: correctedConfig };
         this._handleInvalidConfig('check');
         this.requestUpdate();
@@ -661,7 +661,7 @@ export class SidebarConfigDialog extends LitElement {
       case 'save':
         console.log('Saving config to storage');
         // check again if config is valid
-        const isConfigurationValid = isItemsValid(this._invalidConfig.config, this.hass) as boolean;
+        const isConfigurationValid = (await isItemsValid(this._invalidConfig.config, this.hass)) as boolean;
         if (!isConfigurationValid) {
           await showAlertDialog(this, ALERT_MSG.CONFIG_INVALID);
           return;
