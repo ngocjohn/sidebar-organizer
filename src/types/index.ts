@@ -153,10 +153,10 @@ export type PanelType = (typeof PanelTypes)[number];
 export type ItemShallowKeys = keyof SidebardPanelConfig & 'new_items';
 
 export enum PANEL_TYPE {
-  CUSTOM = 'custom_groups',
-  BOTTOM = 'bottom_items',
-  BOTTOM_GRID = 'bottom_grid_items',
-  HIDDEN = 'hidden_items',
+  CUSTOM_GROUPS = 'custom_groups',
+  BOTTOM_ITEMS = 'bottom_items',
+  BOTTOM_GRID_ITEMS = 'bottom_grid_items',
+  HIDDEN_ITEMS = 'hidden_items',
 }
 
 export type PinnedGroupEntry = true | { icon?: string };

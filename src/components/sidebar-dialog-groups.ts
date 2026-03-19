@@ -543,8 +543,8 @@ export class SidebarDialogGroups extends LitElement {
     ></ha-control-select>`;
 
     const sectionMap = {
-      [SECTION_BOTTOM.BOTTOM]: this._renderPanelSelector(PANEL_TYPE.BOTTOM),
-      [SECTION_BOTTOM.BOTTOM_GRID]: this._renderPanelSelector(PANEL_TYPE.BOTTOM_GRID),
+      [SECTION_BOTTOM.BOTTOM]: this._renderPanelSelector(PANEL_TYPE.BOTTOM_ITEMS),
+      [SECTION_BOTTOM.BOTTOM_GRID]: this._renderPanelSelector(PANEL_TYPE.BOTTOM_GRID_ITEMS),
     };
     return html`
       ${sectionSelector}
@@ -597,7 +597,11 @@ export class SidebarDialogGroups extends LitElement {
           </div>
           ${this._renderSpacer()}
         </div>
-        <div class="preview-container" ?grid=${configValue === PANEL_TYPE.BOTTOM_GRID} ?hidden=${!selectedItems.length}>
+        <div
+          class="preview-container"
+          ?grid=${configValue === PANEL_TYPE.BOTTOM_GRID_ITEMS}
+          ?hidden=${!selectedItems.length}
+        >
           ${renderItems}
         </div>
       </div>
@@ -666,7 +670,7 @@ export class SidebarDialogGroups extends LitElement {
     const renderItem = (item: { key: string; title: string; icon: string }, index: number) => {
       return html`
         <a data-panel=${item.key} data-index=${index}>
-          <div class="icon-item handle" ?grid-item=${selectedType === PANEL_TYPE.BOTTOM_GRID}>
+          <div class="icon-item handle" ?grid-item=${selectedType === PANEL_TYPE.BOTTOM_GRID_ITEMS}>
             <ha-icon .icon=${item.icon}></ha-icon><span class="item-text">${item.title}</span>
           </div>
         </a>
@@ -683,7 +687,11 @@ export class SidebarDialogGroups extends LitElement {
       ${this._reloadPanelItems
         ? html`<ha-spinner .size=${'small'}></ha-spinner> `
         : html` <ha-sortable handle-selector=".handle" @item-moved=${this._itemMoved}>
-            <div class="selected-items-preview" id="selected-items" ?grid=${selectedType === PANEL_TYPE.BOTTOM_GRID}>
+            <div
+              class="selected-items-preview"
+              id="selected-items"
+              ?grid=${selectedType === PANEL_TYPE.BOTTOM_GRID_ITEMS}
+            >
               ${repeat(
                 selectedItemsArrayWithTitles,
                 (item) => item.key,
@@ -739,8 +747,8 @@ export class SidebarDialogGroups extends LitElement {
   private _sortItems(type: string) {
     const hassPanels = this.hass?.panels;
     const selectedItems =
-      type === PANEL_TYPE.BOTTOM || type === PANEL_TYPE.BOTTOM_GRID
-        ? this._sidebarConfig[type as PANEL_TYPE.BOTTOM | PANEL_TYPE.BOTTOM_GRID] || []
+      type === PANEL_TYPE.BOTTOM_ITEMS || type === PANEL_TYPE.BOTTOM_GRID_ITEMS
+        ? this._sidebarConfig[type as PANEL_TYPE.BOTTOM_ITEMS | PANEL_TYPE.BOTTOM_GRID_ITEMS] || []
         : this._sidebarConfig.custom_groups?.[type] || [];
 
     // Create a list of items with their titles
@@ -780,8 +788,8 @@ export class SidebarDialogGroups extends LitElement {
 
     const updates: Partial<SidebarConfig> = {};
     // Update the config with the new sorted keys
-    if (type === PANEL_TYPE.BOTTOM || type === PANEL_TYPE.BOTTOM_GRID) {
-      const bottomKey = type as PANEL_TYPE.BOTTOM | PANEL_TYPE.BOTTOM_GRID;
+    if (type === PANEL_TYPE.BOTTOM_ITEMS || type === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+      const bottomKey = type as PANEL_TYPE.BOTTOM_ITEMS | PANEL_TYPE.BOTTOM_GRID_ITEMS;
       let bottomItems = [...(this._sidebarConfig[bottomKey] || [])];
       bottomItems = sortedItemKeys;
       updates[bottomKey] = bottomItems;
@@ -861,8 +869,8 @@ export class SidebarDialogGroups extends LitElement {
     // console.log('configValue', configValue, 'value', value);
 
     const updates: Partial<SidebarConfig> = {};
-    if ([PANEL_TYPE.BOTTOM, PANEL_TYPE.BOTTOM_GRID].includes(configValue)) {
-      const bottom = configValue as PANEL_TYPE.BOTTOM | PANEL_TYPE.BOTTOM_GRID;
+    if ([PANEL_TYPE.BOTTOM_ITEMS, PANEL_TYPE.BOTTOM_GRID_ITEMS].includes(configValue)) {
+      const bottom = configValue as PANEL_TYPE.BOTTOM_ITEMS | PANEL_TYPE.BOTTOM_GRID_ITEMS;
       let bottomPanels = [...(this._sidebarConfig[bottom] || [])];
       bottomPanels = value;
       updates[bottom] = bottomPanels;
@@ -941,10 +949,11 @@ export class SidebarDialogGroups extends LitElement {
   public clickedPanelInPreview(panel: string, group?: string | null): void {
     console.log('Clicked panel in preview:', panel, group);
     if (group) {
-      if (group === PANEL_TYPE.BOTTOM_GRID || group === PANEL_TYPE.BOTTOM) {
+      if (group === PANEL_TYPE.BOTTOM_GRID_ITEMS || group === PANEL_TYPE.BOTTOM_ITEMS) {
         this._selectedTab = PANEL.BOTTOM_PANEL;
         this._selectedGroup = null;
-        this._selectedBottom = group === PANEL_TYPE.BOTTOM_GRID ? SECTION_BOTTOM.BOTTOM_GRID : SECTION_BOTTOM.BOTTOM;
+        this._selectedBottom =
+          group === PANEL_TYPE.BOTTOM_GRID_ITEMS ? SECTION_BOTTOM.BOTTOM_GRID : SECTION_BOTTOM.BOTTOM;
       } else {
         this._selectedTab = PANEL.CUSTOM_GROUP;
         this._selectedGroup = group;

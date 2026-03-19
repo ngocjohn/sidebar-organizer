@@ -39,9 +39,9 @@ export const validateConfig = (config: SidebarConfig, hidden?: string[]): Sideba
   const hiddenPanels: string[] = hidden || getHiddenPanels();
   if (!hiddenPanels.length) return cleanConfig(config);
   const configToUpdate = pick(config, [
-    PANEL_TYPE.CUSTOM,
-    PANEL_TYPE.BOTTOM,
-    PANEL_TYPE.BOTTOM_GRID,
+    PANEL_TYPE.CUSTOM_GROUPS,
+    PANEL_TYPE.BOTTOM_ITEMS,
+    PANEL_TYPE.BOTTOM_GRID_ITEMS,
   ]) as SidebardPanelConfig;
   const updatedPanels = cleanItemsFromConfig(configToUpdate, hiddenPanels);
   let defaultCollapsed = [...(config.default_collapsed || [])];

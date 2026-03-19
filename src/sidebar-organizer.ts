@@ -295,7 +295,7 @@ export class SidebarOrganizer {
 
     if (changed) {
       // Reload the window to apply changes
-      console.log('%cMAIN:', 'color: #bada55;', 'Changes detected, reloading window');
+      console.log('%cSIDEBAR-ORGANIZER:', 'color: #bada55;', 'Changes detected, reloading window');
       this._reloadWindow();
     } else {
       this._checkDiffs();
@@ -426,7 +426,7 @@ export class SidebarOrganizer {
         });
 
         console.log(
-          '%cMAIN:%c ✅ Hidden panels applied:',
+          '%cSIDEBAR-ORGANIZER:%c ✅ Hidden panels applied:',
           'color: #bada55;',
           'color: #40c057; font-weight: 600;',
           this._hiddenPanels
@@ -468,10 +468,10 @@ export class SidebarOrganizer {
         }
 
         if (itemsGroup) {
-          if (itemsGroup === PANEL_TYPE.BOTTOM) {
+          if (itemsGroup === PANEL_TYPE.BOTTOM_ITEMS) {
             item.setAttribute(ATTRIBUTE.MOVED, '');
             bottomContainerFragment.appendChild(item);
-          } else if (itemsGroup === PANEL_TYPE.BOTTOM_GRID) {
+          } else if (itemsGroup === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
             item.setAttribute(ATTRIBUTE.GRID_ITEM, '');
             item.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
             item.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
@@ -608,7 +608,7 @@ export class SidebarOrganizer {
 
   private _setupInitialConfig() {
     // info
-    console.log('%cMAIN:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
+    console.log('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
 
     const {
       default_collapsed,
@@ -625,8 +625,8 @@ export class SidebarOrganizer {
     this._configPanelMap = new Map(
       Object.entries({
         ...(custom_groups || {}),
-        [PANEL_TYPE.BOTTOM]: bottom_items || [],
-        [PANEL_TYPE.BOTTOM_GRID]: bottom_grid_items || [],
+        [PANEL_TYPE.BOTTOM_ITEMS]: bottom_items || [],
+        [PANEL_TYPE.BOTTOM_GRID_ITEMS]: bottom_grid_items || [],
       })
     );
     // Normalize pinned groups config to ensure consistent structure
@@ -710,7 +710,7 @@ export class SidebarOrganizer {
       }
     });
     // success
-    console.log('%cMAIN:%c ✅ New items added', 'color: #bada55;', 'color: #40c057; font-weight: 600;', [
+    console.log('%cSIDEBAR-ORGANIZER:%c ✅ New items added', 'color: #bada55;', 'color: #40c057; font-weight: 600;', [
       newItems.map((i) => i.title),
     ]);
   }
@@ -739,7 +739,7 @@ export class SidebarOrganizer {
     });
     addedPanels.length > 0 && // success
       console.log(
-        '%cMAIN:%c ✅ Built in panels added',
+        '%cSIDEBAR-ORGANIZER:%c ✅ Built in panels added',
         'color: #bada55;',
         'color: #40c057; font-weight: 600;',
         addedPanels
@@ -759,12 +759,8 @@ export class SidebarOrganizer {
       return;
     }
     this._scrollbar?.insertBefore(settingsItem, null);
-    // success
-    console.log(
-      '%cSIDEBAR-ORGANIZER:%c ✅ Setting moved from fixed',
-      'color: #999999;',
-      'color: #40c057; font-weight: 600;'
-    );
+    //success
+    console.log('%cSIDEBAR-ORGANIZER:%c ✅ Setting moved from fixed', 'color: #bada55;', 'color: #40c057;');
   }
   private _subscribeTemplate(value: string, callback: (result: string) => void): void {
     if (!this.hass || !hasTemplate(value)) {
@@ -838,8 +834,8 @@ export class SidebarOrganizer {
   };
 
   private _addBottomItems(): void {
-    const bottomItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM) || [];
-    const bottomGridItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID) || [];
+    const bottomItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_ITEMS) || [];
+    const bottomGridItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID_ITEMS) || [];
     if (bottomItems.length === 0 && bottomGridItems.length === 0) {
       return;
     }
@@ -1071,7 +1067,12 @@ export class SidebarOrganizer {
         notValidItems: itemsValidation.filter((item) => item.isValid === false),
       };
       // warning
-      console.log('%cMAIN:%c ⚠️ DIFF DETECTED', 'color: #bada55;', 'color: #fab005; font-weight: 600;', logs);
+      console.log(
+        '%cSIDEBAR-ORGANIZER:%c ⚠️ DIFF DETECTED',
+        'color: #bada55;',
+        'color: #fab005; font-weight: 600;',
+        logs
+      );
 
       LOGGER.warn('Changes detected:', logs);
 
@@ -1080,7 +1081,7 @@ export class SidebarOrganizer {
     } else {
       this._diffCheck = true;
       // success
-      console.log('%cMAIN:%c ✅ Order checked!', 'color: #bada55;', 'color: #40c057; font-weight: 600;');
+      console.log('%cSIDEBAR-ORGANIZER:%c ✅ Order checked!', 'color: #bada55;', 'color: #40c057; font-weight: 600;');
     }
   };
 
@@ -1187,7 +1188,7 @@ export class SidebarOrganizer {
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
     // const targetParent = target.parentElement as HTMLElement;
-    // console.log('%cMAIN:', 'color: #bada55;', 'Toggling group:', group, target, targetParent);
+    // console.log('%cSIDEBAR-ORGANIZER:', 'color: #bada55;', 'Toggling group:', group, target, targetParent);
 
     const items = Array.from(this._scrollbarItems).filter((item) => {
       const itemGroup = item.getAttribute('group');

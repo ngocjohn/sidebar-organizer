@@ -44,7 +44,7 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
   public async showDialog(param: SidebarConfigDialogParams): Promise<void> {
     this._open = true;
     this._params = param;
-    this.large = false;
+    this.large = __DEBUG__ ? true : false;
     this._initConfig = cloneDeep(param.config);
   }
 

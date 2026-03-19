@@ -178,9 +178,11 @@ export class SidebarConfigDialog extends LitElement {
         const configInPanel = this._getGroupOfPanel('config') as string | null;
         if (configInPanel !== null) {
           // Removing the config item from the panel it is currently in
-          const panelToUpdate = [PANEL_TYPE.BOTTOM, PANEL_TYPE.BOTTOM_GRID].includes(configInPanel as PANEL_TYPE)
+          const panelToUpdate = [PANEL_TYPE.BOTTOM_ITEMS, PANEL_TYPE.BOTTOM_GRID_ITEMS].includes(
+            configInPanel as PANEL_TYPE
+          )
             ? configInPanel
-            : PANEL_TYPE.CUSTOM;
+            : PANEL_TYPE.CUSTOM_GROUPS;
           const updatedPanelConfig = this._cleanItemsFromGroups(panelToUpdate as PANEL_TYPE, ['config']);
 
           this._sidebarConfig = { ...this._sidebarConfig, ...updatedPanelConfig };

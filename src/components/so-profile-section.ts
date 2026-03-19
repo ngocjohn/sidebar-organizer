@@ -83,13 +83,14 @@ export class SoProfileSection extends LitElement {
       return;
     }
     const defaultPanel = getDefaultPanelUrlPath(this.organizer.hass);
+    //info
     console.log(
-      '%cSO-PROFILE-SECTION:',
-      'color: #4dabf7;',
-      'Subscribing to core frontend user data',
-      'Current user default panel:',
+      '%cSO-PROFILE-SECTION:%c ℹ️ Subscribing to core frontend user data',
+      'color: #40c057;',
+      'color: #228be6;',
       defaultPanel
     );
+
     this._unsubCoreData = subscribeFrontendUserData(this.organizer.hass.connection, 'core', async ({ value }) => {
       this._coreUserData = value;
       // console.log('%cSO-PROFILE-SECTION:', 'color: #4dabf7;', 'Received core frontend user data:', value);
