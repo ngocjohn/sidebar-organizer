@@ -2,6 +2,7 @@ import { ActionConfig } from '@utilities/action';
 
 import { HomeAssistant } from './ha';
 
+export * from './elements';
 declare global {
   var __DEV__: boolean;
   var __DEBUG__: boolean;
@@ -73,6 +74,7 @@ export interface PanelInfo {
   require_admin?: boolean;
   show_in_sidebar?: boolean;
 }
+
 export type Panels = Record<string, PanelInfo>;
 
 export interface DividerColorSettings {
@@ -157,6 +159,7 @@ export enum PANEL_TYPE {
   BOTTOM_ITEMS = 'bottom_items',
   BOTTOM_GRID_ITEMS = 'bottom_grid_items',
   HIDDEN_ITEMS = 'hidden_items',
+  UNCATEGORIZED_ITEMS = 'uncategorized_items',
 }
 
 export type PinnedGroupEntry = true | { icon?: string };
@@ -168,4 +171,10 @@ export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceCon
   notification?: NotificationConfig;
   new_items?: NewItemConfig[];
   pinned_groups?: PinnedGroupsConfig;
+  /**
+   * Make remaining items as single group 'Uncategorized' with default order (if true) or custom order (if string[]).
+   * - true: all items with default order (alphabetical).
+   * - string[]: items in the specified order. Items not included in the array will be placed at the end of the 'Uncategorized' group in default order.
+   */
+  uncategorized_items?: boolean | string[];
 }

@@ -1,6 +1,7 @@
 export enum SELECTOR {
   SIDEBAR_SCROLLBAR = 'ha-md-list.ha-scrollbar',
   SIDEBAR_BEFORE_SPACER_CONTAINER = 'ha-md-list.before-spacer',
+  SIDEBAR_BOTTOM_LIST_CONTAINER = 'ha-md-list.bottom-list',
   SIDEBAR_AFTER_SPACER_CONTAINER = 'ha-md-list.after-spacer',
   SPACER = '.spacer',
   USER = '.user',
@@ -69,6 +70,9 @@ export enum CLASS {
   ADDED_CONTENT = 'added-content',
   USER = 'user',
   NOTIFICATIONS = 'notifications',
+  BOTTOM_LIST = 'bottom-list',
+  BOTTOM_GRID_CONTAINER = 'grid-container',
+  BOTTOM_CONTAINER = 'bottom-container',
 }
 
 export enum ATTRIBUTE {
@@ -89,6 +93,7 @@ export enum ATTRIBUTE {
   GROUP = 'group',
   ADDED = 'added',
   EXPANDED = 'expanded',
+  DEFAULT_PANEL = 'default-panel',
 }
 
 export enum SLOT {
