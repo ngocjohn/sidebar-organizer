@@ -20,3 +20,19 @@ export * from './merge-with-cleanup';
 export * from './array';
 export * from './user';
 export * from './object-differences';
+
+import * as COMPUTE_PANELS from './compute-panels';
+import * as CONFIG from './configs';
+import * as DASHBOARD_HELPERS from './dashboard';
+import { mapItemsForDebug } from './dom-utils';
+import * as OBJECT_DIFF from './object-differences';
+import * as PANEL_HELPER from './panel';
+
+export const UTILITIES = {
+  PANEL: PANEL_HELPER,
+  COMPUTE_PANELS,
+  DASHBOARD: DASHBOARD_HELPERS,
+  OBJECT: OBJECT_DIFF,
+  CONFIG,
+  DOM: { mapItemsForDebug },
+};

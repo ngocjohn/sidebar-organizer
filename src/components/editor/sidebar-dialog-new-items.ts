@@ -1,16 +1,16 @@
 import { mdiChevronLeft, mdiGestureTap, mdiMessageBadgeOutline } from '@mdi/js';
-import { SidebarConfig, HaExtened, NewItemConfig } from '@types';
+import { SidebarConfig, NewItemConfig } from '@types';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
+import { BaseEditor } from 'components/base-editor';
+import { CONFIG_SECTION } from 'constants/config-area';
 import { capitalize, findKey, pick } from 'es-toolkit/compat';
-import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
+import { html, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import memoizeOne from 'memoize-one';
 
-import { dialogStyles } from './dialog-css';
 import { computeOptionalActionSchemaFull } from './forms';
-import { SidebarConfigDialog } from './sidebar-dialog';
 import { BottomTabPanel } from './sidebar-dialog-groups';
 
 const convertTitle = (title: string | undefined): string => {
@@ -18,9 +18,10 @@ const convertTitle = (title: string | undefined): string => {
 };
 
 @customElement('sidebar-dialog-new-items')
-export class SidebarDialogNewItems extends LitElement {
-  @property({ attribute: false }) hass!: HaExtened['hass'];
-  @property({ attribute: false }) _dialog!: SidebarConfigDialog;
+export class SidebarDialogNewItems extends BaseEditor {
+  constructor() {
+    super(CONFIG_SECTION.NEW_ITEMS);
+  }
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
   @state() _selectedItemIndex: number | null = null;
@@ -543,6 +544,7 @@ export class SidebarDialogNewItems extends LitElement {
 
   static get styles(): CSSResultGroup {
     return [
+      super.styles,
       css`
         .item-name-row {
           padding: 0.5em;
@@ -551,7 +553,6 @@ export class SidebarDialogNewItems extends LitElement {
           background-color: var(--secondary-background-color);
         }
       `,
-      dialogStyles,
     ];
   }
 }

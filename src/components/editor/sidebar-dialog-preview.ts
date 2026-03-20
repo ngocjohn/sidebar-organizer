@@ -5,12 +5,13 @@ import { isIcon } from '@utilities/is-icon';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { shallowEqual } from '@utilities/shallow-equal';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
+import { BaseEditor } from 'components/base-editor';
+import { CONFIG_SECTION } from 'constants/config-area';
 import { isEmpty } from 'es-toolkit/compat';
-import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
+import { html, css, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
-import { SidebarConfigDialog } from './sidebar-dialog';
 import { BottomTabPanel } from './sidebar-dialog-groups';
 
 export interface PreviewPanels {
@@ -20,9 +21,10 @@ export interface PreviewPanels {
 }
 
 @customElement('sidebar-dialog-preview')
-export class SidebarDialogPreview extends LitElement {
-  @property({ attribute: false }) hass!: HaExtened['hass'];
-  @property({ attribute: false }) _dialog!: SidebarConfigDialog;
+export class SidebarDialogPreview extends BaseEditor {
+  constructor() {
+    super(CONFIG_SECTION.PREVIEW);
+  }
   @property({ attribute: false }) _sidebarConfig: SidebarConfig = {};
 
   @property({ type: Boolean, reflect: true, attribute: 'invalid-config' }) public invalidConfig = false;

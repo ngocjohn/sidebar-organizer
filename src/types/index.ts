@@ -2,7 +2,9 @@ import { ActionConfig } from '@utilities/action';
 
 import { HomeAssistant } from './ha';
 
+export * from './ha';
 export * from './elements';
+
 declare global {
   var __DEV__: boolean;
   var __DEBUG__: boolean;

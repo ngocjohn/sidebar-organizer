@@ -1,20 +1,20 @@
-import { html, css, LitElement, TemplateResult, CSSResultGroup, nothing, PropertyValues } from 'lit';
+import { ALERT_MSG, CONFIG_NAME, STORAGE } from '@constants';
+import { SidebarConfig } from '@types';
+import { fileDownload } from '@utilities/index';
+import { TRANSLATED_LABEL } from '@utilities/localize';
+import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
+import { removeStorage } from '@utilities/storage-utils';
+import { BaseEditor } from 'components/base-editor';
+import { html, css, TemplateResult, CSSResultGroup, nothing, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import YAML from 'yaml';
-/* eslint-disable */
-import { ALERT_MSG, CONFIG_NAME, NAMESPACE, STORAGE } from '@constants';
-import { removeStorage } from '@utilities/storage-utils';
-import { SidebarConfig, HaExtened } from '@types';
-import { SidebarConfigDialog } from './sidebar-dialog';
-import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
-import { TRANSLATED_LABEL } from '@utilities/localize';
-import { fileDownload } from '@utilities/index';
 
 @customElement('sidebar-dialog-code-editor')
-export class SidebarDialogCodeEditor extends LitElement {
-  @property({ attribute: false }) hass!: HaExtened['hass'];
+export class SidebarDialogCodeEditor extends BaseEditor {
+  constructor() {
+    super();
+  }
 
-  @property({ attribute: false }) _dialog!: SidebarConfigDialog;
   @property({ attribute: false }) _sidebarConfig: SidebarConfig = {};
 
   @query('ha-yaml-editor') _yamlEditor!: any;

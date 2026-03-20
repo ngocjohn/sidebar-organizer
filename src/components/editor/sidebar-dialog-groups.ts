@@ -1,4 +1,4 @@
-import { ALERT_MSG } from '@constants';
+import { ALERT_MSG, CONFIG_SECTION } from '@constants';
 import {
   mdiChevronLeft,
   mdiDotsVertical,
@@ -7,16 +7,14 @@ import {
   mdiPin,
   mdiSortAlphabeticalVariant,
 } from '@mdi/js';
-import { SidebarConfig, HaExtened, PANEL_TYPE } from '@types';
+import { SidebarConfig, PANEL_TYPE } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
-import { html, LitElement, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
+import { BaseEditor } from 'components/base-editor';
+import { html, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-
-import { dialogStyles } from './dialog-css';
-import { SidebarConfigDialog } from './sidebar-dialog';
 
 const MainTabPanelKeys = ['bottomPanel', 'customGroup', 'hiddenItems', 'notification'] as const;
 type MainTabPanel = (typeof MainTabPanelKeys)[number];
@@ -48,9 +46,10 @@ enum SECTION_BOTTOM {
 }
 
 @customElement('sidebar-dialog-groups')
-export class SidebarDialogGroups extends LitElement {
-  @property({ attribute: false }) hass!: HaExtened['hass'];
-  @property({ attribute: false }) _dialog!: SidebarConfigDialog;
+export class SidebarDialogGroups extends BaseEditor {
+  constructor() {
+    super(CONFIG_SECTION.PANELS);
+  }
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
   @state() private _selectedTab: PANEL = PANEL.BOTTOM_PANEL;
@@ -963,6 +962,7 @@ export class SidebarDialogGroups extends LitElement {
 
   static get styles(): CSSResultGroup {
     return [
+      super.styles,
       css`
         .selected-items-preview {
           display: flex;
@@ -1060,7 +1060,6 @@ export class SidebarDialogGroups extends LitElement {
           opacity: 1 !important;
         }
       `,
-      dialogStyles,
     ];
   }
 }

@@ -1,11 +1,10 @@
-import { COLOR_CONFIG_KEYS } from '@constants';
+import { COLOR_CONFIG_KEYS, CONFIG_SECTION } from '@constants';
 import iro from '@jaames/iro';
 import { mdiRefresh } from '@mdi/js';
 import {
   AppearanceConfigKeys,
   CustomTheme,
   DividerColorSettings,
-  HaExtened,
   SidebarAppearanceConfig,
   SidebarConfig,
 } from '@types';
@@ -16,13 +15,13 @@ import { createExpansionPanel } from '@utilities/dom-utils';
 import { fireEvent } from '@utilities/fire_event';
 import { getObjectDifferences } from '@utilities/index';
 import { isEmpty, pick } from 'es-toolkit/compat';
-import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
+import { html, css, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import tinycolor from 'tinycolor2';
 
+import { BaseEditor } from '../base-editor';
 import { BASE_APPEARANCE_SCHEMA, CUSTOM_THEME_SCHEMA } from './forms';
-import { SidebarConfigDialog } from './sidebar-dialog';
 
 enum THEME_STATE {
   LOADING = 1,
@@ -31,9 +30,10 @@ enum THEME_STATE {
 }
 
 @customElement('sidebar-dialog-colors')
-export class SidebarDialogColors extends LitElement {
-  @property({ attribute: false }) hass!: HaExtened['hass'];
-  @property({ attribute: false }) _dialog!: SidebarConfigDialog;
+export class SidebarDialogColors extends BaseEditor {
+  constructor() {
+    super(CONFIG_SECTION.APPEARANCE);
+  }
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
   @state() private _colorConfigMode?: 'light' | 'dark';
