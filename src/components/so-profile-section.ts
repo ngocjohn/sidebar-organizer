@@ -199,6 +199,11 @@ export class SoProfileSection extends LitElement {
         color: var(--primary-color);
       }
     }
+    ha-md-list {
+      background: 0 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
     /* .card-content {
     } */
   `;
