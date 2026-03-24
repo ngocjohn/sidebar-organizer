@@ -1,4 +1,12 @@
-import { ALERT_MSG, CONFIG_SECTION } from '@constants';
+import {
+  ALERT_MSG,
+  BOTTOM_SECTION,
+  BottomSectionKeys,
+  CONFIG_AREA_LABELS,
+  CONFIG_SECTION,
+  PANEL_AREA,
+  PanelAreaTabs,
+} from '@constants';
 import {
   mdiChevronLeft,
   mdiDotsVertical,
@@ -9,66 +17,42 @@ import {
 } from '@mdi/js';
 import { SidebarConfig, PANEL_TYPE } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
+import { nextRender } from '@utilities/dom-utils';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { BaseEditor } from 'components/base-editor';
+import { isEmpty } from 'es-toolkit/compat';
 import { html, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 
-const MainTabPanelKeys = ['bottomPanel', 'customGroup', 'hiddenItems', 'notification'] as const;
-type MainTabPanel = (typeof MainTabPanelKeys)[number];
+import { SoPanelAll } from './shared/so-panel-all';
 
-const BottomTabPanelKeys = ['bottom_items', 'bottom_grid_items'] as const;
-export type BottomTabPanel = (typeof BottomTabPanelKeys)[number];
-
-type TabPanelsKey = MainTabPanel | BottomTabPanel;
-
-const TAB_LABELS: Record<TabPanelsKey, string> = {
-  bottomPanel: 'Bottom Panels',
-  customGroup: 'Custom Groups',
-  hiddenItems: 'Hidden Items',
-  notification: 'Notification',
-  bottom_items: 'Bottom Items',
-  bottom_grid_items: 'Bottom Grid Items',
-};
-
-enum PANEL {
-  BOTTOM_PANEL = 'bottomPanel',
-  CUSTOM_GROUP = 'customGroup',
-  HIDDEN_ITEMS = 'hiddenItems',
-  NOTIFICATION = 'notification',
-}
-
-enum SECTION_BOTTOM {
-  BOTTOM = 'bottom_items',
-  BOTTOM_GRID = 'bottom_grid_items',
-}
-
-@customElement('sidebar-dialog-groups')
-export class SidebarDialogGroups extends BaseEditor {
+@customElement('sidebar-dialog-panels')
+export class SidebarDialogPanels extends BaseEditor {
   constructor() {
     super(CONFIG_SECTION.PANELS);
   }
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
 
-  @state() private _selectedTab: PANEL = PANEL.BOTTOM_PANEL;
-  @state() public _selectedBottom: SECTION_BOTTOM = SECTION_BOTTOM.BOTTOM;
+  @state() private _selectedTab: PANEL_AREA = PANEL_AREA.ALL_ITEMS;
+  @state() public _selectedBottom: BOTTOM_SECTION = BOTTOM_SECTION.BOTTOM_ITEMS;
   @state() public _selectedGroup: string | null = null;
   @state() private _selectedNotification: string | null = null;
-  @state() private _reloadItems = false;
   @state() private _reloadPanelItems: boolean = false;
+
+  @query('so-panel-all') private _panelAll?: SoPanelAll;
 
   protected updated(_changedProperties: PropertyValues) {
     if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
       const selectedTab = this._selectedTab;
-      if (selectedTab !== PANEL.CUSTOM_GROUP) {
+      if (selectedTab !== PANEL_AREA.CUSTOM_GROUPS) {
         this._selectedGroup = null;
       }
     }
 
     if (_changedProperties.has('_selectedBottom') && this._selectedBottom !== undefined) {
-      const bottomSectionActive = this._selectedBottom as BottomTabPanel;
+      const bottomSectionActive = this._selectedBottom as BOTTOM_SECTION;
       this._dialog._dialogPreview._toggleBottomPanel(bottomSectionActive);
     }
 
@@ -89,41 +73,46 @@ export class SidebarDialogGroups extends BaseEditor {
       if (inGroup) {
         toShow = inGroup;
       } else if (inBottom) {
-        toShow = 'bottom_items';
+        toShow = BOTTOM_SECTION.BOTTOM_ITEMS; // or BOTTOM_SECTION.BOTTOM_GRID_ITEMS, depending on where it is, for simplicity we can just toggle bottom items
       }
       this._dialog._dialogPreview._toggleGroup(toShow);
     }
   }
 
   protected render() {
-    const tabOpts = MainTabPanelKeys.map((key) => ({ value: key, label: TAB_LABELS[key] }));
-
     const tabSelector = html` <ha-control-select
       .value=${this._selectedTab}
-      .options=${tabOpts}
+      .options=${PanelAreaTabs}
       @value-changed=${(ev: CustomEvent) => {
         this._selectedTab = ev.detail.value;
       }}
     ></ha-control-select>`;
 
-    const bottomPanel = this._renderBottomItems();
-    const hiddenItems = this._renderHiddenItems();
-    const customGroup = this._selectedGroup === null ? this._renderCustomGroupList() : this._renderEditGroup();
-    const notification = this._renderNotificationConfig();
-
-    const tabMap = {
-      bottomPanel: bottomPanel,
-      customGroup: customGroup,
-      hiddenItems: hiddenItems,
-      notification: notification,
+    const panelContent = {
+      [PANEL_AREA.ALL_ITEMS]: this._renderAllItems(),
+      [PANEL_AREA.BOTTOM_PANELS]: this._renderBottomItems(),
+      [PANEL_AREA.CUSTOM_GROUPS]:
+        this._selectedGroup === null ? this._renderCustomGroupList() : this._renderEditGroup(),
+      [PANEL_AREA.HIDDEN_ITEMS]: this._renderHiddenItems(),
+      [PANEL_AREA.NOTIFICATIONS]: this._renderNotificationConfig(),
     };
-
     return html`
-      ${tabSelector}
-      <div class="config-content">${tabMap[this._selectedTab]}</div>
+      <div class="groups-menu-header">${tabSelector}</div>
+      <div class="config-content">${panelContent[this._selectedTab]}</div>
     `;
   }
 
+  private _renderAllItems() {
+    return html`
+      <so-panel-all
+        .hass=${this.hass}
+        ._store=${this._store}
+        ._sidebarConfig=${this._sidebarConfig}
+        @group-action=${this._handleGroupActionEvent}
+        @item-moved=${this._groupMoved}
+      ></so-panel-all>
+    `;
+  }
   private _renderHiddenItems() {
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
     const newItems = this._sidebarConfig?.new_items?.map((item) => item.title) || [];
@@ -280,17 +269,45 @@ export class SidebarDialogGroups extends BaseEditor {
     `;
   }
 
-  private _renderCustomGroupList(): TemplateResult {
-    const customGroupList = Object.keys(this._sidebarConfig.custom_groups || {});
-    const addBtn = html`
-      <ha-button appearance="plain" size="small" @click=${this._togglePromptNewGroup}>Add New Group</ha-button>
-    `;
-    const isCollapsed = (key: string): boolean => {
-      return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
-    };
-    const isPinned = (key: string): boolean => {
-      return this._sidebarConfig?.pinned_groups?.hasOwnProperty(key) ?? false;
-    };
+  private _isGroupCollapsed(key: string): boolean {
+    return this._sidebarConfig?.default_collapsed?.includes(key) ?? false;
+  }
+
+  private _isGroupPinned(key: string): boolean {
+    return this._sidebarConfig?.pinned_groups?.hasOwnProperty(key) ?? false;
+  }
+
+  private _renderGroupActions(key: string, isUncategorized: boolean): TemplateResult {
+    if (isUncategorized) {
+      const uncategorized_items = this._sidebarConfig?.uncategorized_items ?? false;
+      const uncategorizedAsGroup =
+        (typeof uncategorized_items === 'boolean' && uncategorized_items === true) ||
+        !isEmpty(this._sidebarConfig.custom_groups?.[PANEL_TYPE.UNCATEGORIZED_ITEMS]);
+
+      const uncategorizedActions = [
+        { title: 'Show in preview', action: 'preview-item', icon: 'mdi:information-outline' },
+        { title: 'Include in group orders', action: 'uncategorized-as-group', icon: 'mdi:format-list-bulleted' },
+      ];
+
+      return html`<ha-dropdown @wa-select=${this._handleSubItemAction}>
+        <ha-icon-button slot="trigger" .path=${mdiDotsVertical} hide-title></ha-icon-button>
+
+        ${uncategorizedActions.map(
+          (action) => html`
+            <ha-dropdown-item
+              .value=${key}
+              .data=${action}
+              .type=${action.action === 'uncategorized-as-group' ? 'checkbox' : undefined}
+              .checked=${action.action === 'uncategorized-as-group' ? uncategorizedAsGroup : undefined}
+            >
+              <ha-icon slot="icon" icon=${action.icon}></ha-icon>
+              ${action.title}
+            </ha-dropdown-item>
+          `
+        )}
+      </ha-dropdown>`;
+    }
+    const isMobile = window.matchMedia('all and (max-width: 450px), all and (max-height: 500px)').matches;
     const actions = [
       { title: 'Edit items', action: 'edit-items', icon: 'mdi:pencil' },
       { title: 'Rename', action: 'rename', icon: 'mdi:alphabetical' },
@@ -299,83 +316,107 @@ export class SidebarDialogGroups extends BaseEditor {
       { title: 'Add to pinned groups', action: 'pinned-group', icon: 'mdi:pin-outline' },
       { title: 'Delete', action: 'delete', icon: 'mdi:trash-can-outline' },
     ];
-    const loading =
-      customGroupList.length === 0
-        ? html`<div>No custom groups found</div>`
-        : html`<ha-spinner .size=${'small'}></ha-spinner>`;
-    const textTransform = this._sidebarConfig?.text_transformation ?? 'capitalize';
+
+    const collapsed = this._isGroupCollapsed(key);
+    const pinned = this._isGroupPinned(key);
+
     return html`
-      ${!customGroupList.length || this._reloadItems
-        ? loading
+      ${!isMobile
+        ? html`
+            <ha-icon-button
+              class="action-btn"
+              .path=${mdiEyeOffOutline}
+              ?is-selected=${collapsed}
+              @click=${() => this._handleGroupAction('collapsed-group', key)}
+            ></ha-icon-button>
+
+            <wa-divider orientation="vertical"></wa-divider>
+
+            <ha-icon-button
+              class="action-btn"
+              .path=${mdiPin}
+              ?is-selected=${pinned}
+              @click=${() => this._handleGroupAction('pinned-group', key)}
+            ></ha-icon-button>
+
+            <wa-divider orientation="vertical"></wa-divider>
+          `
+        : null}
+
+      <wa-dropdown @wa-select=${this._handleSubItemAction}>
+        <ha-icon-button slot="trigger" .path=${mdiDotsVertical} hide-title></ha-icon-button>
+
+        ${actions.map(
+          (action) => html`
+            ${action.action === 'delete' ? html`<wa-divider></wa-divider>` : nothing}
+            <ha-dropdown-item
+              .value=${key}
+              .data=${action}
+              .type=${action.action === 'collapsed-group' || action.action === 'pinned-group' ? 'checkbox' : undefined}
+              .checked=${action.action === 'collapsed-group'
+                ? collapsed
+                : action.action === 'pinned-group'
+                  ? pinned
+                  : undefined}
+              .variant=${action.action === 'delete' ? 'danger' : undefined}
+            >
+              <ha-icon slot="icon" icon=${action.icon}></ha-icon>
+              ${action.title}
+            </ha-dropdown-item>
+          `
+        )}
+      </wa-dropdown>
+    `;
+  }
+
+  private _renderCustomGroupRow(group: string, index: number, textTransform: string): TemplateResult {
+    const key = group;
+    const isUncategorized = key === PANEL_TYPE.UNCATEGORIZED_ITEMS;
+    const itemCount = this._sidebarConfig.custom_groups![key].length;
+
+    return html`
+      <div class="group-item-row" data-group=${key} data-index=${index}>
+        <div class="handle">
+          <ha-icon-button .path=${mdiDrag}></ha-icon-button>
+        </div>
+
+        <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key)}>
+          <ha-icon icon=${`mdi:numeric-${index + 1}-box`}></ha-icon>
+
+          <div class="group-name-items" style="text-transform: ${textTransform}">
+            ${key}
+            <span>${itemCount} ${itemCount > 1 ? 'items' : 'item'}</span>
+          </div>
+        </div>
+
+        <div class="group-actions">${this._renderGroupActions(key, isUncategorized)}</div>
+      </div>
+    `;
+  }
+
+  private _renderCustomGroupList(): TemplateResult {
+    const customGroupList = Object.keys(this._sidebarConfig.custom_groups || {});
+    const textTransform = this._sidebarConfig?.text_transformation ?? 'capitalize';
+
+    return html`
+      ${!customGroupList.length
+        ? html`<div>No custom groups found</div>`
         : html`
             <ha-sortable handle-selector=".handle" @item-moved=${this._groupMoved}>
               <div class="group-list" id="group-list">
                 ${repeat(
-                  customGroupList || [],
+                  customGroupList,
                   (group) => group,
-                  (group, index) => {
-                    const key = group;
-                    let defaultCollapsed = isCollapsed(key);
-                    let pinned = isPinned(key);
-                    const itemCount = this._sidebarConfig.custom_groups![key].length;
-                    return html` <div class="group-item-row" data-group=${key} data-index=${index}>
-                      <div class="handle">
-                        <ha-icon-button .path=${mdiDrag}></ha-icon-button>
-                      </div>
-                      <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key)}>
-                        <ha-icon icon=${`mdi:numeric-${index + 1}-box`}></ha-icon>
-                        <div class="group-name-items" style="text-transform: ${textTransform}">
-                          ${key}
-                          <span>${itemCount} ${itemCount > 1 ? 'items' : 'item'}</span>
-                        </div>
-                      </div>
-                      <div class="group-actions">
-                        <ha-icon-button
-                          class="action-btn"
-                          .path=${mdiEyeOffOutline}
-                          ?is-selected=${isCollapsed(key)}
-                          @click=${() => this._handleGroupAction('collapsed-group', key)}
-                        >
-                        </ha-icon-button>
-                        <wa-divider orientation="vertical"></wa-divider>
-                        <ha-icon-button
-                          class="action-btn"
-                          .path=${mdiPin}
-                          ?is-selected=${pinned}
-                          @click=${() => this._handleGroupAction('pinned-group', key)}
-                        ></ha-icon-button>
-                        <wa-divider orientation="vertical"></wa-divider>
-                        <ha-dropdown @wa-select=${this._handleSubItemAction}>
-                          <ha-icon-button slot="trigger" .path=${mdiDotsVertical} hide-title></ha-icon-button>
-                          ${actions.map((action) => {
-                            return html` ${['delete'].includes(action.action)
-                                ? html`<wa-divider></wa-divider>`
-                                : nothing}
-                              <ha-dropdown-item
-                                .value=${key}
-                                .data=${action}
-                                .type=${action.action === 'collapsed-group' || action.action === 'pinned-group'
-                                  ? 'checkbox'
-                                  : undefined}
-                                .checked=${action.action === 'collapsed-group'
-                                  ? defaultCollapsed
-                                  : action.action === 'pinned-group'
-                                    ? pinned
-                                    : undefined}
-                                .variant=${action.action === 'delete' ? 'danger' : undefined}
-                                ><ha-icon slot="icon" icon=${action.icon}></ha-icon> ${action.title}</ha-dropdown-item
-                              >`;
-                          })}
-                        </ha-dropdown>
-                      </div>
-                    </div>`;
-                  }
+                  (group, index) => this._renderCustomGroupRow(group, index, textTransform)
                 )}
               </div>
               ${this._renderSpacer()}
             </ha-sortable>
           `}
-      <div class="header-row flex-end">${addBtn}</div>
+
+      <div class="header-row flex-end">
+        <ha-button appearance="plain" size="small" @click=${this._togglePromptNewGroup}> Add New Group </ha-button>
+      </div>
     `;
   }
 
@@ -383,25 +424,32 @@ export class SidebarDialogGroups extends BaseEditor {
     ev.stopPropagation();
     const subItem = (ev.detail?.item as any)?.data as any;
     const key = (ev.detail?.item as any)?.value as string;
+    console.log('Sub item action:', subItem, key);
     this._handleGroupAction(subItem.action, key);
   };
 
-  private _groupMoved = (ev: CustomEvent): void => {
+  private _groupMoved(ev: CustomEvent): void {
     ev.stopPropagation();
-    console.log('Group to be moved:', Object.keys(this._sidebarConfig.custom_groups || {}));
+    if (!this._sidebarConfig) return;
     const { oldIndex, newIndex } = ev.detail;
-    const groupList = Object.entries(this._sidebarConfig.custom_groups || {}).concat();
+    console.log('Group moved:', oldIndex, newIndex);
 
-    groupList.splice(newIndex, 0, groupList.splice(oldIndex, 1)[0]);
-
-    const newGroupList = Object.fromEntries(groupList);
-    console.log('New group list:', Object.keys(newGroupList));
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      custom_groups: newGroupList,
+    const updatedConfig = (updates: Partial<SidebarConfig>) => {
+      this._sidebarConfig = {
+        ...this._sidebarConfig,
+        ...updates,
+      };
+      this._dispatchConfig(this._sidebarConfig);
     };
-    this._dispatchConfig(this._sidebarConfig);
-  };
+
+    const customGroups = Object.entries(this._sidebarConfig.custom_groups || {}).concat([]);
+    const movedItem = customGroups.splice(oldIndex, 1)[0];
+    customGroups.splice(newIndex, 0, movedItem);
+    const newCustomGroups = Object.fromEntries(customGroups);
+    console.log('Moved item:', movedItem[0], 'from index', oldIndex, 'to index', newIndex);
+
+    updatedConfig({ custom_groups: newCustomGroups });
+  }
 
   private _handleNotifyConfigChange(ev: CustomEvent) {
     const configValue = (ev as any).target.configValue;
@@ -422,6 +470,11 @@ export class SidebarDialogGroups extends BaseEditor {
     this._dispatchConfig(this._sidebarConfig);
   }
 
+  private _handleGroupActionEvent = (event: CustomEvent): void => {
+    event.stopPropagation();
+    const { action, key } = event.detail;
+    this._handleGroupAction(action, key);
+  };
   private _handleGroupAction = async (action: string, key: string) => {
     // console.log('group action', action, key);
 
@@ -442,6 +495,10 @@ export class SidebarDialogGroups extends BaseEditor {
 
     switch (action) {
       case 'edit-items':
+        if (this._selectedTab !== PANEL_AREA.CUSTOM_GROUPS) {
+          this._selectedTab = PANEL_AREA.CUSTOM_GROUPS;
+          await nextRender();
+        }
         this._selectedGroup = key;
         break;
       case 'rename':
@@ -507,6 +564,28 @@ export class SidebarDialogGroups extends BaseEditor {
       case 'preview-item':
         this._dialog._dialogPreview._toggleGroup(key);
         break;
+      case 'uncategorized-as-group':
+        const uncategorized_items = this._sidebarConfig?.uncategorized_items ?? false;
+        if (
+          (typeof uncategorized_items === 'boolean' && uncategorized_items === true) ||
+          !isEmpty(customGroups[PANEL_TYPE.UNCATEGORIZED_ITEMS])
+        ) {
+          // delete the setting to uncategorized items to be treated as normal items
+          updates.uncategorized_items = undefined;
+          // delete the uncategorized group if exists to move items back to all items pool
+          if (customGroups.hasOwnProperty(PANEL_TYPE.UNCATEGORIZED_ITEMS)) {
+            delete customGroups[PANEL_TYPE.UNCATEGORIZED_ITEMS];
+          }
+          updates.custom_groups = customGroups;
+        } else {
+          const uncategorizedGroupItems = [...(this._dialog.ungroupedItems || [])];
+          updates.custom_groups = {
+            ...customGroups,
+            [PANEL_TYPE.UNCATEGORIZED_ITEMS]: uncategorizedGroupItems,
+          };
+        }
+        updateSidebarConfig(updates);
+        break;
     }
   };
 
@@ -524,14 +603,14 @@ export class SidebarDialogGroups extends BaseEditor {
       </ha-button>
     </div>`;
 
-    const selectorElement = this._renderPanelSelector('customGroup', this._selectedGroup);
+    const selectorElement = this._renderPanelSelector(PANEL_AREA.CUSTOM_GROUPS, this._selectedGroup);
 
     return html` ${headerBack} ${selectorElement}`;
   }
 
   private _renderBottomItems() {
-    if (this._selectedTab !== PANEL.BOTTOM_PANEL) return nothing;
-    const bottomSections = BottomTabPanelKeys.map((key) => ({ value: key, label: TAB_LABELS[key] }));
+    if (this._selectedTab !== PANEL_AREA.BOTTOM_PANELS) return nothing;
+    const bottomSections = BottomSectionKeys.map((key) => ({ value: key, label: CONFIG_AREA_LABELS[key] }));
 
     const sectionSelector = html` <ha-control-select
       .value=${this._selectedBottom}
@@ -542,8 +621,8 @@ export class SidebarDialogGroups extends BaseEditor {
     ></ha-control-select>`;
 
     const sectionMap = {
-      [SECTION_BOTTOM.BOTTOM]: this._renderPanelSelector(PANEL_TYPE.BOTTOM_ITEMS),
-      [SECTION_BOTTOM.BOTTOM_GRID]: this._renderPanelSelector(PANEL_TYPE.BOTTOM_GRID_ITEMS),
+      [BOTTOM_SECTION.BOTTOM_ITEMS]: this._renderPanelSelector(BOTTOM_SECTION.BOTTOM_ITEMS),
+      [BOTTOM_SECTION.BOTTOM_GRID_ITEMS]: this._renderPanelSelector(BOTTOM_SECTION.BOTTOM_GRID_ITEMS),
     };
     return html`
       ${sectionSelector}
@@ -552,12 +631,17 @@ export class SidebarDialogGroups extends BaseEditor {
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
+    const uncategorizedActive = this._dialog._uncategorizedIsActive === true;
+
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
     const currentItems = this._dialog._initCombiPanels.filter(
       (item) => !hiddenItems.includes(item) && item !== defaultPanel
     );
-    const pickedItems = this._dialog.pickedItems;
+    const pickedItems = uncategorizedActive
+      ? this._dialog.pickedWithoutUncategorizedFromCustom
+      : this._dialog.pickedItems;
+
     const selectedType = customGroup ? customGroup : configValue;
 
     const configItems = customGroup
@@ -716,7 +800,7 @@ export class SidebarDialogGroups extends BaseEditor {
     };
 
     switch (this._selectedTab) {
-      case PANEL.BOTTOM_PANEL:
+      case PANEL_AREA.BOTTOM_PANELS:
         const bottomSection = this._selectedBottom;
         const bottomItems = [...(this._sidebarConfig[bottomSection] || [])].concat();
         console.log(bottomSection, bottomItems);
@@ -724,7 +808,7 @@ export class SidebarDialogGroups extends BaseEditor {
         console.log('Bottom items after move:', bottomItems);
         updateConfig({ [bottomSection]: bottomItems });
         break;
-      case PANEL.CUSTOM_GROUP:
+      case PANEL_AREA.CUSTOM_GROUPS:
         const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
         const groupName = this._selectedGroup;
         if (groupName) {
@@ -746,8 +830,8 @@ export class SidebarDialogGroups extends BaseEditor {
   private _sortItems(type: string) {
     const hassPanels = this.hass?.panels;
     const selectedItems =
-      type === PANEL_TYPE.BOTTOM_ITEMS || type === PANEL_TYPE.BOTTOM_GRID_ITEMS
-        ? this._sidebarConfig[type as PANEL_TYPE.BOTTOM_ITEMS | PANEL_TYPE.BOTTOM_GRID_ITEMS] || []
+      type === BOTTOM_SECTION.BOTTOM_ITEMS || type === BOTTOM_SECTION.BOTTOM_GRID_ITEMS
+        ? this._sidebarConfig[type as BOTTOM_SECTION.BOTTOM_ITEMS | BOTTOM_SECTION.BOTTOM_GRID_ITEMS] || []
         : this._sidebarConfig.custom_groups?.[type] || [];
 
     // Create a list of items with their titles
@@ -787,8 +871,8 @@ export class SidebarDialogGroups extends BaseEditor {
 
     const updates: Partial<SidebarConfig> = {};
     // Update the config with the new sorted keys
-    if (type === PANEL_TYPE.BOTTOM_ITEMS || type === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
-      const bottomKey = type as PANEL_TYPE.BOTTOM_ITEMS | PANEL_TYPE.BOTTOM_GRID_ITEMS;
+    if (type === BOTTOM_SECTION.BOTTOM_ITEMS || type === BOTTOM_SECTION.BOTTOM_GRID_ITEMS) {
+      const bottomKey = type as BOTTOM_SECTION.BOTTOM_ITEMS | BOTTOM_SECTION.BOTTOM_GRID_ITEMS;
       let bottomItems = [...(this._sidebarConfig[bottomKey] || [])];
       bottomItems = sortedItemKeys;
       updates[bottomKey] = bottomItems;
@@ -864,19 +948,41 @@ export class SidebarDialogGroups extends BaseEditor {
     const configValue = ev.target.configValue;
     const customGroup = ev.target.customGroup;
     const value = ev.detail.value;
-
+    const uncategorizedActive = this._dialog._uncategorizedIsActive === true;
+    const currentConfig = { ...(this._sidebarConfig || {}) };
     // console.log('configValue', configValue, 'value', value);
-
     const updates: Partial<SidebarConfig> = {};
-    if ([PANEL_TYPE.BOTTOM_ITEMS, PANEL_TYPE.BOTTOM_GRID_ITEMS].includes(configValue)) {
-      const bottom = configValue as PANEL_TYPE.BOTTOM_ITEMS | PANEL_TYPE.BOTTOM_GRID_ITEMS;
+    if ([BOTTOM_SECTION.BOTTOM_ITEMS, BOTTOM_SECTION.BOTTOM_GRID_ITEMS].includes(configValue)) {
+      const bottom = configValue as BOTTOM_SECTION.BOTTOM_ITEMS | BOTTOM_SECTION.BOTTOM_GRID_ITEMS;
+      const buttomItems = [...(currentConfig[bottom] || [])];
+      const isAddedItems = value.filter((item: string) => !buttomItems.includes(item));
+      console.log('isAddedItems', isAddedItems);
       let bottomPanels = [...(this._sidebarConfig[bottom] || [])];
+      if (uncategorizedActive && isAddedItems.length > 0) {
+        let uncategorizedGroupItems = [...(currentConfig.custom_groups?.[PANEL_TYPE.UNCATEGORIZED_ITEMS] || [])];
+        uncategorizedGroupItems = uncategorizedGroupItems.filter((item) => !isAddedItems.includes(item));
+        updates.custom_groups = {
+          ...(this._sidebarConfig.custom_groups || {}),
+          [PANEL_TYPE.UNCATEGORIZED_ITEMS]: uncategorizedGroupItems,
+        };
+      }
       bottomPanels = value;
       updates[bottom] = bottomPanels;
-    } else if (configValue === 'customGroup') {
+    } else if (configValue === PANEL_AREA.CUSTOM_GROUPS) {
       const key = customGroup;
+      const oldGroupItems = [...(currentConfig.custom_groups?.[key] || [])];
+      console.log('oldGroupItems', oldGroupItems);
+      const newGroupItems = value;
+      const isAddedItems = newGroupItems.filter((item: string) => !oldGroupItems.includes(item));
+      console.log('isAddedItems', isAddedItems);
+
       let customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
       let groupItems = [...(customGroups[key] || [])];
+      if (uncategorizedActive && isAddedItems.length > 0) {
+        let uncategorizedGroupItems = [...(customGroups[PANEL_TYPE.UNCATEGORIZED_ITEMS] || [])];
+        uncategorizedGroupItems = uncategorizedGroupItems.filter((item) => !isAddedItems.includes(item));
+        customGroups[PANEL_TYPE.UNCATEGORIZED_ITEMS] = uncategorizedGroupItems;
+      }
       groupItems = value;
       customGroups[key] = groupItems;
       updates.custom_groups = customGroups;
@@ -948,13 +1054,13 @@ export class SidebarDialogGroups extends BaseEditor {
   public clickedPanelInPreview(panel: string, group?: string | null): void {
     console.log('Clicked panel in preview:', panel, group);
     if (group) {
-      if (group === PANEL_TYPE.BOTTOM_GRID_ITEMS || group === PANEL_TYPE.BOTTOM_ITEMS) {
-        this._selectedTab = PANEL.BOTTOM_PANEL;
+      if (group === BOTTOM_SECTION.BOTTOM_GRID_ITEMS || group === BOTTOM_SECTION.BOTTOM_ITEMS) {
+        this._selectedTab = PANEL_AREA.BOTTOM_PANELS;
         this._selectedGroup = null;
         this._selectedBottom =
-          group === PANEL_TYPE.BOTTOM_GRID_ITEMS ? SECTION_BOTTOM.BOTTOM_GRID : SECTION_BOTTOM.BOTTOM;
+          group === BOTTOM_SECTION.BOTTOM_GRID_ITEMS ? BOTTOM_SECTION.BOTTOM_GRID_ITEMS : BOTTOM_SECTION.BOTTOM_ITEMS;
       } else {
-        this._selectedTab = PANEL.CUSTOM_GROUP;
+        this._selectedTab = PANEL_AREA.CUSTOM_GROUPS;
         this._selectedGroup = group;
       }
     }
@@ -964,6 +1070,15 @@ export class SidebarDialogGroups extends BaseEditor {
     return [
       super.styles,
       css`
+        .groups-menu-header {
+          top: 0;
+          z-index: 10;
+          background-color: var(--mdc-theme-surface);
+          /* height: 48px; */
+          position: sticky;
+          display: block;
+        }
+
         .selected-items-preview {
           display: flex;
           flex-direction: column;
@@ -1066,6 +1181,9 @@ export class SidebarDialogGroups extends BaseEditor {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'sidebar-dialog-groups': SidebarDialogGroups;
+    'sidebar-dialog-groups': SidebarDialogPanels;
+  }
+  interface HASSDomEvents {
+    'group-action': { action: string; key: string };
   }
 }

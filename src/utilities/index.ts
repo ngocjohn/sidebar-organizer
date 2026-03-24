@@ -17,10 +17,10 @@ export * from './create-ha-form';
 export * from './compare';
 export * from './compute-panels';
 export * from './merge-with-cleanup';
-export * from './array';
-export * from './user';
 export * from './object-differences';
+export * from './fire_event';
 
+import { ARRAY_UTILS } from './array';
 import * as COMPUTE_PANELS from './compute-panels';
 import * as CONFIG from './configs';
 import * as DASHBOARD_HELPERS from './dashboard';
@@ -35,4 +35,5 @@ export const UTILITIES = {
   OBJECT: OBJECT_DIFF,
   CONFIG,
   DOM: { mapItemsForDebug },
+  ARRAY: ARRAY_UTILS,
 };

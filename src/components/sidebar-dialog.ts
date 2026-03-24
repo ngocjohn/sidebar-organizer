@@ -1,6 +1,5 @@
 import { ALERT_MSG, CONFIG_SECTION, DIALOG_TAG, STORAGE, TAB_STATE } from '@constants';
 import { SidebarConfig, NewItemConfig, SidebardPanelConfig, PANEL_TYPE } from '@types';
-import { ARRAY_UTILS } from '@utilities/array';
 import {
   fetchFileConfig,
   INVALID_ITEM_KEYS,
@@ -35,11 +34,12 @@ import { isEmpty, pick } from 'es-toolkit/compat';
 import { html, css, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
+
+import './editor';
 import YAML from 'yaml';
 
 import { BaseEditor } from './base-editor';
 import * as ELEMENT from './editor';
-import './editor';
 import { EditorStore } from './editor-store';
 import { SidebarOrganizerDialog } from './sidebar-organizer-dialog';
 import { SidebarOrganizerDialogWA } from './sidebar-organizer-dialog_wa';
@@ -70,6 +70,8 @@ export class SidebarConfigDialog extends BaseEditor {
   @state() private _panelConfigMap = new Map<string, string[]>();
   @state() private _pinnedGroupsMap = new Map<string, { icon?: string }>();
   @state() public _settingItemMoved = false;
+  @state() private _uncategorizedItemsGroup: string[] = [];
+  @state() public _uncategorizedIsActive?: boolean;
 
   @state() private _uploading = false;
   @state() _invalidConfig?: INVALID_CONFIG;
@@ -77,7 +79,7 @@ export class SidebarConfigDialog extends BaseEditor {
   private _resizeObserver?: ResizeObserver;
 
   @query(DIALOG_TAG.COLORS) _dialogColors!: ELEMENT.SidebarDialogColors;
-  @query(DIALOG_TAG.GROUPS) _dialogGroups!: ELEMENT.SidebarDialogGroups;
+  @query(DIALOG_TAG.PANELS) _dialogPanels!: ELEMENT.SidebarDialogPanels;
   @query(DIALOG_TAG.PREVIEW) _dialogPreview!: ELEMENT.SidebarDialogPreview;
   @query(DIALOG_TAG.CODE_EDITOR) _dialogCodeEditor!: ELEMENT.SidebarDialogCodeEditor;
   @query(DIALOG_TAG.NEW_ITEMS) _dialogNewItems!: ELEMENT.SidebarDialogNewItems;
@@ -149,6 +151,7 @@ export class SidebarConfigDialog extends BaseEditor {
       this._mainDialog._configValid = isValid;
       this.requestUpdate();
     }
+
     if (_changedProperties.has('_settingItemMoved')) {
       if (this._settingItemMoved && !this._initCombiPanels.includes('config')) {
         this._initCombiPanels.push('config');
@@ -166,6 +169,32 @@ export class SidebarConfigDialog extends BaseEditor {
 
           this._sidebarConfig = { ...this._sidebarConfig, ...updatedPanelConfig };
         }
+      }
+    }
+
+    if (_changedProperties.has('_uncategorizedIsActive') && this._uncategorizedIsActive !== undefined) {
+      if (this._uncategorizedIsActive) {
+        const currentConfig = { ...(this._sidebarConfig || {}) } as SidebarConfig;
+        const currentCustomGroups = { ...(currentConfig.custom_groups || {}) };
+        const currentItemsInConfig = currentCustomGroups?.[PANEL_TYPE.UNCATEGORIZED_ITEMS] || [];
+        const allUngroupedItems = this.uncategorizedItems;
+
+        const isDifferent = JSON.stringify(currentItemsInConfig.sort()) !== JSON.stringify(allUngroupedItems.sort());
+
+        if (isDifferent) {
+          const updatedGroupConfigUncategorized = [...allUngroupedItems];
+          currentCustomGroups[PANEL_TYPE.UNCATEGORIZED_ITEMS] = updatedGroupConfigUncategorized;
+          const updatedConfig = { ...currentConfig, custom_groups: currentCustomGroups };
+          console.log(
+            'Updated uncategorized items from:',
+            currentItemsInConfig,
+            'to:',
+            updatedGroupConfigUncategorized
+          );
+          this._sidebarConfig = { ...this._sidebarConfig, ...updatedConfig };
+        }
+      } else {
+        console.log('Uncategorized is not active, removing uncategorized items from config');
       }
     }
     if (_changedProperties.has('_configLoaded') && this._configLoaded === true && !this._resizeObserver) {
@@ -207,12 +236,24 @@ export class SidebarConfigDialog extends BaseEditor {
             this._newItemMap
           );
         }
+
         const pinnedGroupsChanged = JSON.stringify(oldConfig.pinned_groups) !== JSON.stringify(newConfig.pinned_groups);
         if (pinnedGroupsChanged && newConfig.pinned_groups) {
           this._pinnedGroupsMap = new Map(Object.entries(normalizePinnedGroups(newConfig.pinned_groups)));
         }
 
         this._settingItemMoved = newConfig.move_settings_from_fixed === true;
+        // Resetting uncategorizedIsActive to ensure it gets recalculated based on the new config
+        this._uncategorizedIsActive = undefined;
+
+        this._uncategorizedIsActive =
+          newConfig.uncategorized_items === true ||
+          (newConfig.custom_groups &&
+            Array.isArray(newConfig.custom_groups[PANEL_TYPE.UNCATEGORIZED_ITEMS]) &&
+            newConfig.custom_groups[PANEL_TYPE.UNCATEGORIZED_ITEMS].length > 0)
+            ? true
+            : false;
+        console.log('uncategorizedIsActive:', this._uncategorizedIsActive);
       }
 
       const curentNewItems = [...this._newItems];
@@ -240,6 +281,7 @@ export class SidebarConfigDialog extends BaseEditor {
       };
       this._panelConfigMap = new Map(Object.entries(panelConfig));
       // Check for config changes from initial config
+
       const hasConfigChanged = JSON.stringify(this._initConfig) !== JSON.stringify(newConfig);
 
       this._mainDialog._saveDisabled = !hasConfigChanged;
@@ -291,7 +333,9 @@ export class SidebarConfigDialog extends BaseEditor {
   }
 
   private _createStore(): void {
+    if (this._store) return;
     this._store = new EditorStore(this, this._sidebarConfig);
+    console.log('Store created ...', this._store);
   }
   private _renderMainConfig(): TemplateResult {
     if (this._tabState !== TAB_STATE.BASE) {
@@ -300,12 +344,14 @@ export class SidebarConfigDialog extends BaseEditor {
 
     return html`
       <div id="sidebar-config">
-        <sidebar-dialog-menu
-          .hass=${this.hass}
-          ._store=${this._store}
-          .value=${this._currSection}
-          @menu-value-changed=${this._handleMenuValueChanged}
-        ></sidebar-dialog-menu>
+        <div class="dialog-menu">
+          <sidebar-dialog-menu
+            .hass=${this.hass}
+            ._store=${this._store}
+            .value=${this._currSection}
+            @menu-value-changed=${this._handleMenuValueChanged}
+          ></sidebar-dialog-menu>
+        </div>
         ${this._renderConfigSection()}
       </div>
     `;
@@ -357,12 +403,12 @@ export class SidebarConfigDialog extends BaseEditor {
   }
 
   private _renderPanelConfig(): TemplateResult {
-    return html` <sidebar-dialog-groups
+    return html` <sidebar-dialog-panels
       .hass=${this.hass}
       ._store=${this._store}
       ._sidebarConfig=${this._sidebarConfig}
       @sidebar-changed=${this._handleSidebarChanged}
-    ></sidebar-dialog-groups>`;
+    ></sidebar-dialog-panels>`;
   }
 
   private _renderNewItemsConfig(): TemplateResult {
@@ -574,7 +620,7 @@ export class SidebarConfigDialog extends BaseEditor {
 
     const hiddenItems = getHiddenPanels();
 
-    const allPanels = ARRAY_UTILS.union(currentPanelOrder, hiddenItems);
+    const allPanels = this._utils.ARRAY.union(currentPanelOrder, hiddenItems);
 
     const { added, removed } = await comparePanelItems(this.hass, allPanels);
     if (Boolean(added.length || removed.length)) {
@@ -673,6 +719,7 @@ export class SidebarConfigDialog extends BaseEditor {
   };
 
   private _updateSidebarItems = (currentPanelOrder: string[], initHiddenItems: string[]): void => {
+    const ARRAY_UTILS = this._utils.ARRAY;
     let configToValidate = { ...(this._sidebarConfig || {}) };
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
 
@@ -734,6 +781,38 @@ export class SidebarConfigDialog extends BaseEditor {
     return ungroupedItems;
   }
 
+  public get uncategorizedFromCustom(): string[] | undefined {
+    if (
+      !this._sidebarConfig[PANEL_TYPE.CUSTOM_GROUPS] ||
+      this._sidebarConfig[PANEL_TYPE.CUSTOM_GROUPS].hasOwnProperty(PANEL_TYPE.UNCATEGORIZED_ITEMS)
+    ) {
+      return undefined;
+    }
+
+    return this._sidebarConfig[PANEL_TYPE.CUSTOM_GROUPS][PANEL_TYPE.UNCATEGORIZED_ITEMS];
+  }
+
+  public get pickedWithoutUncategorizedFromCustom(): string[] {
+    const itemsFromCustom = this._sidebarConfig[PANEL_TYPE.CUSTOM_GROUPS]?.[PANEL_TYPE.UNCATEGORIZED_ITEMS] || [];
+    const pickedWithoutUncategorizedFromCustom = Array.from(this._panelConfigMap.values())
+      .flat()
+      .filter((item) => !itemsFromCustom.includes(item));
+    return pickedWithoutUncategorizedFromCustom;
+  }
+
+  public get uncategorizedItems(): string[] {
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
+    const fromCustom = this.uncategorizedFromCustom || [];
+    const pickedWithoutUncategorizedFromCustom = this.pickedWithoutUncategorizedFromCustom;
+    const remainingUncategorized = this._initCombiPanels.filter(
+      (item) =>
+        !pickedWithoutUncategorizedFromCustom.includes(item) &&
+        !(this._sidebarConfig.hidden_items || []).includes(item) &&
+        item !== defaultPanel
+    );
+    return Array.from(new Set([...fromCustom, ...remainingUncategorized]));
+  }
+
   public _cleanItemsFromGroups = (groupType: PANEL_TYPE, itemToRemove: string[]): SidebardPanelConfig => {
     const configToClean = pick(this._sidebarConfig, [groupType]) as SidebardPanelConfig;
     return cleanItemsFromConfig(configToClean, itemToRemove);
@@ -748,8 +827,8 @@ export class SidebarConfigDialog extends BaseEditor {
     event.stopPropagation();
     const panel = event.detail as string;
     const inGroup = this._getGroupOfPanel(panel);
-    if (this._dialogGroups) {
-      this._dialogGroups.clickedPanelInPreview(panel, inGroup);
+    if (this._dialogPanels) {
+      this._dialogPanels.clickedPanelInPreview(panel, inGroup);
     }
   }
 
@@ -799,6 +878,27 @@ export class SidebarConfigDialog extends BaseEditor {
         #sidebar-config {
           display: block;
           height: max-content;
+          position: relative;
+          width: 100%;
+        }
+
+        .dialog-menu {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background-color: var(--mdc-theme-surface);
+        }
+        sidebar-dialog-panels {
+          display: block;
+          position: relative;
+          max-height: calc(var(--mdc-dialog-min-height) - 50px);
+          width: inherit;
+          overflow-y: auto;
+        }
+
+        :host([fullscreen]) sidebar-dialog-panels {
+          --so-content-fullscreen-max-height: calc(var(--mdc-dialog-min-height) - 128px - 50px);
+          max-height: var(--so-content-fullscreen-max-height);
         }
 
         #tabbar {
@@ -842,7 +942,6 @@ export class SidebarConfigDialog extends BaseEditor {
           display: flex;
           flex-direction: column;
           gap: var(--side-dialog-gutter);
-          margin-top: 1rem;
           min-height: 250px;
           justify-content: space-between;
           flex: 1;

@@ -2,34 +2,47 @@ import { ATTRIBUTE, CLASS, ELEMENT, SELECTOR } from '@constants';
 import { HaExtened, SidebarPanelItem } from '@types';
 import { getPromisableResult } from 'get-promisable-result';
 import { html, TemplateResult } from 'lit';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 const HOLD_DURATION = 300;
 const NAME_RGX = /sidebar-organizer.js/i;
 const HACS_TAG_RGX = /[?&]hacstag=(\d+)/;
 
-export const createExpansionPanel = ({
-  content,
-  options,
-}: {
+export interface ExpandablePanelProps {
   content: TemplateResult;
-  options: { expanded?: boolean; header: string; icon?: string; secondary?: string; darkBg?: boolean };
-}): TemplateResult => {
-  const styles = 'margin-bottom: var(--side-dialog-padding); --expansion-panel-content-padding: 0;';
+  options: {
+    expanded?: boolean;
+    header: string;
+    icon?: string;
+    secondary?: string;
+    darkBg?: boolean;
+    noStyle?: boolean;
+    outlined?: boolean;
+    class?: string;
+    iconSlot?: TemplateResult;
+  };
+}
+export const createExpansionPanel = ({ content, options }: ExpandablePanelProps): TemplateResult => {
+  const styles = options.noStyle
+    ? ''
+    : 'margin-bottom: var(--side-dialog-padding); --expansion-panel-content-padding: 0;';
   const darkBg = options.darkBg ? 'background-color: rgba(0, 0, 0, 0.2);' : '';
 
   return html`
     <ha-expansion-panel
+      class=${ifDefined(options.class ? options.class : undefined)}
       style=${styles}
-      .outlined=${true}
-      .expanded=${options?.expanded || false}
+      .outlined=${options?.outlined ?? true}
+      .expanded=${options?.expanded ?? false}
       .header=${options.header}
       .secondary=${options?.secondary || ''}
-      .leftChevron=${false}
+      .leftChevron=${options?.iconSlot != null ? true : false}
     >
+      ${ifDefined(options.iconSlot ? options.iconSlot : undefined)}
       ${options.icon
         ? html`<ha-icon icon=${options.icon} slot="leading-icon" style="color: var(--secondary-text-color)"></ha-icon>`
         : ''}
-      <div style="padding: 1em; ${darkBg}">${content}</div>
+      <div style="${darkBg} ${!options.noStyle ? 'padding: 1em;' : ''}">${content}</div>
     </ha-expansion-panel>
   `;
 };
@@ -277,6 +290,16 @@ export const compareDatasetWithHref = (element: SidebarPanelItem): boolean => {
   return isValid;
 };
 
+export const parseItemValues = (
+  item: SidebarPanelItem
+): { panelId: string; hrefPanelId: string; title: string; group?: string } => {
+  const panelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
+  const hrefPanelId = item.href.replace('/', '');
+  const title = item.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT)?.textContent.trim() || '';
+  const group = item.getAttribute(ATTRIBUTE.GROUP) || undefined;
+  return { panelId, hrefPanelId, title, group };
+};
+
 export const mapItemsForDebug = (
   items: NodeListOf<SidebarPanelItem> | SidebarPanelItem[],
   checkValid = false,
@@ -290,16 +313,12 @@ export const mapItemsForDebug = (
   element?: SidebarPanelItem;
 }[] => {
   return Array.from(items).map((element: SidebarPanelItem) => {
-    const panelId = element.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
-    const hrefPanelId = element.href.replace('/', '');
-    const intemText = element.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT);
-    const title = intemText!.textContent.trim();
-    const group = element.getAttribute(ATTRIBUTE.GROUP) || undefined;
+    const { panelId, hrefPanelId, title, group } = parseItemValues(element);
     const isValid = checkValid ? compareDatasetWithHref(element) : undefined;
     return {
+      title,
       panelId,
       hrefPanelId,
-      title,
       isValid,
       group,
       element: includeElement ? element : undefined,

@@ -1,6 +1,7 @@
 import { CONFIG_SECTION, PANEL_AREA } from '@constants';
-import { HomeAssistant, SidebarConfig } from '@types';
+import { HomeAssistant, PanelInfo, SidebarConfig } from '@types';
 import { UTILITIES } from '@utilities/index';
+import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 import { CSSResultGroup, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
 
@@ -14,12 +15,16 @@ export class BaseEditor extends LitElement {
   @property({ attribute: false }) public _utils = UTILITIES;
 
   protected _configArea?: CONFIG_SECTION | PANEL_AREA;
-
+  protected _styleManager: HomeAssistantStylesManager;
   constructor(area?: CONFIG_SECTION | PANEL_AREA) {
     super();
     if (area) {
       this._configArea = area;
     }
+    this._styleManager = new HomeAssistantStylesManager({
+      namespace: 'sidebar-dialog',
+      throwWarnings: false,
+    });
   }
   public connectedCallback(): void {
     super.connectedCallback();
@@ -45,4 +50,21 @@ export class BaseEditor extends LitElement {
   static get styles(): CSSResultGroup {
     return dialogStyles;
   }
+
+  public _getPanelInfo = (panelId: string): PanelInfo => {
+    const hass = this.hass;
+    const panels = hass.panels || {};
+    if (this._dialog?._newItemMap?.has(panelId)) {
+      return {
+        ...this._dialog!._newItemMap!.get(panelId)!,
+        component_name: panelId,
+      };
+    } else {
+      return {
+        ...panels[panelId],
+        component_name: panelId,
+        title: this._utils.PANEL.getPanelTitleFromUrlPath(hass, panelId) || panels[panelId]?.title || panelId,
+      };
+    }
+  };
 }

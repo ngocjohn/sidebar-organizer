@@ -263,7 +263,7 @@ export class SidebarDialogColors extends BaseEditor {
       this._getDefaultColors();
       this._initCustomStyles = this._sidebarConfig.color_config?.[mode]?.custom_styles || [];
     }, 0);
-    // console.log('Color compoment applied theme:', theme, 'mode:', mode);
+    // console.log('Color component applied theme:', theme, 'mode:', mode);
     if (this._dialog._dialogPreview && this._dialog._dialogPreview._colorConfigMode !== mode) {
       this._dialog._dialogPreview._colorConfigMode = mode;
     }
@@ -273,7 +273,7 @@ export class SidebarDialogColors extends BaseEditor {
     const config = { ...(this._sidebarConfig || {}) };
     const DATA = pick(config, [...AppearanceConfigKeys]) as SidebarAppearanceConfig;
     return html`
-      <div id="theme-container"></div>
+      <div id="theme-container" style="display: none;"></div>
       ${createHaForm(this, BASE_APPEARANCE_SCHEMA(DATA), DATA, { configKey: 'appearance' })}
       <div class="color-container">${this._renderColorConfigFields()}</div>
     `;

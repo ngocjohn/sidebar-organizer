@@ -1,18 +1,16 @@
-import { DividerColorSettings, HaExtened, ItemShallowKeys, PanelInfo, SidebarConfig } from '@types';
+import { DividerColorSettings, ItemShallowKeys, PANEL_TYPE, PanelInfo, SidebarConfig } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
 import { isIcon } from '@utilities/is-icon';
-import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
+import { getDefaultPanelUrlPath } from '@utilities/panel';
 import { shallowEqual } from '@utilities/shallow-equal';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { BaseEditor } from 'components/base-editor';
-import { CONFIG_SECTION } from 'constants/config-area';
+import { BOTTOM_SECTION, CONFIG_SECTION } from 'constants/config-area';
 import { isEmpty } from 'es-toolkit/compat';
 import { html, css, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
-
-import { BottomTabPanel } from './sidebar-dialog-groups';
 
 export interface PreviewPanels {
   custom_groups?: Record<string, PanelInfo[]>;
@@ -300,23 +298,6 @@ export class SidebarDialogPreview extends BaseEditor {
     return previewPanels;
   }
 
-  private _getPanelInfo(panelId: string): PanelInfo {
-    const hass = this.hass as HaExtened['hass'];
-    const panels = hass.panels;
-    if (this._dialog?._newItemMap?.has(panelId)) {
-      return {
-        ...this._dialog!._newItemMap!.get(panelId)!,
-        component_name: panelId,
-      };
-    } else {
-      return {
-        ...panels[panelId],
-        component_name: panelId,
-        title: getPanelTitleFromUrlPath(hass, panelId) || panels[panelId]?.title || panelId,
-      };
-    }
-  }
-
   private _setTheme(mode: string): void {
     let theme = this.hass.themes.theme;
     const customTheme = this._sidebarConfig?.color_config?.custom_theme?.theme || undefined;
@@ -381,14 +362,17 @@ export class SidebarDialogPreview extends BaseEditor {
     }
 
     return Object.entries(groups).map(([groupName, items]) => {
+      const isUncategorized = groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS;
       const isCollapsed = this._collapsedGroups.has(groupName);
-      return html`<div class="divider-container" group=${groupName} @click=${() => this._toggleColapsed(groupName)}>
-          <div class="added-content" group=${groupName} ?collapsed=${isCollapsed}>
-            <ha-icon icon="mdi:chevron-down"></ha-icon>
-            <span>${groupName.trim()}</span>
-          </div>
-        </div>
-        <div class="group-items" ?collapsed=${isCollapsed} group=${groupName}>
+      return html`${isUncategorized
+          ? nothing
+          : html`<div class="divider-container" group=${groupName} @click=${() => this._toggleColapsed(groupName)}>
+              <div class="added-content" group=${groupName} ?collapsed=${isCollapsed}>
+                <ha-icon icon="mdi:chevron-down"></ha-icon>
+                <span>${groupName.trim()}</span>
+              </div>
+            </div>`}
+        <div class="group-items" ?collapsed=${isUncategorized ? false : isCollapsed} group=${groupName}>
           ${items.map((item: PanelInfo) => this._renderPanel(item))}
         </div>`;
     });
@@ -517,13 +501,13 @@ export class SidebarDialogPreview extends BaseEditor {
     });
   };
 
-  public _toggleBottomPanel(bottomPanel: BottomTabPanel, anime: boolean = true) {
+  public _toggleBottomPanel(bottomPanel: BOTTOM_SECTION, anime: boolean = true) {
     this._collapsedGroups = new Set(Object.keys(this._previewPanels?.custom_groups || {}));
     this.requestUpdate();
     this.updateComplete.then(() => {
       let bottomPanelEl: HTMLElement;
       bottomPanelEl =
-        bottomPanel === 'bottom_items'
+        bottomPanel === BOTTOM_SECTION.BOTTOM_ITEMS
           ? (this.shadowRoot?.querySelector('div.bottom-panel') as HTMLElement)
           : (this.shadowRoot?.querySelector('div.bottom-grid-panel') as HTMLElement);
       if (!bottomPanelEl) {

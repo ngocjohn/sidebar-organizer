@@ -26,7 +26,21 @@ export const dialogStyles = css`
     border-block: 0.5px solid var(--divider-color);
     --mdc-icon-button-size: 42px;
   }
-
+  .group-header {
+    height: var(--data-table-row-height, 52px);
+    padding-left: 12px;
+    padding-inline-start: 12px;
+    padding-inline-end: initial;
+    width: 100%;
+    font-weight: var(--ha-font-weight-medium);
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    background-color: var(--primary-background-color);
+  }
+  .group-header[uncategorized] {
+    background-color: var(--disabled-color);
+  }
   .group-item-row {
     position: relative;
     /* width: 100%; */

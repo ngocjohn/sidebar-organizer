@@ -39,7 +39,7 @@ import {
   normalizePinnedGroups,
 } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { addAction, mapItemsForDebug, nextRender, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, mapItemsForDebug, nextRender, onPanelLoaded, parseItemValues } from '@utilities/dom-utils';
 import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
@@ -64,8 +64,8 @@ export class SidebarOrganizer {
       this._haDrawer = (await HA_DRAWER.element) as HaDrawer;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
-      this._store = new Store(this._ha!, this);
-      this._dialogManager = new DialogHandler(this._ha!, this);
+      this._store = new Store(this._ha, this);
+      this._dialogManager = new DialogHandler(this._ha, this);
       this.run();
     });
 
@@ -89,7 +89,9 @@ export class SidebarOrganizer {
       throwWarnings: false,
     });
 
+    // Listen for storage changes to handle collapse state updates across tabs
     window.addEventListener('storage', this._storageListener.bind(this));
+
     // Listen for HA Events
     [
       HA_EVENT.SETTHEME,
@@ -176,6 +178,7 @@ export class SidebarOrganizer {
   get _pluginConfigured(): boolean {
     return Boolean(this._hasSidebarConfig && !this._userHasSidebarSettings);
   }
+
   public async run(): Promise<void> {
     if (!this.hass || this.hass.config?.state !== HA_STATE.RUNNING) {
       this._store._haNotRunningToast();
@@ -190,6 +193,7 @@ export class SidebarOrganizer {
       LOGGER.warn(msg);
       return;
     }
+
     compareHacsTagDiff(this._ha.hass);
     await this._checkUserSidebarSettings();
     await this._watchEditLegacySidebar();
@@ -204,7 +208,9 @@ export class SidebarOrganizer {
     }
 
     if (this.firstSetUpDone && !this._userHasSidebarSettings) {
-      await this._getConfig();
+      await this._getConfig().then(() => {
+        this._setupInitialConfig();
+      });
       this._processSections();
     }
   }
@@ -434,15 +440,12 @@ export class SidebarOrganizer {
       console.log('No config found, stopping further setup');
       return;
     }
-    if (config) {
-      this._config = config;
-      this._setupInitialConfig();
-    }
+    this._config = config;
   }
 
   private _setupInitialConfig() {
     // info
-    console.log('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
+    console.group('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
 
     const { default_collapsed, custom_groups, color_config, bottom_items, bottom_grid_items, pinned_groups } =
       this._config;
@@ -479,27 +482,22 @@ export class SidebarOrganizer {
       const notificationMap = new Map(Object.entries(notification || {}));
 
       if (new_items && new_items.length > 0) {
+        // Add new items to sidebar before spacer
         Array.from(new_items).map((item) => {
           const newItemEl = this._createNewItem(item);
+
           if (newItemEl) {
             beforeSpacerContainer.appendChild(newItemEl);
           }
         });
-        //success
-        console.log(
-          '%cSIDEBAR-ORGANIZER:%c ✅ New items added to sidebar',
-          'color: #bada55;',
-          'color: #40c057;',
-          new_items
-        );
+        console.log('New items added to sidebar:', new_items);
       }
 
       if (move_settings_from_fixed === true) {
         const settingsItem = sidebarShadowRoot.querySelector(SELECTOR.SETTINGS_ITEM) as SidebarPanelItem;
         if (settingsItem) {
           beforeSpacerContainer.appendChild(settingsItem);
-          //success
-          console.log('%cSIDEBAR-ORGANIZER:%c ✅ Setting moved from fixed', 'color: #bada55;', 'color: #40c057;');
+          console.log('Settings item moved from fixed:', move_settings_from_fixed);
         } else {
           console.log(
             '%cSIDEBAR-ORGANIZER:%c ❌ Settings item not found',
@@ -528,6 +526,7 @@ export class SidebarOrganizer {
         const initOrder = Array.from(items).map(
           (item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '')
         );
+
         this._baseOrder = this._reorderPanelItemsByConfig(initOrder);
         if (this._configPanelMap.size === 0) {
           // Skip reordering if there are no groups defined in config to avoid unnecessary DOM manipulation
@@ -547,6 +546,11 @@ export class SidebarOrganizer {
         const inGroup = (panel: string): string | null => this._getGroupOfPanel(panel);
 
         const defaultPanelUrlPath = getDefaultPanelUrlPath(this.hass);
+
+        console.groupCollapsed('Ordering panels based on config:', this._baseOrder.length, 'panels');
+
+        const orderedPanels: Omit<NewItemConfig, 'icon'>[] = [];
+
         this._baseOrder.forEach((panelId) => {
           const foundItem = Array.from(items).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
           if (!foundItem) {
@@ -580,13 +584,15 @@ export class SidebarOrganizer {
                 uncategorizedItems.appendChild(foundItem);
               }
             }
+            orderedPanels.push({ ...parseItemValues(foundItem), group: group || 'uncategorized' });
           }
         });
+        console.table(orderedPanels);
+        console.groupEnd();
 
         if (uncategorizedItems.children.length > 0 || topItems.children.length > 0) {
           beforeSpacerContainer.appendChild(topItems);
           beforeSpacerContainer.appendChild(uncategorizedItems);
-          console.log('%cSIDEBAR-ORGANIZER:%c ✅ Top items added to sidebar', 'color: #bada55;', 'color: #40c057;');
         }
         if (bottomItems.children.length > 0 || bottomGridItems.children.length > 0) {
           this._processBottomList(bottomItems, bottomGridItems);
@@ -628,6 +634,8 @@ export class SidebarOrganizer {
     }
     //success
     console.log('%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar', 'color: #bada55;', 'color: #40c057;');
+
+    console.groupEnd();
   }
 
   private _processSections() {
@@ -1325,6 +1333,8 @@ declare global {
 // Initial Run
 
 if (!window.SidebarOrganizer) {
-  console.log('ENV DEBUG:', __DEBUG__);
+  if (__DEBUG__) {
+    console.clear();
+  }
   window.SidebarOrganizer = new SidebarOrganizer();
 }

@@ -3,7 +3,7 @@ import { SidebarConfig, NewItemConfig } from '@types';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { BaseEditor } from 'components/base-editor';
-import { CONFIG_SECTION } from 'constants/config-area';
+import { BOTTOM_SECTION, CONFIG_SECTION } from 'constants/config-area';
 import { capitalize, findKey, pick } from 'es-toolkit/compat';
 import { html, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -11,7 +11,6 @@ import { repeat } from 'lit/directives/repeat.js';
 import memoizeOne from 'memoize-one';
 
 import { computeOptionalActionSchemaFull } from './forms';
-import { BottomTabPanel } from './sidebar-dialog-groups';
 
 const convertTitle = (title: string | undefined): string => {
   return title ? capitalize(title.trim()) : 'Ungrouped';
@@ -274,7 +273,7 @@ export class SidebarDialogNewItems extends BaseEditor {
     console.log('%cSIDEBAR-DIALOG-NEW-ITEMS:', 'color: #40c057;', '_toggleItemInPreview', itemTitle, inGroups);
     if (inGroups && inGroups !== null) {
       if (['bottom_items', 'bottom_grid_items'].includes(inGroups)) {
-        this._dialog._dialogPreview._toggleBottomPanel(inGroups as BottomTabPanel);
+        this._dialog._dialogPreview._toggleBottomPanel(inGroups as BOTTOM_SECTION);
       } else {
         this._dialog._dialogPreview._toggleGroup(inGroups);
       }
