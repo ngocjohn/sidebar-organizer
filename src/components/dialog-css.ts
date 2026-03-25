@@ -209,4 +209,54 @@ export const dialogStyles = css`
     overflow: auto;
     max-height: calc(var(--code-mirror-max-height) - 30px);
   }
+  .item-row {
+    display: flex;
+    height: 42px;
+    width: 100%;
+    align-items: center;
+    border-top: 0.5px solid var(--divider-color);
+    &:hover {
+      background-color: var(--secondary-background-color);
+      color: var(--primary-text-color);
+    }
+  }
+  .item-row.top {
+    border-top: none;
+    user-select: none;
+    background-color: var(--primary-background-color);
+    color: var(--secondary-text-color);
+  }
+  .top .cell {
+    font-weight: var(--ha-font-weight-medium);
+  }
+  .cell {
+    font-family: var(--ha-font-family-body);
+    -webkit-font-smoothing: var(--ha-font-smoothing);
+    line-height: var(--ha-line-height-condensed);
+    font-weight: var(--ha-font-weight-normal);
+    letter-spacing: 0.0178571em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    padding-right: 16px;
+    padding-left: 16px;
+    min-width: 150px;
+    align-self: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    flex: 1;
+  }
+  .cell.icon {
+    min-width: 48px;
+    flex: 0 0 48px !important;
+    display: flex;
+    justify-content: center;
+    color: var(--secondary-text-color);
+    text-align: center;
+  }
+  .grows {
+    flex-grow: 1;
+    flex-shrink: 1;
+  }
 `;

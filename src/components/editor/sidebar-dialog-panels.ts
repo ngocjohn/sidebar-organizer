@@ -470,9 +470,16 @@ export class SidebarDialogPanels extends BaseEditor {
     this._dispatchConfig(this._sidebarConfig);
   }
 
-  private _handleGroupActionEvent = (event: CustomEvent): void => {
+  private _handleGroupActionEvent = async (event: CustomEvent): Promise<void> => {
     event.stopPropagation();
-    const { action, key } = event.detail;
+    const { action, key, type } = event.detail;
+    console.log('Group action event received:', action, key, type);
+    if (type && type === PANEL_AREA.BOTTOM_PANELS) {
+      this._selectedTab = PANEL_AREA.BOTTOM_PANELS;
+      await nextRender();
+      this._selectedBottom = key as BOTTOM_SECTION;
+      return;
+    }
     this._handleGroupAction(action, key);
   };
   private _handleGroupAction = async (action: string, key: string) => {
@@ -658,7 +665,7 @@ export class SidebarDialogPanels extends BaseEditor {
     const renderItems = this._renderSelectedItems(selectedType, selectedItems);
     const renderPinGroupForms = customGroup ? this._renderPinGroupForms(customGroup) : nothing;
     return html`
-      ${renderPinGroupForms}
+      ${!this._dialog._uncategorizedIsActive ? renderPinGroupForms : nothing}
       <div id="items-preview-wrapper">
         <div class="items-container">
           <div class="header-row flex-icon">
@@ -1070,6 +1077,18 @@ export class SidebarDialogPanels extends BaseEditor {
     return [
       super.styles,
       css`
+        *::-webkit-scrollbar {
+          width: 8px;
+        }
+        *::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        *::-webkit-scrollbar-thumb {
+          background-color: var(--scrollbar-thumb-color);
+          border-radius: 4px;
+          border: 2px solid transparent;
+          background-clip: content-box;
+        }
         .groups-menu-header {
           top: 0;
           z-index: 10;
@@ -1184,6 +1203,6 @@ declare global {
     'sidebar-dialog-groups': SidebarDialogPanels;
   }
   interface HASSDomEvents {
-    'group-action': { action: string; key: string };
+    'group-action': { action: string; key: string; type?: string };
   }
 }

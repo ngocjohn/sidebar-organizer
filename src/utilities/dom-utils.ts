@@ -11,6 +11,7 @@ const HACS_TAG_RGX = /[?&]hacstag=(\d+)/;
 export interface ExpandablePanelProps {
   content: TemplateResult;
   options: {
+    id?: string;
     expanded?: boolean;
     header: string;
     icon?: string;
@@ -30,6 +31,7 @@ export const createExpansionPanel = ({ content, options }: ExpandablePanelProps)
 
   return html`
     <ha-expansion-panel
+      id=${ifDefined(options.id ? options.id : undefined)}
       class=${ifDefined(options.class ? options.class : undefined)}
       style=${styles}
       .outlined=${options?.outlined ?? true}
@@ -325,3 +327,6 @@ export const mapItemsForDebug = (
     };
   });
 };
+
+export const isMobileClient = /(?:iphone|android|ipad)/i.test(navigator.userAgent);
+export const isMobile = window.matchMedia('all and (max-width: 450px), all and (max-height: 500px)').matches;

@@ -28,15 +28,9 @@ export class BaseEditor extends LitElement {
   }
   public connectedCallback(): void {
     super.connectedCallback();
-    if (this._configArea) {
-      console.log(`${this._configArea} editor connected.`);
-    }
   }
   public disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this._configArea) {
-      console.log(`${this._configArea} editor disconnected.`);
-    }
   }
 
   protected get _dialog(): SidebarConfigDialog {
@@ -45,6 +39,11 @@ export class BaseEditor extends LitElement {
 
   protected get _config(): SidebarConfig {
     return this._store.sidebarConfig;
+  }
+
+  protected get _panelsWithoutNewItems(): string[] {
+    const newItems = this._config?.new_items?.map((item) => item.title) || [];
+    return this._dialog._initCombiPanels.filter((panel) => !newItems.includes(panel));
   }
 
   static get styles(): CSSResultGroup {
@@ -57,12 +56,12 @@ export class BaseEditor extends LitElement {
     if (this._dialog?._newItemMap?.has(panelId)) {
       return {
         ...this._dialog!._newItemMap!.get(panelId)!,
-        component_name: panelId,
+        component_name: 'new-item',
       };
     } else {
       return {
         ...panels[panelId],
-        component_name: panelId,
+        icon: panels[panelId]?.icon || 'mdi:help-circle-outline',
         title: this._utils.PANEL.getPanelTitleFromUrlPath(hass, panelId) || panels[panelId]?.title || panelId,
       };
     }

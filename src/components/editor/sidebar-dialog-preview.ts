@@ -404,11 +404,11 @@ export class SidebarDialogPreview extends BaseEditor {
   }
   private _renderPanel(panel: PanelInfo, gridItem: boolean = false): TemplateResult {
     const itemClicked = () => {
-      this._dispatchEvent('item-clicked', panel.component_name);
+      this._dispatchEvent('item-clicked', panel.url_path ?? panel.title);
     };
 
-    const { icon, title, component_name } = panel;
-    return html`<a data-panel=${component_name!} @click=${itemClicked}>
+    const { icon, title, url_path } = panel;
+    return html`<a data-panel=${url_path ?? title} @click=${itemClicked}>
       <div class="icon-item" ?grid-item=${gridItem}>
         <ha-icon .icon=${icon}> </ha-icon><span class="item-text">${title}</span>
       </div>
