@@ -2,13 +2,9 @@ import type { Panels } from '@types';
 
 import { ELEMENT, NAMESPACE, STORAGE } from '@constants';
 import { HaExtened } from '@types';
-import * as COMPUTE_PANELS from '@utilities/compute-panels';
-import * as CONFIG from '@utilities/configs';
-import * as DASHBOARD_HELPERS from '@utilities/dashboard';
 import { DashboardPanels, DataTableItem } from '@utilities/dashboard';
-import { nextRender, mapItemsForDebug } from '@utilities/dom-utils';
-import * as OBJECT_DIFF from '@utilities/object-differences';
-import * as PANEL_HELPER from '@utilities/panel';
+import { nextRender } from '@utilities/dom-utils';
+import { UTILITIES } from '@utilities/index';
 import { shallowEqual } from '@utilities/shallow-equal';
 import { setStorage } from '@utilities/storage-utils';
 import { showToast } from '@utilities/toast-notify';
@@ -25,14 +21,7 @@ export default class Store {
   public _dashboardPanels?: DashboardPanels = {};
   public _panelHasChanged = false;
 
-  public _utils = {
-    PANEL: PANEL_HELPER,
-    COMPUTE_PANELS,
-    DASHBOARD: DASHBOARD_HELPERS,
-    OBJECT: OBJECT_DIFF,
-    CONFIG,
-    DOM: { mapItemsForDebug },
-  };
+  public _utils = UTILITIES;
 
   constructor(ha: HaExtened, organizer: SidebarOrganizer) {
     this.haElement = ha;
@@ -46,7 +35,7 @@ export default class Store {
     ).element) as any;
     const defaultPanel = !userDefault
       ? this.hass.systemData?.default_panel || 'home'
-      : PANEL_HELPER.getDefaultPanelUrlPath(this.hass);
+      : this._utils.PANEL.getDefaultPanelUrlPath(this.hass);
     return configLovelaceDashboards._getItems(configLovelaceDashboards._dashboards, defaultPanel, this.hass.panels);
   };
 

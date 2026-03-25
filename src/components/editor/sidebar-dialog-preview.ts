@@ -1,17 +1,16 @@
-import { DividerColorSettings, HaExtened, ItemShallowKeys, PanelInfo, SidebarConfig } from '@types';
+import { DividerColorSettings, ItemShallowKeys, PANEL_TYPE, PanelInfo, SidebarConfig } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { getDefaultThemeColors, convertPreviewCustomStyles } from '@utilities/custom-styles';
 import { isIcon } from '@utilities/is-icon';
-import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
+import { getDefaultPanelUrlPath } from '@utilities/panel';
 import { shallowEqual } from '@utilities/shallow-equal';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
+import { BaseEditor } from 'components/base-editor';
+import { BOTTOM_SECTION, CONFIG_SECTION } from 'constants/config-area';
 import { isEmpty } from 'es-toolkit/compat';
-import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
+import { html, css, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
-
-import { SidebarConfigDialog } from './sidebar-dialog';
-import { BottomTabPanel } from './sidebar-dialog-groups';
 
 export interface PreviewPanels {
   custom_groups?: Record<string, PanelInfo[]>;
@@ -20,9 +19,10 @@ export interface PreviewPanels {
 }
 
 @customElement('sidebar-dialog-preview')
-export class SidebarDialogPreview extends LitElement {
-  @property({ attribute: false }) hass!: HaExtened['hass'];
-  @property({ attribute: false }) _dialog!: SidebarConfigDialog;
+export class SidebarDialogPreview extends BaseEditor {
+  constructor() {
+    super(CONFIG_SECTION.PREVIEW);
+  }
   @property({ attribute: false }) _sidebarConfig: SidebarConfig = {};
 
   @property({ type: Boolean, reflect: true, attribute: 'invalid-config' }) public invalidConfig = false;
@@ -298,23 +298,6 @@ export class SidebarDialogPreview extends LitElement {
     return previewPanels;
   }
 
-  private _getPanelInfo(panelId: string): PanelInfo {
-    const hass = this.hass as HaExtened['hass'];
-    const panels = hass.panels;
-    if (this._dialog?._newItemMap?.has(panelId)) {
-      return {
-        ...this._dialog!._newItemMap!.get(panelId)!,
-        component_name: panelId,
-      };
-    } else {
-      return {
-        ...panels[panelId],
-        component_name: panelId,
-        title: getPanelTitleFromUrlPath(hass, panelId) || panels[panelId]?.title || panelId,
-      };
-    }
-  }
-
   private _setTheme(mode: string): void {
     let theme = this.hass.themes.theme;
     const customTheme = this._sidebarConfig?.color_config?.custom_theme?.theme || undefined;
@@ -379,14 +362,17 @@ export class SidebarDialogPreview extends LitElement {
     }
 
     return Object.entries(groups).map(([groupName, items]) => {
+      const isUncategorized = groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS;
       const isCollapsed = this._collapsedGroups.has(groupName);
-      return html`<div class="divider-container" group=${groupName} @click=${() => this._toggleColapsed(groupName)}>
-          <div class="added-content" group=${groupName} ?collapsed=${isCollapsed}>
-            <ha-icon icon="mdi:chevron-down"></ha-icon>
-            <span>${groupName.trim()}</span>
-          </div>
-        </div>
-        <div class="group-items" ?collapsed=${isCollapsed} group=${groupName}>
+      return html`${isUncategorized
+          ? nothing
+          : html`<div class="divider-container" group=${groupName} @click=${() => this._toggleColapsed(groupName)}>
+              <div class="added-content" group=${groupName} ?collapsed=${isCollapsed}>
+                <ha-icon icon="mdi:chevron-down"></ha-icon>
+                <span>${groupName.trim()}</span>
+              </div>
+            </div>`}
+        <div class="group-items" ?collapsed=${isUncategorized ? false : isCollapsed} group=${groupName}>
           ${items.map((item: PanelInfo) => this._renderPanel(item))}
         </div>`;
     });
@@ -418,11 +404,11 @@ export class SidebarDialogPreview extends LitElement {
   }
   private _renderPanel(panel: PanelInfo, gridItem: boolean = false): TemplateResult {
     const itemClicked = () => {
-      this._dispatchEvent('item-clicked', panel.component_name);
+      this._dispatchEvent('item-clicked', panel.url_path ?? panel.title);
     };
 
-    const { icon, title, component_name } = panel;
-    return html`<a data-panel=${component_name!} @click=${itemClicked}>
+    const { icon, title, url_path } = panel;
+    return html`<a data-panel=${url_path ?? title} @click=${itemClicked}>
       <div class="icon-item" ?grid-item=${gridItem}>
         <ha-icon .icon=${icon}> </ha-icon><span class="item-text">${title}</span>
       </div>
@@ -515,13 +501,13 @@ export class SidebarDialogPreview extends LitElement {
     });
   };
 
-  public _toggleBottomPanel(bottomPanel: BottomTabPanel, anime: boolean = true) {
+  public _toggleBottomPanel(bottomPanel: BOTTOM_SECTION, anime: boolean = true) {
     this._collapsedGroups = new Set(Object.keys(this._previewPanels?.custom_groups || {}));
     this.requestUpdate();
     this.updateComplete.then(() => {
       let bottomPanelEl: HTMLElement;
       bottomPanelEl =
-        bottomPanel === 'bottom_items'
+        bottomPanel === BOTTOM_SECTION.BOTTOM_ITEMS
           ? (this.shadowRoot?.querySelector('div.bottom-panel') as HTMLElement)
           : (this.shadowRoot?.querySelector('div.bottom-grid-panel') as HTMLElement);
       if (!bottomPanelEl) {

@@ -24,6 +24,7 @@ import {
   Sidebar,
   SidebarConfig,
   SidebarPanelItem,
+  ElementsStore,
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { compareHacsTagDiff } from '@utilities/compare-urls';
@@ -38,7 +39,7 @@ import {
   normalizePinnedGroups,
 } from '@utilities/configs/misc';
 import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
-import { addAction, mapItemsForDebug, nextRender, onPanelLoaded } from '@utilities/dom-utils';
+import { addAction, mapItemsForDebug, nextRender, onPanelLoaded, parseItemValues } from '@utilities/dom-utils';
 import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
 import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
@@ -63,8 +64,8 @@ export class SidebarOrganizer {
       this._haDrawer = (await HA_DRAWER.element) as HaDrawer;
       this.HaSidebar = await HA_SIDEBAR.element;
       this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
-      this._store = new Store(this._ha!, this);
-      this._dialogManager = new DialogHandler(this._ha!, this);
+      this._store = new Store(this._ha, this);
+      this._dialogManager = new DialogHandler(this._ha, this);
       this.run();
     });
 
@@ -88,7 +89,9 @@ export class SidebarOrganizer {
       throwWarnings: false,
     });
 
+    // Listen for storage changes to handle collapse state updates across tabs
     window.addEventListener('storage', this._storageListener.bind(this));
+
     // Listen for HA Events
     [
       HA_EVENT.SETTHEME,
@@ -166,24 +169,6 @@ export class SidebarOrganizer {
     return this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
   }
 
-  get _bottomItems(): NodeListOf<SidebarPanelItem> {
-    const bottomContainerItems = this._panelsList
-      ?.querySelector(SELECTOR.BOTTOM_CONTAINER)
-      ?.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
-    const bottomGridContainerItems = this._panelsList
-      ?.querySelector(SELECTOR.GRID_CONTAINER)
-      ?.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
-
-    return [
-      ...(bottomContainerItems || []),
-      ...(bottomGridContainerItems || []),
-    ] as unknown as NodeListOf<SidebarPanelItem>;
-  }
-
-  get _allItems(): NodeListOf<SidebarPanelItem> {
-    return [...this._scrollbarItems, ...this._bottomItems] as unknown as NodeListOf<SidebarPanelItem>;
-  }
-
   get _hasSidebarConfig(): boolean {
     const sidebarConfig = localStorage.getItem(STORAGE.UI_CONFIG);
     const useConfigFile = sidebarUseConfigFile();
@@ -193,6 +178,7 @@ export class SidebarOrganizer {
   get _pluginConfigured(): boolean {
     return Boolean(this._hasSidebarConfig && !this._userHasSidebarSettings);
   }
+
   public async run(): Promise<void> {
     if (!this.hass || this.hass.config?.state !== HA_STATE.RUNNING) {
       this._store._haNotRunningToast();
@@ -207,6 +193,7 @@ export class SidebarOrganizer {
       LOGGER.warn(msg);
       return;
     }
+
     compareHacsTagDiff(this._ha.hass);
     await this._checkUserSidebarSettings();
     await this._watchEditLegacySidebar();
@@ -221,8 +208,10 @@ export class SidebarOrganizer {
     }
 
     if (this.firstSetUpDone && !this._userHasSidebarSettings) {
-      await this._getConfig();
-      this._processConfig();
+      await this._getConfig().then(() => {
+        this._setupInitialConfig();
+      });
+      this._processSections();
     }
   }
 
@@ -295,7 +284,7 @@ export class SidebarOrganizer {
 
     if (changed) {
       // Reload the window to apply changes
-      console.log('%cMAIN:', 'color: #bada55;', 'Changes detected, reloading window');
+      console.log('%cSIDEBAR-ORGANIZER:', 'color: #bada55;', 'Changes detected, reloading window');
       this._reloadWindow();
     } else {
       this._checkDiffs();
@@ -384,7 +373,7 @@ export class SidebarOrganizer {
     }
 
     const items = await getPromisableResult<NodeListOf<SidebarPanelItem>>(
-      () => container.querySelectorAll<SidebarPanelItem>(`:scope > ${ELEMENT.ITEM}`),
+      () => container.querySelectorAll<SidebarPanelItem>(`${ELEMENT.ITEM}`),
       (elements: NodeListOf<SidebarPanelItem>): boolean => {
         return Array.from(elements).every((element: SidebarPanelItem): boolean => {
           const text = element.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT)!.innerText.trim();
@@ -394,154 +383,6 @@ export class SidebarOrganizer {
       promisableResultOptions
     );
     return items;
-  }
-
-  private _processConfig() {
-    if (!this._config || Object.keys(this._config).length === 0) {
-      console.log('No config found, skipping processing');
-      return;
-    }
-
-    this._getElements().then((elements) => {
-      const [sidebarItemsContainer, scrollbarItems] = elements;
-      this._sidebarItems = Array.from(scrollbarItems) as SidebarPanelItem[];
-
-      const { notification } = this._config;
-      const notificationMap = new Map(Object.entries(notification || {}));
-
-      for (const item of Array.from(scrollbarItems) as SidebarPanelItem[]) {
-        const isNewItem = item.hasAttribute(ATTRIBUTE.NEW_ITEM);
-        if (isNewItem) continue; // Skip processing for these items
-        // const isConfigOrDevTools = SHOW_AFTER_BOTTOM.includes(item.href);
-        // if (isNewItem || isConfigOrDevTools) continue; // Skip processing for these items
-        item.setAttribute(ATTRIBUTE.DATA_PANEL, item.href.replace('/', ''));
-      }
-
-      if (this._hiddenPanels && this._hiddenPanels.length > 0) {
-        this._hiddenPanels.forEach((panelId) => {
-          const itemToHide = this._sidebarItems.find((item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
-          if (itemToHide) {
-            itemToHide.style.display = 'none';
-          }
-        });
-
-        console.log(
-          '%cMAIN:%c ✅ Hidden panels applied:',
-          'color: #bada55;',
-          'color: #40c057; font-weight: 600;',
-          this._hiddenPanels
-        );
-      }
-
-      const bottomContainerFragment = document.createDocumentFragment();
-      const bottomGridContainerFragment = document.createDocumentFragment();
-
-      const initOrder = Array.from(scrollbarItems).map(
-        (item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '')
-      );
-
-      const combinedOrder = this._reorderPanelItemsByConfig(initOrder);
-      this._baseOrder = combinedOrder;
-
-      this._sidebarItems.sort((a, b) => {
-        const aIndex = combinedOrder.indexOf(a.getAttribute(ATTRIBUTE.DATA_PANEL) || a.href.replace('/', ''));
-        const bIndex = combinedOrder.indexOf(b.getAttribute(ATTRIBUTE.DATA_PANEL) || b.href.replace('/', ''));
-        return aIndex - bIndex;
-      });
-
-      const firstChildNextSibling = sidebarItemsContainer.firstChild?.nextSibling || null;
-
-      this._sidebarItems.forEach((item) => {
-        const itemPanelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '');
-        const itemsGroup = this._getGroupOfPanel(itemPanelId);
-        const itemsNotificationValue = notificationMap.get(itemPanelId);
-        const itemToMove = Array.from(scrollbarItems).find(
-          (el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item.getAttribute(ATTRIBUTE.DATA_PANEL)
-        );
-
-        if (itemToMove) {
-          // Move the item to the new position
-          sidebarItemsContainer.insertBefore(itemToMove, firstChildNextSibling);
-        }
-        if (itemsNotificationValue !== undefined) {
-          this._subscribeNotification(item, itemsNotificationValue);
-        }
-
-        if (itemsGroup) {
-          if (itemsGroup === PANEL_TYPE.BOTTOM) {
-            item.setAttribute(ATTRIBUTE.MOVED, '');
-            bottomContainerFragment.appendChild(item);
-          } else if (itemsGroup === PANEL_TYPE.BOTTOM_GRID) {
-            item.setAttribute(ATTRIBUTE.GRID_ITEM, '');
-            item.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
-            item.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
-            bottomGridContainerFragment.appendChild(item);
-          } else {
-            const isCollapsed = this.collapsedItems.has(itemsGroup);
-            const isFirstInGroup = this._configPanelMap.get(itemsGroup)?.[0] === itemPanelId;
-
-            if (isFirstInGroup) {
-              const groupDivider = this._createDividerWithGroup(itemsGroup, isCollapsed);
-              item.insertAdjacentElement('beforebegin', groupDivider);
-            }
-            item.setAttribute(ATTRIBUTE.GROUP, itemsGroup);
-            item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
-          }
-        }
-      });
-
-      const spacer = this._panelsList.querySelector(SELECTOR.AFTER_SPACER) as HTMLElement;
-      if (bottomContainerFragment.children.length > 0) {
-        const bottomContainer = document.createElement('div') as HTMLElement;
-        bottomContainer.classList.add(SELECTOR.BOTTOM_CONTAINER.replace('.', ''));
-        bottomContainer.appendChild(bottomContainerFragment);
-        const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
-        this._panelsList.insertBefore(bottomContainer, spacer);
-        this._panelsList.insertBefore(bottomDivider, spacer);
-      }
-
-      if (bottomGridContainerFragment.children.length > 0) {
-        const bottomGridContainer = document.createElement('div') as HTMLElement;
-        bottomGridContainer.classList.add(SELECTOR.GRID_CONTAINER.replace('.', ''));
-        bottomGridContainer.appendChild(bottomGridContainerFragment);
-        const bottomGridDivider = this._createDivider(ATTRIBUTE.BOTTOM);
-        this._panelsList.insertBefore(bottomGridContainer, spacer);
-        this._panelsList.insertBefore(bottomGridDivider, spacer);
-      }
-
-      // Reorder grouped items
-      this._reorderGroupedSidebar();
-
-      // Handle sidebar header
-      this._handleSidebarHeader();
-
-      this.setupConfigDone = true;
-      this._watchHaSidebarShouldUpdate();
-      this._panelLoaded();
-    });
-  }
-
-  private async _getElements(): Promise<[HTMLElement, NodeListOf<SidebarPanelItem>]> {
-    const promisableResultOptions = {
-      retries: 100,
-      delay: 50,
-      shouldReject: false,
-    };
-    const sidebarShadowRoot = await this._sidebar.selector.$.element;
-
-    if (sidebarShadowRoot) {
-      await getPromisableResult(
-        () => sidebarShadowRoot.querySelector(SELECTOR.SIDEBAR_LOADER),
-        (sidebarLoader: Element | null) => sidebarLoader === null,
-        promisableResultOptions
-      );
-    }
-    const sidebarItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_SCROLLBAR)
-      .element) as HTMLElement;
-
-    const sidebarItems = await this._getContainerItems(sidebarItemsContainer, promisableResultOptions);
-
-    return [sidebarItemsContainer, sidebarItems];
   }
 
   private _storageListener(event: StorageEvent) {
@@ -597,51 +438,304 @@ export class SidebarOrganizer {
     // console.log('Fetched Config:', config);
     if (!config) {
       console.log('No config found, stopping further setup');
-      // this._setInitPanelOrder();
       return;
     }
-    if (config) {
-      this._config = config;
-      this._setupInitialConfig();
-    }
+    this._config = config;
   }
 
   private _setupInitialConfig() {
     // info
-    console.log('%cMAIN:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
+    console.group('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
 
-    const {
-      default_collapsed,
-      custom_groups,
-      hidden_items,
-      color_config,
-      bottom_items,
-      bottom_grid_items,
-      pinned_groups,
-      new_items,
-      move_settings_from_fixed,
-    } = this._config;
+    const { default_collapsed, custom_groups, color_config, bottom_items, bottom_grid_items, pinned_groups } =
+      this._config;
 
-    this._configPanelMap = new Map(
+    this._configPanelMap = new Map<string, string[]>(
       Object.entries({
         ...(custom_groups || {}),
-        [PANEL_TYPE.BOTTOM]: bottom_items || [],
-        [PANEL_TYPE.BOTTOM_GRID]: bottom_grid_items || [],
+        ...(bottom_items ? { [PANEL_TYPE.BOTTOM_ITEMS]: bottom_items } : {}),
+        ...(bottom_grid_items ? { [PANEL_TYPE.BOTTOM_GRID_ITEMS]: bottom_grid_items } : {}),
       })
     );
     // Normalize pinned groups config to ensure consistent structure
     this._pinnedGroups = normalizePinnedGroups(pinned_groups || {});
-
+    // Initialize collapsed groups based on config, this will be used to set initial state of groups and manage collapse/expand functionality
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
-    this._hiddenPanels = hidden_items || [];
-
-    // Add new items
-    this._addNewItems(new_items || []);
-    // Move settings from fixed to sidebar if specified
-    this._moveSettingsFromFixed(move_settings_from_fixed || false);
     // Setup additional styles based on color config
     this._addAdditionalStyles(color_config);
-    // this._processSidebar();
+
+    // Prepare base order of panels based on current sidebar state and config
+    this._setupPanelOrder();
+  }
+
+  private _setupPanelOrder(): void {
+    Promise.all([
+      this._sidebar.selector.$.element,
+      this._sidebar.selector.$.query(SELECTOR.SIDEBAR_BEFORE_SPACER_CONTAINER).element,
+    ]).then((elements) => {
+      const [sidebarShadowRoot, beforeSpacerContainer] = elements;
+      if (!sidebarShadowRoot || !(beforeSpacerContainer instanceof HTMLElement)) {
+        return;
+      }
+
+      const { new_items, move_settings_from_fixed, notification, hidden_items } = this._config;
+      const notificationMap = new Map(Object.entries(notification || {}));
+
+      if (new_items && new_items.length > 0) {
+        // Add new items to sidebar before spacer
+        Array.from(new_items).map((item) => {
+          const newItemEl = this._createNewItem(item);
+
+          if (newItemEl) {
+            beforeSpacerContainer.appendChild(newItemEl);
+          }
+        });
+        console.log('New items added to sidebar:', new_items);
+      }
+
+      if (move_settings_from_fixed === true) {
+        const settingsItem = sidebarShadowRoot.querySelector(SELECTOR.SETTINGS_ITEM) as SidebarPanelItem;
+        if (settingsItem) {
+          beforeSpacerContainer.appendChild(settingsItem);
+          console.log('Settings item moved from fixed:', move_settings_from_fixed);
+        } else {
+          console.log(
+            '%cSIDEBAR-ORGANIZER:%c ❌ Settings item not found',
+            'color: #999999;',
+            'color: #fa5252; font-weight: 600;'
+          );
+        }
+      }
+      this._getContainerItems(beforeSpacerContainer).then((items) => {
+        Array.from(items).forEach((item: SidebarPanelItem) => {
+          if (item.hasAttribute(ATTRIBUTE.NEW_ITEM)) return; // Skip new items
+
+          const panelId = item.href.replace('/', '');
+          item.setAttribute(ATTRIBUTE.DATA_PANEL, panelId);
+
+          if (hidden_items?.includes(panelId)) {
+            item.style.display = 'none';
+          }
+
+          const notificationValue = notificationMap.get(panelId);
+          if (notificationValue !== undefined) {
+            this._subscribeNotification(item, notificationValue);
+          }
+        });
+
+        const initOrder = Array.from(items).map(
+          (item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '')
+        );
+
+        this._baseOrder = this._reorderPanelItemsByConfig(initOrder);
+        if (this._configPanelMap.size === 0) {
+          // Skip reordering if there are no groups defined in config to avoid unnecessary DOM manipulation
+          console.log(
+            '%cSIDEBAR-ORGANIZER:%c No groups defined in config, skipping initial reordering',
+            'color: #999999;',
+            'color: #228be6;'
+          );
+          return;
+        }
+
+        const topItems = document.createDocumentFragment();
+        const uncategorizedItems = document.createDocumentFragment();
+        const bottomItems = document.createDocumentFragment();
+        const bottomGridItems = document.createDocumentFragment();
+
+        const inGroup = (panel: string): string | null => this._getGroupOfPanel(panel);
+
+        const defaultPanelUrlPath = getDefaultPanelUrlPath(this.hass);
+
+        console.groupCollapsed('Ordering panels based on config:', this._baseOrder.length, 'panels');
+
+        const orderedPanels: Omit<NewItemConfig, 'icon'>[] = [];
+
+        this._baseOrder.forEach((panelId) => {
+          const foundItem = Array.from(items).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
+          if (!foundItem) {
+            console.log(
+              '%cSIDEBAR-ORGANIZER:%c ❌ Panel item not found for panel ID:',
+              'color: #999999;',
+              'color: #fa5252; font-weight: 600;',
+              panelId
+            );
+          } else {
+            const group = inGroup(panelId);
+
+            if (group === PANEL_TYPE.BOTTOM_ITEMS || group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+              if (group === PANEL_TYPE.BOTTOM_ITEMS) {
+                foundItem.setAttribute(ATTRIBUTE.BOTTOM, '');
+                bottomItems.appendChild(foundItem);
+              } else if (group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+                foundItem.setAttribute(ATTRIBUTE.GRID_ITEM, '');
+                foundItem.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
+                foundItem.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
+                bottomGridItems.appendChild(foundItem);
+              }
+            } else if (group) {
+              foundItem.setAttribute(ATTRIBUTE.GROUP, group);
+              topItems.appendChild(foundItem);
+            } else {
+              if (panelId === defaultPanelUrlPath) {
+                foundItem.setAttribute(ATTRIBUTE.DEFAULT_PANEL, '');
+                topItems.prepend(foundItem);
+              } else {
+                uncategorizedItems.appendChild(foundItem);
+              }
+            }
+            orderedPanels.push({ ...parseItemValues(foundItem), group: group || 'uncategorized' });
+          }
+        });
+        console.table(orderedPanels);
+        console.groupEnd();
+
+        if (uncategorizedItems.children.length > 0 || topItems.children.length > 0) {
+          beforeSpacerContainer.appendChild(topItems);
+          beforeSpacerContainer.appendChild(uncategorizedItems);
+        }
+        if (bottomItems.children.length > 0 || bottomGridItems.children.length > 0) {
+          this._processBottomList(bottomItems, bottomGridItems);
+        }
+      });
+    });
+  }
+
+  private _processBottomList(bottom_items: DocumentFragment, bottom_grid_items: DocumentFragment): void {
+    const createContainer = (
+      type: PANEL_TYPE.BOTTOM_GRID_ITEMS | PANEL_TYPE.BOTTOM_ITEMS,
+      content: DocumentFragment
+    ): HTMLElement | null => {
+      if (content.children.length === 0) {
+        return null;
+      }
+      const className = type === PANEL_TYPE.BOTTOM_ITEMS ? CLASS.BOTTOM_CONTAINER : CLASS.BOTTOM_GRID_CONTAINER;
+
+      const container = document.createElement('div') as HTMLElement;
+      container.classList.add(className);
+      container.appendChild(content);
+      return container;
+    };
+
+    const bottomContainer = createContainer(PANEL_TYPE.BOTTOM_ITEMS, bottom_items);
+    const bottomGridContainer = createContainer(PANEL_TYPE.BOTTOM_GRID_ITEMS, bottom_grid_items);
+
+    if (bottomContainer || bottomGridContainer) {
+      const haMdList = document.createElement(ELEMENT.HA_MD_LIST) as any;
+      haMdList.classList.add(CLASS.BOTTOM_LIST);
+      if (bottomContainer) {
+        haMdList.appendChild(bottomContainer);
+      }
+      if (bottomGridContainer) {
+        haMdList.appendChild(bottomGridContainer);
+      }
+      const spacer = this._panelsList.querySelector(SELECTOR.SPACER) as HTMLElement;
+      this._panelsList.insertBefore(haMdList, spacer.nextElementSibling);
+    }
+    //success
+    console.log('%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar', 'color: #bada55;', 'color: #40c057;');
+
+    console.groupEnd();
+  }
+
+  private _processSections() {
+    this._getElements().then(async (elements: ElementsStore) => {
+      const { custom_groups } = this._config;
+      const { topItemsContainer, topItems, bottomItemsContainer, bottomItems } = elements;
+
+      this._sidebarItems = [
+        ...Array.from(topItems),
+        ...(bottomItems ? Array.from(bottomItems) : []),
+      ] as SidebarPanelItem[];
+
+      Object.entries(custom_groups || {}).forEach(([groupName, panels]) => {
+        if (groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS) return; // Skip uncategorized group as it's not an actual group but a placeholder for ungrouped items
+        const isCollapsed = this.collapsedItems.has(groupName);
+        panels.forEach((panelId, index) => {
+          const item = Array.from(topItems).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
+          if (item) {
+            if (index === 0) {
+              const groupDivider = this._createDividerWithGroup(groupName, isCollapsed);
+              item.insertAdjacentElement('beforebegin', groupDivider);
+            }
+            item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+          }
+        });
+      });
+
+      const firstUngroupedItem = topItemsContainer.querySelector(
+        `${ELEMENT.ITEM}:not([${ATTRIBUTE.GROUP}]):not([${ATTRIBUTE.DEFAULT_PANEL}])`
+      ) as SidebarPanelItem | null;
+      if (firstUngroupedItem) {
+        const ungroupedDivider = this._createDivider(ATTRIBUTE.UNGROUPED);
+        firstUngroupedItem.insertAdjacentElement('beforebegin', ungroupedDivider);
+      }
+
+      if (bottomItemsContainer && bottomItemsContainer.children.length > 0) {
+        Array.from(bottomItemsContainer.children).forEach((item) => {
+          const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
+          item.insertAdjacentElement('afterend', bottomDivider);
+        });
+      }
+      // Wait for DOM updates to complete before checking diffs and handling header to ensure we are working with the latest rendered state
+      await nextRender();
+      this._checkDiffs();
+      // Handle sidebar header after processing sections to ensure toggle button is added based on the presence of groups in the config and their collapsed state
+      this._handleSidebarHeader();
+
+      // Mark setup config as done to allow panel loaded logic to run when panels are loaded
+      this.setupConfigDone = true;
+      this._watchHaSidebarShouldUpdate();
+      this._panelLoaded();
+    });
+  }
+
+  private async _getElements(): Promise<ElementsStore> {
+    const promisableResultOptions = {
+      retries: 100,
+      delay: 50,
+      shouldReject: false,
+    };
+    const sidebarShadowRoot = await this._sidebar.selector.$.element;
+
+    if (sidebarShadowRoot) {
+      await getPromisableResult(
+        () => sidebarShadowRoot.querySelector(SELECTOR.SIDEBAR_LOADER),
+        (sidebarLoader: Element | null) => sidebarLoader === null,
+        promisableResultOptions
+      );
+    }
+    const topItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_BEFORE_SPACER_CONTAINER)
+      .element) as HTMLElement;
+
+    // bottom list container is optional, may not exist if no bottom items configured
+    const bottomItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_BOTTOM_LIST_CONTAINER)
+      .element) as HTMLElement | null;
+
+    const topItems = await this._getContainerItems(topItemsContainer, promisableResultOptions);
+    const bottomItems = bottomItemsContainer
+      ? await this._getContainerItems(bottomItemsContainer, promisableResultOptions)
+      : null;
+
+    // if (__DEBUG__) {
+    //   const topItemsDebug = mapItemsForDebug(topItems);
+    //   const bottomItemsDebug = bottomItems ? mapItemsForDebug(bottomItems) : null;
+    //   console.groupCollapsed('%cDebug Info: Sections Elements', 'color: #bada55; font-weight: 600;');
+    //   console.log('Top Items Container:', topItemsContainer);
+    //   console.log('Top Items:', topItemsDebug);
+    //   if (bottomItemsContainer) {
+    //     console.log('Bottom Items Container:', bottomItemsContainer);
+    //     console.log('Bottom Items:', bottomItemsDebug);
+    //   }
+    //   console.groupEnd();
+    // }
+
+    return {
+      topItemsContainer,
+      topItems,
+      bottomItemsContainer,
+      bottomItems,
+    };
   }
 
   private _handleSidebarHeader(): void {
@@ -700,21 +794,6 @@ export class SidebarOrganizer {
     toggleIcon.setAttribute('icon', isAllCollapsed ? MDI.PLUS : MDI.MINUS);
   }
 
-  private _addNewItems(newItems: NewItemConfig[]): void {
-    if (!newItems || newItems.length === 0) return;
-
-    Array.from(newItems).map((item) => {
-      const newItem = this._createNewItem(item);
-      if (newItem) {
-        this._scrollbar?.appendChild(newItem);
-      }
-    });
-    // success
-    console.log('%cMAIN:%c ✅ New items added', 'color: #bada55;', 'color: #40c057; font-weight: 600;', [
-      newItems.map((i) => i.title),
-    ]);
-  }
-
   private _addBuiltInPanelsToSidebar(panels: PanelInfo[]): void {
     if (!panels || panels.length === 0) return;
     const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
@@ -739,33 +818,13 @@ export class SidebarOrganizer {
     });
     addedPanels.length > 0 && // success
       console.log(
-        '%cMAIN:%c ✅ Built in panels added',
+        '%cSIDEBAR-ORGANIZER:%c ✅ Built in panels added',
         'color: #bada55;',
         'color: #40c057; font-weight: 600;',
         addedPanels
       );
   }
 
-  private _moveSettingsFromFixed(move: boolean = false) {
-    if (!move) return;
-    const settingsItem = this.sideBarRoot?.querySelector(SELECTOR.SETTINGS_ITEM) as SidebarPanelItem;
-    if (!settingsItem) {
-      // error
-      console.log(
-        '%cSIDEBAR-ORGANIZER:%c ❌ Settings item not found',
-        'color: #999999;',
-        'color: #fa5252; font-weight: 600;'
-      );
-      return;
-    }
-    this._scrollbar?.insertBefore(settingsItem, null);
-    // success
-    console.log(
-      '%cSIDEBAR-ORGANIZER:%c ✅ Setting moved from fixed',
-      'color: #999999;',
-      'color: #40c057; font-weight: 600;'
-    );
-  }
   private _subscribeTemplate(value: string, callback: (result: string) => void): void {
     if (!this.hass || !hasTemplate(value)) {
       console.log('Not a template:', this.hass, value);
@@ -838,8 +897,8 @@ export class SidebarOrganizer {
   };
 
   private _addBottomItems(): void {
-    const bottomItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM) || [];
-    const bottomGridItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID) || [];
+    const bottomItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_ITEMS) || [];
+    const bottomGridItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID_ITEMS) || [];
     if (bottomItems.length === 0 && bottomGridItems.length === 0) {
       return;
     }
@@ -1062,7 +1121,8 @@ export class SidebarOrganizer {
 
   public _checkDiffs = (): void => {
     const baseOrder = this._baseOrder;
-    const _allItems = Array.from(this._allItems);
+    // const _allItems = Array.from(this._allItems);
+    const _allItems = Array.from(this._sidebarItems);
     const itemsValidation = mapItemsForDebug(_allItems, true);
 
     if (itemsValidation.some((item) => item.isValid === false)) {
@@ -1071,7 +1131,12 @@ export class SidebarOrganizer {
         notValidItems: itemsValidation.filter((item) => item.isValid === false),
       };
       // warning
-      console.log('%cMAIN:%c ⚠️ DIFF DETECTED', 'color: #bada55;', 'color: #fab005; font-weight: 600;', logs);
+      console.log(
+        '%cSIDEBAR-ORGANIZER:%c ⚠️ DIFF DETECTED',
+        'color: #bada55;',
+        'color: #fab005; font-weight: 600;',
+        logs
+      );
 
       LOGGER.warn('Changes detected:', logs);
 
@@ -1080,7 +1145,7 @@ export class SidebarOrganizer {
     } else {
       this._diffCheck = true;
       // success
-      console.log('%cMAIN:%c ✅ Order checked!', 'color: #bada55;', 'color: #40c057; font-weight: 600;');
+      console.log('%cSIDEBAR-ORGANIZER:%c ✅ Order checked!', 'color: #bada55;', 'color: #40c057; font-weight: 600;');
     }
   };
 
@@ -1187,7 +1252,7 @@ export class SidebarOrganizer {
     const target = event.target as HTMLElement;
     const group = target.getAttribute('group');
     // const targetParent = target.parentElement as HTMLElement;
-    // console.log('%cMAIN:', 'color: #bada55;', 'Toggling group:', group, target, targetParent);
+    // console.log('%cSIDEBAR-ORGANIZER:', 'color: #bada55;', 'Toggling group:', group, target, targetParent);
 
     const items = Array.from(this._scrollbarItems).filter((item) => {
       const itemGroup = item.getAttribute('group');
@@ -1268,6 +1333,8 @@ declare global {
 // Initial Run
 
 if (!window.SidebarOrganizer) {
-  console.log('ENV DEBUG:', __DEBUG__);
+  if (__DEBUG__) {
+    console.clear();
+  }
   window.SidebarOrganizer = new SidebarOrganizer();
 }

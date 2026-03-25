@@ -83,13 +83,14 @@ export class SoProfileSection extends LitElement {
       return;
     }
     const defaultPanel = getDefaultPanelUrlPath(this.organizer.hass);
+    //info
     console.log(
-      '%cSO-PROFILE-SECTION:',
-      'color: #4dabf7;',
-      'Subscribing to core frontend user data',
-      'Current user default panel:',
+      '%cSO-PROFILE-SECTION:%c ℹ️ Subscribing to core frontend user data',
+      'color: #40c057;',
+      'color: #228be6;',
       defaultPanel
     );
+
     this._unsubCoreData = subscribeFrontendUserData(this.organizer.hass.connection, 'core', async ({ value }) => {
       this._coreUserData = value;
       // console.log('%cSO-PROFILE-SECTION:', 'color: #4dabf7;', 'Received core frontend user data:', value);
@@ -197,6 +198,11 @@ export class SoProfileSection extends LitElement {
       &:hover {
         color: var(--primary-color);
       }
+    }
+    ha-md-list {
+      background: 0 0;
+      padding-top: 0;
+      padding-bottom: 0;
     }
     /* .card-content {
     } */

@@ -31,10 +31,10 @@ export const cleanItemsFromAllPanels = (
   itemsToRemove: string[] | Set<string>
 ): SidebardPanelConfig => {
   const configToUpdate = pick(baseConfig, [
-    PANEL_TYPE.CUSTOM,
-    PANEL_TYPE.BOTTOM,
-    PANEL_TYPE.HIDDEN,
-    PANEL_TYPE.BOTTOM_GRID,
+    PANEL_TYPE.CUSTOM_GROUPS,
+    PANEL_TYPE.BOTTOM_ITEMS,
+    PANEL_TYPE.HIDDEN_ITEMS,
+    PANEL_TYPE.BOTTOM_GRID_ITEMS,
   ]) as SidebardPanelConfig;
   const cleanedConfigItems = cleanItemsFromConfig(configToUpdate, itemsToRemove);
 

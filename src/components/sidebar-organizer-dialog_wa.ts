@@ -1,4 +1,4 @@
-import { ALERT_MSG, HA_EVENT, NAMESPACE_TITLE, REPO_URL, SLOT, VERSION } from '@constants';
+import { ALERT_MSG, HA_EVENT, NAMESPACE_TITLE, REPO_URL, SLOT } from '@constants';
 import { mdiClose, mdiFullscreen, mdiFullscreenExit, mdiInformation } from '@mdi/js';
 
 import './sidebar-dialog';
@@ -44,7 +44,7 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
   public async showDialog(param: SidebarConfigDialogParams): Promise<void> {
     this._open = true;
     this._params = param;
-    this.large = false;
+    this.large = __DEBUG__ ? true : false;
     this._initConfig = cloneDeep(param.config);
   }
 
@@ -153,15 +153,16 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
         .label=${this.hass.localize('ui.common.close')}
         .path=${mdiClose}
       ></ha-icon-button>
-      ${!isMobile &&
-      html`
-        <ha-icon-button
-          slot="headerActionItems"
-          .label=${'Toggle large'}
-          .path=${this.large ? mdiFullscreenExit : mdiFullscreen}
-          @click=${this._enlarge}
-        ></ha-icon-button>
-      `}
+      ${!isMobile
+        ? html`
+            <ha-icon-button
+              slot="headerActionItems"
+              .label=${'Toggle large'}
+              .path=${this.large ? mdiFullscreenExit : mdiFullscreen}
+              @click=${this._enlarge}
+            ></ha-icon-button>
+          `
+        : nothing}
       <ha-icon-button
         slot="headerActionItems"
         .label=${'Documentation'}
@@ -177,7 +178,6 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
         prevent-scrim-close
         @keydown=${this._ignoreKeydown}
         @closed=${this._dialogClosed}
-        .headerSubtitle=${VERSION}
         .headerSubtitlePosition=${'below'}
       >
         ${headerContent}

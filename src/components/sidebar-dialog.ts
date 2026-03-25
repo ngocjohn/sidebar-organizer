@@ -1,14 +1,5 @@
-import { ALERT_MSG, STORAGE, TAB_STATE } from '@constants';
-import { SidebarConfig, HaExtened, NewItemConfig, SidebardPanelConfig, PANEL_TYPE } from '@types';
-import { ARRAY_UTILS } from '@utilities/array';
-
-import './sidebar-dialog-colors';
-import './sidebar-dialog-groups';
-import './sidebar-dialog-code-editor';
-import './sidebar-dialog-preview';
-import './sidebar-organizer-tab';
-import './sidebar-dialog-new-items';
-
+import { ALERT_MSG, CONFIG_SECTION, DIALOG_TAG, STORAGE, TAB_STATE } from '@constants';
+import { SidebarConfig, NewItemConfig, SidebardPanelConfig, PANEL_TYPE } from '@types';
 import {
   fetchFileConfig,
   INVALID_ITEM_KEYS,
@@ -22,9 +13,7 @@ import {
 import { INVALID_CONFIG } from '@utilities/configs';
 import { cleanItemsFromConfig } from '@utilities/configs/clean-items';
 import { comparePanelItems } from '@utilities/dashboard';
-import * as DASHBOARD_UTILS from '@utilities/dashboard';
 import { TRANSLATED_LABEL } from '@utilities/localize';
-import * as OBJ_DIFF from '@utilities/object-differences';
 import { getDefaultPanelUrlPath } from '@utilities/panel';
 import {
   DialogBoxParams,
@@ -42,41 +31,37 @@ import {
   removeStorage,
 } from '@utilities/storage-utils';
 import { isEmpty, pick } from 'es-toolkit/compat';
-import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
-import { html, css, LitElement, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
+import { html, css, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
+
+import './editor';
 import YAML from 'yaml';
 
-import { SidebarDialogCodeEditor } from './sidebar-dialog-code-editor';
-import { SidebarDialogColors } from './sidebar-dialog-colors';
-import { SidebarDialogGroups } from './sidebar-dialog-groups';
-import { SidebarDialogNewItems } from './sidebar-dialog-new-items';
-import { SidebarDialogPreview } from './sidebar-dialog-preview';
+import { BaseEditor } from './base-editor';
+import * as ELEMENT from './editor';
+import { EditorStore } from './editor-store';
 import { SidebarOrganizerDialog } from './sidebar-organizer-dialog';
 import { SidebarOrganizerDialogWA } from './sidebar-organizer-dialog_wa';
-
-const tabs = ['appearance', 'panels', 'newItems'] as const;
 
 export interface ConfigChangedEvent {
   config: SidebarConfig;
 }
 
 @customElement('sidebar-organizer-config-dialog')
-export class SidebarConfigDialog extends LitElement {
-  @property({ attribute: false }) hass!: HaExtened['hass'];
+export class SidebarConfigDialog extends BaseEditor {
+  @property({ type: Boolean, reflect: true, attribute: 'fullscreen' }) fullscreen: boolean = false;
   @property({ attribute: false }) _mainDialog!: SidebarOrganizerDialog | SidebarOrganizerDialogWA;
   @property({ attribute: false }) readonly _initConfig!: SidebarConfig;
-  @property({ type: Boolean, reflect: true, attribute: 'fullscreen' }) fullscreen: boolean = false;
-  @state() _connected: boolean = false;
 
+  @state() _connected: boolean = false;
   @state() public _sidebarConfig = {} as SidebarConfig;
   @state() public _useConfigFile = false;
 
   @state() public _tabState: TAB_STATE = TAB_STATE.BASE;
 
   @state() private _configLoaded = false;
-  @state() private _currTab: (typeof tabs)[number] = tabs[0];
+  @state() private _currSection: CONFIG_SECTION = CONFIG_SECTION.GENERAL;
 
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
@@ -85,24 +70,24 @@ export class SidebarConfigDialog extends LitElement {
   @state() private _panelConfigMap = new Map<string, string[]>();
   @state() private _pinnedGroupsMap = new Map<string, { icon?: string }>();
   @state() public _settingItemMoved = false;
+  @state() private _uncategorizedItemsGroup: string[] = [];
+  @state() public _uncategorizedIsActive?: boolean;
 
   @state() private _uploading = false;
   @state() _invalidConfig?: INVALID_CONFIG;
 
   private _resizeObserver?: ResizeObserver;
-  public _styleManager: HomeAssistantStylesManager = new HomeAssistantStylesManager({ prefix: 'sidebar-dialog' });
 
-  public _utils = {
-    dashboard: DASHBOARD_UTILS,
-    array: ARRAY_UTILS,
-    objDiff: OBJ_DIFF,
-  };
+  @query(DIALOG_TAG.COLORS) _dialogColors!: ELEMENT.SidebarDialogColors;
+  @query(DIALOG_TAG.PANELS) _dialogPanels!: ELEMENT.SidebarDialogPanels;
+  @query(DIALOG_TAG.PREVIEW) _dialogPreview!: ELEMENT.SidebarDialogPreview;
+  @query(DIALOG_TAG.CODE_EDITOR) _dialogCodeEditor!: ELEMENT.SidebarDialogCodeEditor;
+  @query(DIALOG_TAG.NEW_ITEMS) _dialogNewItems!: ELEMENT.SidebarDialogNewItems;
+  @query(DIALOG_TAG.MENU) _dialogMenu!: ELEMENT.SidebarDialogMenu;
 
-  @query('sidebar-dialog-colors') _dialogColors!: SidebarDialogColors;
-  @query('sidebar-dialog-groups') _dialogGroups!: SidebarDialogGroups;
-  @query('sidebar-dialog-preview') _dialogPreview!: SidebarDialogPreview;
-  @query('sidebar-dialog-code-editor') _dialogCodeEditor!: SidebarDialogCodeEditor;
-  @query('sidebar-dialog-new-items') _dialogNewItems!: SidebarDialogNewItems;
+  constructor() {
+    super(CONFIG_SECTION.GENERAL);
+  }
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -124,10 +109,6 @@ export class SidebarConfigDialog extends LitElement {
 
   public get GUImode(): boolean {
     return this._tabState === TAB_STATE.BASE;
-  }
-
-  public get _currentConfig(): SidebarConfig {
-    return this._sidebarConfig;
   }
 
   private async _showDialogBox(type: DialogType, params: DialogBoxParams): Promise<any> {
@@ -170,6 +151,7 @@ export class SidebarConfigDialog extends LitElement {
       this._mainDialog._configValid = isValid;
       this.requestUpdate();
     }
+
     if (_changedProperties.has('_settingItemMoved')) {
       if (this._settingItemMoved && !this._initCombiPanels.includes('config')) {
         this._initCombiPanels.push('config');
@@ -178,13 +160,41 @@ export class SidebarConfigDialog extends LitElement {
         const configInPanel = this._getGroupOfPanel('config') as string | null;
         if (configInPanel !== null) {
           // Removing the config item from the panel it is currently in
-          const panelToUpdate = [PANEL_TYPE.BOTTOM, PANEL_TYPE.BOTTOM_GRID].includes(configInPanel as PANEL_TYPE)
+          const panelToUpdate = [PANEL_TYPE.BOTTOM_ITEMS, PANEL_TYPE.BOTTOM_GRID_ITEMS].includes(
+            configInPanel as PANEL_TYPE
+          )
             ? configInPanel
-            : PANEL_TYPE.CUSTOM;
+            : PANEL_TYPE.CUSTOM_GROUPS;
           const updatedPanelConfig = this._cleanItemsFromGroups(panelToUpdate as PANEL_TYPE, ['config']);
 
           this._sidebarConfig = { ...this._sidebarConfig, ...updatedPanelConfig };
         }
+      }
+    }
+
+    if (_changedProperties.has('_uncategorizedIsActive') && this._uncategorizedIsActive !== undefined) {
+      if (this._uncategorizedIsActive) {
+        const currentConfig = { ...(this._sidebarConfig || {}) } as SidebarConfig;
+        const currentCustomGroups = { ...(currentConfig.custom_groups || {}) };
+        const currentItemsInConfig = currentCustomGroups?.[PANEL_TYPE.UNCATEGORIZED_ITEMS] || [];
+        const allUngroupedItems = this.uncategorizedItems;
+
+        const isDifferent = JSON.stringify(currentItemsInConfig.sort()) !== JSON.stringify(allUngroupedItems.sort());
+
+        if (isDifferent) {
+          const updatedGroupConfigUncategorized = [...allUngroupedItems];
+          currentCustomGroups[PANEL_TYPE.UNCATEGORIZED_ITEMS] = updatedGroupConfigUncategorized;
+          const updatedConfig = { ...currentConfig, custom_groups: currentCustomGroups };
+          console.log(
+            'Updated uncategorized items from:',
+            currentItemsInConfig,
+            'to:',
+            updatedGroupConfigUncategorized
+          );
+          this._sidebarConfig = { ...this._sidebarConfig, ...updatedConfig };
+        }
+      } else {
+        console.log('Uncategorized is not active, removing uncategorized items from config');
       }
     }
     if (_changedProperties.has('_configLoaded') && this._configLoaded === true && !this._resizeObserver) {
@@ -226,12 +236,24 @@ export class SidebarConfigDialog extends LitElement {
             this._newItemMap
           );
         }
+
         const pinnedGroupsChanged = JSON.stringify(oldConfig.pinned_groups) !== JSON.stringify(newConfig.pinned_groups);
         if (pinnedGroupsChanged && newConfig.pinned_groups) {
           this._pinnedGroupsMap = new Map(Object.entries(normalizePinnedGroups(newConfig.pinned_groups)));
         }
 
         this._settingItemMoved = newConfig.move_settings_from_fixed === true;
+        // Resetting uncategorizedIsActive to ensure it gets recalculated based on the new config
+        this._uncategorizedIsActive = undefined;
+
+        this._uncategorizedIsActive =
+          newConfig.uncategorized_items === true ||
+          (newConfig.custom_groups &&
+            Array.isArray(newConfig.custom_groups[PANEL_TYPE.UNCATEGORIZED_ITEMS]) &&
+            newConfig.custom_groups[PANEL_TYPE.UNCATEGORIZED_ITEMS].length > 0)
+            ? true
+            : false;
+        console.log('uncategorizedIsActive:', this._uncategorizedIsActive);
       }
 
       const curentNewItems = [...this._newItems];
@@ -259,9 +281,15 @@ export class SidebarConfigDialog extends LitElement {
       };
       this._panelConfigMap = new Map(Object.entries(panelConfig));
       // Check for config changes from initial config
+
       const hasConfigChanged = JSON.stringify(this._initConfig) !== JSON.stringify(newConfig);
 
       this._mainDialog._saveDisabled = !hasConfigChanged;
+      if (this._store !== undefined) {
+        this._store.sidebarConfig = this._sidebarConfig;
+      } else {
+        this._createStore();
+      }
     }
   }
 
@@ -296,45 +324,55 @@ export class SidebarConfigDialog extends LitElement {
       `;
     }
 
+    this._createStore();
+
     const mainContent = this._renderMainConfig();
     const sidebarPreview = this._renderSidebarPreview();
 
     return html` <div id="sidebar-dialog-wrapper" class="dialog-content">${mainContent} ${sidebarPreview}</div> `;
   }
 
+  private _createStore(): void {
+    if (this._store) return;
+    this._store = new EditorStore(this, this._sidebarConfig);
+    console.log('Store created ...', this._store);
+  }
   private _renderMainConfig(): TemplateResult {
     if (this._tabState !== TAB_STATE.BASE) {
       return this._renderCodeEditor();
     }
-    const tabsContent = [
-      { key: 'appearance', label: 'Appearance', content: this._renderBaseConfig() },
-      { key: 'panels', label: 'Panels', content: this._renderPanelConfig() },
-      { key: 'newItems', label: 'New Items', content: this._renderNewItemsConfig() },
-    ];
-
-    const activeTabIndex = tabs.indexOf(this._currTab);
 
     return html`
       <div id="sidebar-config">
-        <div id="tabbar">
-          ${tabsContent.map(
-            (tab) =>
-              html`<sidebar-organizer-tab
-                .name=${tab.label}
-                .active=${this._currTab === tab.key}
-                class="tab-item"
-                @click=${() => this._changeTab(tab.key)}
-              ></sidebar-organizer-tab>`
-          )}
+        <div class="dialog-menu">
+          <sidebar-dialog-menu
+            .hass=${this.hass}
+            ._store=${this._store}
+            .value=${this._currSection}
+            @menu-value-changed=${this._handleMenuValueChanged}
+          ></sidebar-dialog-menu>
         </div>
-        <div>${tabsContent[activeTabIndex]?.content || html`<p>Error: Invalid tab</p>`}</div>
+        ${this._renderConfigSection()}
       </div>
     `;
   }
 
-  private _changeTab(tab: string): void {
-    if (this._currTab === tab) return;
-    this._currTab = tab as (typeof tabs)[number];
+  private _handleMenuValueChanged(ev: CustomEvent): void {
+    ev.stopPropagation();
+    const newValue = ev.detail.value || null;
+    const configArea = newValue ? (newValue as CONFIG_SECTION) : CONFIG_SECTION.GENERAL;
+    this._currSection = configArea;
+  }
+
+  private _renderConfigSection(): TemplateResult {
+    const selectedArea = this._currSection;
+    const areaMap = {
+      [CONFIG_SECTION.APPEARANCE]: this._renderBaseConfig(),
+      [CONFIG_SECTION.PANELS]: this._renderPanelConfig(),
+      [CONFIG_SECTION.NEW_ITEMS]: this._renderNewItemsConfig(),
+    };
+
+    return areaMap[selectedArea] || html``;
   }
 
   private _renderSidebarPreview(): TemplateResult {
@@ -345,10 +383,10 @@ export class SidebarConfigDialog extends LitElement {
     return html`
       <div id="sidebar-preview" style=${styleMap(previewStyles)}>
         <sidebar-dialog-preview
-          .invalidConfig=${!this.isValidConfig}
           .hass=${this.hass}
-          ._dialog=${this}
+          ._store=${this._store}
           ._sidebarConfig=${this._sidebarConfig}
+          .invalidConfig=${!this.isValidConfig}
           @item-clicked=${this._handleItemClicked}
         ></sidebar-dialog-preview>
       </div>
@@ -358,26 +396,26 @@ export class SidebarConfigDialog extends LitElement {
   private _renderBaseConfig(): TemplateResult {
     return html` <sidebar-dialog-colors
       .hass=${this.hass}
-      ._dialog=${this}
+      ._store=${this._store}
       ._sidebarConfig=${this._sidebarConfig}
       @sidebar-changed=${this._handleSidebarChanged}
     ></sidebar-dialog-colors>`;
   }
 
   private _renderPanelConfig(): TemplateResult {
-    return html` <sidebar-dialog-groups
+    return html` <sidebar-dialog-panels
       .hass=${this.hass}
-      ._dialog=${this}
+      ._store=${this._store}
       ._sidebarConfig=${this._sidebarConfig}
       @sidebar-changed=${this._handleSidebarChanged}
-    ></sidebar-dialog-groups>`;
+    ></sidebar-dialog-panels>`;
   }
 
   private _renderNewItemsConfig(): TemplateResult {
     return html`
       <sidebar-dialog-new-items
         .hass=${this.hass}
-        ._dialog=${this}
+        ._store=${this._store}
         ._sidebarConfig=${this._sidebarConfig}
         @sidebar-changed=${this._handleSidebarChanged}
         @item-clicked=${this._handleItemClicked}
@@ -399,6 +437,7 @@ export class SidebarConfigDialog extends LitElement {
             : html`
                 <sidebar-dialog-code-editor
                   .hass=${this.hass}
+                  ._store=${this._store}
                   ._sidebarConfig=${this._sidebarConfig}
                   @sidebar-changed=${this._handleSidebarChanged}
                 ></sidebar-dialog-code-editor>
@@ -581,7 +620,7 @@ export class SidebarConfigDialog extends LitElement {
 
     const hiddenItems = getHiddenPanels();
 
-    const allPanels = ARRAY_UTILS.union(currentPanelOrder, hiddenItems);
+    const allPanels = this._utils.ARRAY.union(currentPanelOrder, hiddenItems);
 
     const { added, removed } = await comparePanelItems(this.hass, allPanels);
     if (Boolean(added.length || removed.length)) {
@@ -680,6 +719,7 @@ export class SidebarConfigDialog extends LitElement {
   };
 
   private _updateSidebarItems = (currentPanelOrder: string[], initHiddenItems: string[]): void => {
+    const ARRAY_UTILS = this._utils.ARRAY;
     let configToValidate = { ...(this._sidebarConfig || {}) };
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
 
@@ -741,6 +781,38 @@ export class SidebarConfigDialog extends LitElement {
     return ungroupedItems;
   }
 
+  public get uncategorizedFromCustom(): string[] | undefined {
+    if (
+      !this._sidebarConfig[PANEL_TYPE.CUSTOM_GROUPS] ||
+      this._sidebarConfig[PANEL_TYPE.CUSTOM_GROUPS].hasOwnProperty(PANEL_TYPE.UNCATEGORIZED_ITEMS)
+    ) {
+      return undefined;
+    }
+
+    return this._sidebarConfig[PANEL_TYPE.CUSTOM_GROUPS][PANEL_TYPE.UNCATEGORIZED_ITEMS];
+  }
+
+  public get pickedWithoutUncategorizedFromCustom(): string[] {
+    const itemsFromCustom = this._sidebarConfig[PANEL_TYPE.CUSTOM_GROUPS]?.[PANEL_TYPE.UNCATEGORIZED_ITEMS] || [];
+    const pickedWithoutUncategorizedFromCustom = Array.from(this._panelConfigMap.values())
+      .flat()
+      .filter((item) => !itemsFromCustom.includes(item));
+    return pickedWithoutUncategorizedFromCustom;
+  }
+
+  public get uncategorizedItems(): string[] {
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
+    const fromCustom = this.uncategorizedFromCustom || [];
+    const pickedWithoutUncategorizedFromCustom = this.pickedWithoutUncategorizedFromCustom;
+    const remainingUncategorized = this._initCombiPanels.filter(
+      (item) =>
+        !pickedWithoutUncategorizedFromCustom.includes(item) &&
+        !(this._sidebarConfig.hidden_items || []).includes(item) &&
+        item !== defaultPanel
+    );
+    return Array.from(new Set([...fromCustom, ...remainingUncategorized]));
+  }
+
   public _cleanItemsFromGroups = (groupType: PANEL_TYPE, itemToRemove: string[]): SidebardPanelConfig => {
     const configToClean = pick(this._sidebarConfig, [groupType]) as SidebardPanelConfig;
     return cleanItemsFromConfig(configToClean, itemToRemove);
@@ -755,8 +827,8 @@ export class SidebarConfigDialog extends LitElement {
     event.stopPropagation();
     const panel = event.detail as string;
     const inGroup = this._getGroupOfPanel(panel);
-    if (this._dialogGroups) {
-      this._dialogGroups.clickedPanelInPreview(panel, inGroup);
+    if (this._dialogPanels) {
+      this._dialogPanels.clickedPanelInPreview(panel, inGroup);
     }
   }
 
@@ -806,6 +878,27 @@ export class SidebarConfigDialog extends LitElement {
         #sidebar-config {
           display: block;
           height: max-content;
+          position: relative;
+          width: 100%;
+        }
+
+        .dialog-menu {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background-color: var(--mdc-theme-surface);
+        }
+        sidebar-dialog-panels {
+          display: block;
+          position: relative;
+          max-height: calc(var(--mdc-dialog-min-height) - 50px);
+          width: inherit;
+          overflow-y: auto;
+        }
+
+        :host([fullscreen]) sidebar-dialog-panels {
+          --so-content-fullscreen-max-height: calc(var(--mdc-dialog-min-height) - 128px - 50px);
+          max-height: var(--so-content-fullscreen-max-height);
         }
 
         #tabbar {
@@ -849,7 +942,6 @@ export class SidebarConfigDialog extends LitElement {
           display: flex;
           flex-direction: column;
           gap: var(--side-dialog-gutter);
-          margin-top: 1rem;
           min-height: 250px;
           justify-content: space-between;
           flex: 1;
