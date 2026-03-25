@@ -297,7 +297,7 @@ export const parseItemValues = (
 ): { panelId: string; hrefPanelId: string; title: string; group?: string } => {
   const panelId = item.getAttribute(ATTRIBUTE.DATA_PANEL) || '';
   const hrefPanelId = item.href.replace('/', '');
-  const title = item.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT)?.textContent.trim() || '';
+  const title = item.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT)?.textContent?.trim() || '';
   const group = item.getAttribute(ATTRIBUTE.GROUP) || undefined;
   return { panelId, hrefPanelId, title, group };
 };
