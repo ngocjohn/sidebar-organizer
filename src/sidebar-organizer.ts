@@ -445,7 +445,7 @@ export class SidebarOrganizer {
 
   private _setupInitialConfig() {
     // info
-    console.group('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
+    console.groupCollapsed('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
 
     const { default_collapsed, custom_groups, color_config, bottom_items, bottom_grid_items, pinned_groups } =
       this._config;
@@ -547,8 +547,6 @@ export class SidebarOrganizer {
 
         const defaultPanelUrlPath = getDefaultPanelUrlPath(this.hass);
 
-        console.groupCollapsed('Ordering panels based on config:', this._baseOrder.length, 'panels');
-
         const orderedPanels: Omit<NewItemConfig, 'icon'>[] = [];
 
         this._baseOrder.forEach((panelId) => {
@@ -574,7 +572,9 @@ export class SidebarOrganizer {
                 bottomGridItems.appendChild(foundItem);
               }
             } else if (group) {
-              foundItem.setAttribute(ATTRIBUTE.GROUP, group);
+              if (group !== PANEL_TYPE.UNCATEGORIZED_ITEMS) {
+                foundItem.setAttribute(ATTRIBUTE.GROUP, group);
+              }
               topItems.appendChild(foundItem);
             } else {
               if (panelId === defaultPanelUrlPath) {
@@ -587,6 +587,7 @@ export class SidebarOrganizer {
             orderedPanels.push({ ...parseItemValues(foundItem), group: group || 'uncategorized' });
           }
         });
+        console.groupCollapsed('Ordering panels based on config:', this._baseOrder.length, 'panels');
         console.table(orderedPanels);
         console.groupEnd();
 
@@ -595,47 +596,43 @@ export class SidebarOrganizer {
           beforeSpacerContainer.appendChild(uncategorizedItems);
         }
         if (bottomItems.children.length > 0 || bottomGridItems.children.length > 0) {
-          this._processBottomList(bottomItems, bottomGridItems);
+          // this._processBottomList(bottomItems, bottomGridItems);
+          const createContainer = (
+            type: PANEL_TYPE.BOTTOM_GRID_ITEMS | PANEL_TYPE.BOTTOM_ITEMS,
+            content: DocumentFragment
+          ): HTMLElement | null => {
+            if (content.children.length === 0) {
+              return null;
+            }
+            const className = type === PANEL_TYPE.BOTTOM_ITEMS ? CLASS.BOTTOM_CONTAINER : CLASS.BOTTOM_GRID_CONTAINER;
+
+            const container = document.createElement('div') as HTMLElement;
+            container.classList.add(className);
+            container.appendChild(content);
+            return container;
+          };
+
+          const bottomContainer = createContainer(PANEL_TYPE.BOTTOM_ITEMS, bottomItems);
+          const bottomGridContainer = createContainer(PANEL_TYPE.BOTTOM_GRID_ITEMS, bottomGridItems);
+
+          if (bottomContainer || bottomGridContainer) {
+            const haMdList = document.createElement(ELEMENT.HA_MD_LIST) as any;
+            haMdList.classList.add(CLASS.BOTTOM_LIST);
+            if (bottomContainer) {
+              haMdList.appendChild(bottomContainer);
+            }
+            if (bottomGridContainer) {
+              haMdList.appendChild(bottomGridContainer);
+            }
+            const spacer = this._panelsList.querySelector(SELECTOR.SPACER) as HTMLElement;
+            this._panelsList.insertBefore(haMdList, spacer.nextElementSibling);
+          }
+          //success
+          console.log('%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar', 'color: #bada55;', 'color: #40c057;');
         }
+        console.groupEnd();
       });
     });
-  }
-
-  private _processBottomList(bottom_items: DocumentFragment, bottom_grid_items: DocumentFragment): void {
-    const createContainer = (
-      type: PANEL_TYPE.BOTTOM_GRID_ITEMS | PANEL_TYPE.BOTTOM_ITEMS,
-      content: DocumentFragment
-    ): HTMLElement | null => {
-      if (content.children.length === 0) {
-        return null;
-      }
-      const className = type === PANEL_TYPE.BOTTOM_ITEMS ? CLASS.BOTTOM_CONTAINER : CLASS.BOTTOM_GRID_CONTAINER;
-
-      const container = document.createElement('div') as HTMLElement;
-      container.classList.add(className);
-      container.appendChild(content);
-      return container;
-    };
-
-    const bottomContainer = createContainer(PANEL_TYPE.BOTTOM_ITEMS, bottom_items);
-    const bottomGridContainer = createContainer(PANEL_TYPE.BOTTOM_GRID_ITEMS, bottom_grid_items);
-
-    if (bottomContainer || bottomGridContainer) {
-      const haMdList = document.createElement(ELEMENT.HA_MD_LIST) as any;
-      haMdList.classList.add(CLASS.BOTTOM_LIST);
-      if (bottomContainer) {
-        haMdList.appendChild(bottomContainer);
-      }
-      if (bottomGridContainer) {
-        haMdList.appendChild(bottomGridContainer);
-      }
-      const spacer = this._panelsList.querySelector(SELECTOR.SPACER) as HTMLElement;
-      this._panelsList.insertBefore(haMdList, spacer.nextElementSibling);
-    }
-    //success
-    console.log('%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar', 'color: #bada55;', 'color: #40c057;');
-
-    console.groupEnd();
   }
 
   private _processSections() {
