@@ -66,7 +66,7 @@ export class SidebarConfigDialog extends BaseEditor {
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
   @state() public _newItemMap = new Map<string, NewItemConfig>();
-  @state() private _newItems: string[] = [];
+  @state() public _newItems: string[] = [];
   @state() private _panelConfigMap = new Map<string, string[]>();
   @state() private _pinnedGroupsMap = new Map<string, { icon?: string }>();
   @state() public _settingItemMoved = false;
@@ -75,6 +75,7 @@ export class SidebarConfigDialog extends BaseEditor {
 
   @state() private _uploading = false;
   @state() _invalidConfig?: INVALID_CONFIG;
+  @state() public _narrow = false;
 
   private _resizeObserver?: ResizeObserver;
 
@@ -84,6 +85,8 @@ export class SidebarConfigDialog extends BaseEditor {
   @query(DIALOG_TAG.CODE_EDITOR) _dialogCodeEditor!: ELEMENT.SidebarDialogCodeEditor;
   @query(DIALOG_TAG.NEW_ITEMS) _dialogNewItems!: ELEMENT.SidebarDialogNewItems;
   @query(DIALOG_TAG.MENU) _dialogMenu!: ELEMENT.SidebarDialogMenu;
+
+  @query('#sidebar-config') _configSection!: HTMLElement;
 
   constructor() {
     super(CONFIG_SECTION.GENERAL);
@@ -303,7 +306,8 @@ export class SidebarConfigDialog extends BaseEditor {
     if (!configSection) return;
     this._resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const { height } = entry.contentRect;
+        const { height, width } = entry.contentRect;
+        this._narrow = width < 600;
         const minHeight = 800;
         if (height > minHeight && !this.fullscreen) {
           this._dialogPreview.style.setProperty('--config-section-height', `${Math.round(height)}px`);
@@ -838,6 +842,7 @@ export class SidebarConfigDialog extends BaseEditor {
         :host {
           --side-dialog-gutter: 0.5rem;
           --side-dialog-padding: 1rem;
+          --scrollbar-thumb-color: rgba(0, 0, 0, 0.2);
           max-width: 1400px;
           display: flex;
           margin: 0 auto;
@@ -881,7 +886,18 @@ export class SidebarConfigDialog extends BaseEditor {
           position: relative;
           width: 100%;
         }
-
+        #sidebar-config *::-webkit-scrollbar {
+          width: 0.2em;
+          height: 0.2em;
+        }
+        #sidebar-config *::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 8px;
+        }
+        #sidebar-config * {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        }
         .dialog-menu {
           position: sticky;
           top: 0;

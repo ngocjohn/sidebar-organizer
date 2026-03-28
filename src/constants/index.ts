@@ -35,6 +35,7 @@ export enum STORAGE {
   HIDDEN_PANELS = 'sidebarHiddenPanels',
   HA_VERSION = 'ha-version',
   BLOCK_SIDEBAR_EDIT = 'blockSidebarEdit',
+  SHOW_BY_GROUP = 'so-show-by-group',
 }
 
 export enum HA_EVENT {
@@ -108,4 +109,6 @@ export const ALERT_MSG = {
   INSTALLATION_LINK: `See: ${REPO_URL}#installation`,
   UPLOAD_SUCCESS_VALID_RELOAD:
     'Config uploaded successfully and is valid. Click OK to reload the page and apply the new configuration.',
+  UNCATEGORIZED_GROUP_INFO:
+    'This group automatically includes any items that are not assigned to any other custom groups or bottom list. These items will be displayed without group header separation in the sidebar. Reordering items in group, or group order in general is available.',
 };

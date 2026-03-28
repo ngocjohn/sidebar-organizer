@@ -4,6 +4,7 @@ import { mdiClose, mdiFullscreen, mdiFullscreenExit, mdiInformation } from '@mdi
 import './sidebar-dialog';
 
 import { clearSidebarOrganizerStorage } from '@utilities/configs/misc';
+import { nextRender } from '@utilities/dom-utils';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog } from '@utilities/show-dialog-box';
 import { SidebarConfigDialogParams } from '@utilities/show-dialog-sidebar-organizer';
@@ -46,6 +47,7 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
     this._params = param;
     this.large = __DEBUG__ ? true : false;
     this._initConfig = cloneDeep(param.config);
+    await this._watchDialogScroll();
   }
 
   public closeDialog(): boolean {
@@ -222,6 +224,21 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
 
   private _ignoreKeydown(ev: KeyboardEvent) {
     ev.stopPropagation();
+  }
+
+  private async _watchDialogScroll(): Promise<void> {
+    await nextRender();
+    const waDialog = this.shadowRoot?.querySelector('ha-dialog')?.shadowRoot?.querySelector('wa-dialog');
+    if (waDialog) {
+      const body = waDialog.querySelector('.body') as HTMLElement | null;
+      if (body) {
+        body.classList.remove('ha-scrollbar');
+        body.style.overflow = 'hidden';
+      }
+    } else {
+      console.log('wa-dialog not found, cannot remove ha-scrollbar class from dialog body');
+      return;
+    }
   }
 
   static get styles(): CSSResultGroup {

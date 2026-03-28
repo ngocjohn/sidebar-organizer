@@ -2,7 +2,7 @@ import { CONFIG_SECTIONS_MENU, CONFIG_SECTION, VERSION } from '@constants';
 import { mdiClose, mdiHome, mdiMenu } from '@mdi/js';
 import { fireEvent } from '@utilities/fire_event';
 import { omit } from 'es-toolkit/compat';
-import { CSSResultGroup, PropertyValues, TemplateResult, css, html, nothing } from 'lit';
+import { CSSResultGroup, TemplateResult, css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { BaseEditor } from '../base-editor';
@@ -16,16 +16,6 @@ declare global {
 export class SidebarDialogMenu extends BaseEditor {
   @property() public value?: string;
   @state() private _open = false;
-
-  protected updated(_changedProperties: PropertyValues): void {
-    if (!this.value) {
-      return;
-    }
-    const oldValue = _changedProperties.get('value');
-    if (oldValue !== undefined && oldValue !== this.value) {
-      console.log(`Menu value changed from ${oldValue} to ${this.value}`);
-    }
-  }
 
   protected render(): TemplateResult {
     const value = this.value;

@@ -144,7 +144,6 @@ export class SidebarOrganizer {
   private sideBarRoot!: ShadowRoot;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
-  private _baseColorFromTheme: DividerColorSettings = {};
 
   private _mouseEnterBinded: (event: MouseEvent) => void;
   private _mouseLeaveBinded: () => void;
@@ -506,6 +505,7 @@ export class SidebarOrganizer {
           );
         }
       }
+
       this._getContainerItems(beforeSpacerContainer).then((items) => {
         Array.from(items).forEach((item: SidebarPanelItem) => {
           if (item.hasAttribute(ATTRIBUTE.NEW_ITEM)) return; // Skip new items
@@ -1023,7 +1023,9 @@ export class SidebarOrganizer {
     const customStyles = colorConfig.custom_styles || [];
     const CUSTOM_STYLES = convertCustomStyles(customStyles) || '';
 
-    const defaultColors = getDefaultThemeColors(customTheme !== undefined ? this.HaSidebar : undefined);
+    const defaultColors: DividerColorSettings = getDefaultThemeColors(
+      customTheme !== undefined ? this.HaSidebar : undefined
+    );
 
     // console.log('Default Colors:', defaultColors);
     // console.log('theme', customTheme, 'colorConfig', colorConfig, 'defaultColors', defaultColors);
@@ -1094,28 +1096,6 @@ export class SidebarOrganizer {
     return reorderedPanels;
   }
 
-  private _reorderGroupedSidebar() {
-    const scrollbarItems = Array.from(this._scrollbarItems) as HTMLElement[];
-    const lastGroupedItem = scrollbarItems.findLast((item) => item.hasAttribute('group'));
-    if (lastGroupedItem) {
-      const divider = this._createDivider(ATTRIBUTE.UNGROUPED);
-      // divider.setAttribute('ungrouped', '');
-      this._scrollbar.insertBefore(divider, lastGroupedItem.nextSibling);
-    }
-
-    // Check differences after a delay
-    setTimeout(() => this._checkDiffs(), 200);
-  }
-
-  public _hasTopItemDiff(): boolean {
-    const topItemsChanges = mapItemsForDebug(this._scrollbarItems, true);
-    console.log(
-      'Top Items Changes:',
-      topItemsChanges.filter((item) => item.isValid === false)
-    );
-    return topItemsChanges.some((item) => item.isValid === false);
-  }
-
   public _checkDiffs = (): void => {
     const baseOrder = this._baseOrder;
     // const _allItems = Array.from(this._allItems);
@@ -1125,7 +1105,7 @@ export class SidebarOrganizer {
     if (itemsValidation.some((item) => item.isValid === false)) {
       const logs = {
         baseOrder: baseOrder,
-        notValidItems: itemsValidation.filter((item) => item.isValid === false),
+        notValidItems: itemsValidation.filter((item) => item.isValid === false).map((item) => item.panelId),
       };
       // warning
       console.log(

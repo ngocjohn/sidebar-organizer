@@ -112,6 +112,7 @@ export interface NewItemConfig extends PanelInfo {
   double_tap_action?: ActionConfig;
   group?: string;
 }
+export type NewItemConfigKeys = keyof NewItemConfig;
 
 export const TextTransformations = ['none', 'capitalize', 'uppercase', 'lowercase'] as const;
 export type TextTransformation = (typeof TextTransformations)[number];

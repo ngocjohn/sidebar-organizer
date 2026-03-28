@@ -5,6 +5,7 @@ import {
   CONFIG_AREA_LABELS,
   CONFIG_SECTION,
   PANEL_AREA,
+  PanelArea,
   PanelAreaTabs,
 } from '@constants';
 import {
@@ -17,7 +18,7 @@ import {
 } from '@mdi/js';
 import { SidebarConfig, PANEL_TYPE } from '@types';
 import { validateConfig } from '@utilities/configs/validators';
-import { nextRender } from '@utilities/dom-utils';
+import { createAlert, nextRender } from '@utilities/dom-utils';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
 import { BaseEditor } from 'components/base-editor';
@@ -40,9 +41,19 @@ export class SidebarDialogPanels extends BaseEditor {
   @state() public _selectedGroup: string | null = null;
   @state() private _selectedNotification: string | null = null;
   @state() private _reloadPanelItems: boolean = false;
+  @state() private _prevTab: PANEL_AREA | null = null;
 
   @query('so-panel-all') private _panelAll?: SoPanelAll;
 
+  protected willUpdate(_changedProperties: PropertyValues): void {
+    if (_changedProperties.has('_selectedTab')) {
+      const prevTab = _changedProperties.get('_selectedTab') as PANEL_AREA | undefined;
+      const currentTab = this._selectedTab;
+      if (prevTab !== currentTab) {
+        this._prevTab = prevTab || null;
+      }
+    }
+  }
   protected updated(_changedProperties: PropertyValues) {
     if (_changedProperties.has('_selectedTab') && this._selectedTab !== undefined) {
       const selectedTab = this._selectedTab;
@@ -343,7 +354,7 @@ export class SidebarDialogPanels extends BaseEditor {
           `
         : null}
 
-      <wa-dropdown @wa-select=${this._handleSubItemAction}>
+      <ha-dropdown @wa-select=${this._handleSubItemAction}>
         <ha-icon-button slot="trigger" .path=${mdiDotsVertical} hide-title></ha-icon-button>
 
         ${actions.map(
@@ -365,7 +376,7 @@ export class SidebarDialogPanels extends BaseEditor {
             </ha-dropdown-item>
           `
         )}
-      </wa-dropdown>
+      </ha-dropdown>
     `;
   }
 
@@ -380,7 +391,7 @@ export class SidebarDialogPanels extends BaseEditor {
           <ha-icon-button .path=${mdiDrag}></ha-icon-button>
         </div>
 
-        <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key)}>
+        <div class="group-name" @click=${() => this._handleGroupAction('edit-items', key, PANEL_AREA.CUSTOM_GROUPS)}>
           <ha-icon icon=${`mdi:numeric-${index + 1}-box`}></ha-icon>
 
           <div class="group-name-items" style="text-transform: ${textTransform}">
@@ -420,13 +431,13 @@ export class SidebarDialogPanels extends BaseEditor {
     `;
   }
 
-  private _handleSubItemAction = (ev: CustomEvent): void => {
+  private _handleSubItemAction(ev: CustomEvent): void {
     ev.stopPropagation();
     const subItem = (ev.detail?.item as any)?.data as any;
     const key = (ev.detail?.item as any)?.value as string;
     console.log('Sub item action:', subItem, key);
-    this._handleGroupAction(subItem.action, key);
-  };
+    this._handleGroupAction(subItem.action, key, PANEL_AREA.CUSTOM_GROUPS);
+  }
 
   private _groupMoved(ev: CustomEvent): void {
     ev.stopPropagation();
@@ -474,15 +485,15 @@ export class SidebarDialogPanels extends BaseEditor {
     event.stopPropagation();
     const { action, key, type } = event.detail;
     console.log('Group action event received:', action, key, type);
-    if (type && type === PANEL_AREA.BOTTOM_PANELS) {
-      this._selectedTab = PANEL_AREA.BOTTOM_PANELS;
-      await nextRender();
-      this._selectedBottom = key as BOTTOM_SECTION;
-      return;
-    }
-    this._handleGroupAction(action, key);
+    // if (type && type === PANEL_AREA.BOTTOM_PANELS) {
+    //   this._selectedTab = PANEL_AREA.BOTTOM_PANELS;
+    //   await nextRender();
+    //   this._selectedBottom = key as BOTTOM_SECTION;
+    //   return;
+    // }
+    this._handleGroupAction(action, key, type);
   };
-  private _handleGroupAction = async (action: string, key: string) => {
+  private _handleGroupAction = async (action: string, key: string, type?: PanelArea | string) => {
     // console.log('group action', action, key);
 
     const defaultCollapsed = [...(this._sidebarConfig?.default_collapsed || [])];
@@ -498,15 +509,37 @@ export class SidebarDialogPanels extends BaseEditor {
       this.requestUpdate();
     };
 
-    const updates: Partial<SidebarConfig> = {};
-
-    switch (action) {
-      case 'edit-items':
+    const switchArea = async (area: PanelArea, groupKey: string) => {
+      const currentArea = this._selectedTab;
+      const prevTab = this._prevTab;
+      const toArea = area;
+      if (currentArea !== prevTab && currentArea === toArea) {
+        this._prevTab = currentArea; // Update prevTab to current area before switching
+      }
+      if (area === PANEL_AREA.CUSTOM_GROUPS) {
         if (this._selectedTab !== PANEL_AREA.CUSTOM_GROUPS) {
           this._selectedTab = PANEL_AREA.CUSTOM_GROUPS;
           await nextRender();
         }
-        this._selectedGroup = key;
+        this._selectedGroup = groupKey;
+        this._dialog._dialogPreview._toggleGroup(groupKey, 'show');
+      } else if (area === PANEL_AREA.BOTTOM_PANELS) {
+        if (this._selectedTab !== PANEL_AREA.BOTTOM_PANELS) {
+          this._selectedTab = PANEL_AREA.BOTTOM_PANELS;
+          await nextRender();
+        }
+        this._selectedBottom = groupKey as BOTTOM_SECTION;
+        this._dialog._dialogPreview._toggleBottomPanel(groupKey as BOTTOM_SECTION);
+      }
+    };
+
+    const updates: Partial<SidebarConfig> = {};
+
+    switch (action) {
+      case 'edit-items':
+        if (type && (type === PANEL_AREA.BOTTOM_PANELS || type === PANEL_AREA.CUSTOM_GROUPS)) {
+          await switchArea(type, key);
+        }
         break;
       case 'rename':
         let newName = await showPromptDialog(this, 'Enter new group name', key, 'Rename');
@@ -599,7 +632,11 @@ export class SidebarDialogPanels extends BaseEditor {
   private _renderEditGroup(): TemplateResult | typeof nothing {
     if (!this._selectedGroup) return nothing;
     const headerBack = html`<div class="header-row ">
-      <ha-icon-button .path=${mdiChevronLeft} @click=${() => (this._selectedGroup = null)}> </ha-icon-button>
+      <ha-icon-button
+        .path=${mdiChevronLeft}
+        @click=${() => ((this._selectedGroup = null), (this._selectedTab = this._prevTab || PANEL_AREA.ALL_ITEMS))}
+      >
+      </ha-icon-button>
       ${this._selectedGroup.toLocaleUpperCase()}
       <ha-button
         appearance="plain"
@@ -639,7 +676,7 @@ export class SidebarDialogPanels extends BaseEditor {
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
     const uncategorizedActive = this._dialog._uncategorizedIsActive === true;
-
+    const isUncategorizedGroup = customGroup === PANEL_TYPE.UNCATEGORIZED_ITEMS;
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const hiddenItems = this._sidebarConfig?.hidden_items || [];
     const currentItems = this._dialog._initCombiPanels.filter(
@@ -664,10 +701,11 @@ export class SidebarDialogPanels extends BaseEditor {
 
     const renderItems = this._renderSelectedItems(selectedType, selectedItems);
     const renderPinGroupForms = customGroup ? this._renderPinGroupForms(customGroup) : nothing;
+
     return html`
-      ${!this._dialog._uncategorizedIsActive ? renderPinGroupForms : nothing}
+      ${!isUncategorizedGroup ? renderPinGroupForms : createAlert(ALERT_MSG.UNCATEGORIZED_GROUP_INFO)}
       <div id="items-preview-wrapper">
-        <div class="items-container">
+        <div class="items-container" ?hidden=${isUncategorizedGroup}>
           <div class="header-row flex-icon">
             <span>SELECT ITEMS</span>
           </div>
@@ -1077,17 +1115,9 @@ export class SidebarDialogPanels extends BaseEditor {
     return [
       super.styles,
       css`
-        *::-webkit-scrollbar {
-          width: 8px;
-        }
-        *::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        *::-webkit-scrollbar-thumb {
-          background-color: var(--scrollbar-thumb-color);
-          border-radius: 4px;
-          border: 2px solid transparent;
-          background-clip: content-box;
+        :host {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
         }
         .groups-menu-header {
           top: 0;

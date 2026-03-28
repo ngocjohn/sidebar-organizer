@@ -1,56 +1,192 @@
-import { CONFIG_AREA_LABELS, PANEL_AREA } from '@constants';
-import { mdiPencilBoxMultipleOutline } from '@mdi/js';
-import { CustomGroups, PANEL_TYPE, PanelType, SidebarConfig, SidebardPanelConfig } from '@types';
-import { createExpansionPanel, ExpandablePanelProps, isMobile } from '@utilities/dom-utils.js';
+import { ATTRIBUTE, CONFIG_AREA_LABELS, PANEL_AREA, PanelArea, PanelAreaKeys, STORAGE } from '@constants';
+import { mdiDrag } from '@mdi/js';
+import {
+  CustomGroups,
+  NewItemConfig,
+  NewItemConfigKeys,
+  PANEL_TYPE,
+  PanelType,
+  SidebarConfig,
+  SidebardPanelConfig,
+} from '@types';
+import { _renderActionItem, ActionType, computeActionList } from '@utilities/action-menu';
+import { createExpansionPanel, ExpandablePanelProps, isMobile, stopPropagation } from '@utilities/dom-utils.js';
 import { fireEvent } from '@utilities/fire_event';
-import { getDefaultPanelUrlPath } from '@utilities/panel.js';
 import { isEmpty, pick } from 'es-toolkit/compat';
-import { html, TemplateResult, css, nothing } from 'lit';
+import { html, TemplateResult, css, nothing, PropertyValues } from 'lit';
 import { customElement, property, queryAll } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
 
+import './so-data-item-table';
 import { BaseEditor } from '../../base-editor.js';
+
 const expansionPanelStyles = css`
   :host {
     --ha-card-border-radius: var(--ha-border-radius-md);
     --expansion-panel-content-padding: 0;
   }
-  *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  *::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb-color, rgba(0, 0, 0, 0.2));
-    border-radius: 4px;
-  }
-  *::-webkit-scrollbar-thumb:hover {
-    background-color: var(--scrollbar-thumb-hover-color, rgba(0, 0, 0, 0.3));
-  }
-  .top {
+  :host .top {
     background-color: var(--secondary-background-color) !important;
     color: var(--secondary-text-color);
   }
   :host(.uncategorized) .top {
     background-color: transparent !important;
+    border: 0.5px solid var(--divider-color);
   }
 `.toString();
+
+interface TableGroupedData {
+  items: string[];
+  columns?: NewItemConfigKeys[];
+  itemActionRenderer?: (item: NewItemConfig) => unknown;
+}
+
+type TableExpansionParams = {
+  data: TableGroupedData;
+  expansionOptions?: ExpandablePanelProps['options'];
+};
 
 @customElement('so-panel-all')
 export class SoPanelAll extends BaseEditor {
   constructor() {
     super(PANEL_AREA.ALL_ITEMS);
   }
+
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;
   @queryAll('ha-expansion-panel') private _expansionPanels!: HTMLElement[];
 
-  protected firstUpdated(): void {
-    this._expansionPanels.forEach((panel) => {
-      this._styleManager.addStyle(expansionPanelStyles, panel.shadowRoot!);
-    });
+  @property({ attribute: false }) private _showByGroup = false;
+
+  public connectedCallback(): void {
+    super.connectedCallback();
+    this._showByGroup = window.localStorage.getItem(STORAGE.SHOW_BY_GROUP) === 'true';
+  }
+
+  // protected firstUpdated(): void {
+  //   this._expansionPanels.forEach((panel) => {
+  //     this._styleManager.addStyle(expansionPanelStyles, panel.shadowRoot!);
+  //   });
+  // }
+
+  protected updated(changedProps: PropertyValues): void {
+    super.updated(changedProps);
+    if (changedProps.has('_showByGroup') || changedProps.has('_sidebarConfig')) {
+      this._expansionPanels.forEach((panel) => {
+        this._styleManager.addStyle(expansionPanelStyles, panel.shadowRoot!);
+      });
+    }
   }
 
   protected render(): TemplateResult {
-    const configToUpdate = pick(this._sidebarConfig, [
+    return html`
+      <div class="all-panels-wrapper">
+        <div class="group-title">
+          <div></div>
+          <ha-dropdown @wa-select=${this._handleGroupByPanelType}>
+            <ha-button with-caret size="small" slot="trigger" appearance="outline"
+              >Display by: ${this._showByGroup ? 'Groups' : 'Type'}</ha-button
+            >
+            <ha-dropdown-item .value=${'groups'} ?selected=${this._showByGroup}>Groups</ha-dropdown-item>
+            <ha-dropdown-item .value=${'type'} ?selected=${!this._showByGroup}>Type</ha-dropdown-item>
+            <wa-divider></wa-divider>
+            <ha-dropdown-item @click=${() => this._toggleExpansionPanels()}>Expand/Collapse All</ha-dropdown-item>
+          </ha-dropdown>
+        </div>
+        ${!this._showByGroup ? this._renderPanelsByType() : this._renderByGroupType()}
+      </div>
+    `;
+  }
+
+  private _renderPanelsByType(): TemplateResult {
+    const newItems = this._dialog._newItems;
+    const panelsWithoutNewItems = this._dialog._initCombiPanels.filter((panel) => !newItems.includes(panel));
+
+    const columnsToShow: NewItemConfigKeys[] = ['url_path', 'group', 'show_in_sidebar', 'notification'];
+    const systemPanelData = {
+      data: {
+        items: panelsWithoutNewItems,
+        columns: columnsToShow,
+      },
+      expansionOptions: this._computeExpansionOptions({ id: 'system-panels', header: 'System Panels' }),
+    };
+
+    return html`
+      ${this._renderTableGrouped(systemPanelData)}
+      ${newItems.length > 0
+        ? this._renderTableGrouped({
+            data: { items: newItems, columns: columnsToShow },
+            expansionOptions: this._computeExpansionOptions({ id: 'new-items', header: 'User Created' }),
+          })
+        : nothing}
+    `;
+  }
+
+  private _computeGroupData(
+    section: PanelArea | string,
+    groupName: string,
+    groupConfig: CustomGroups | string[],
+    itemActionRenderer?: (item: NewItemConfig) => unknown,
+    columns?: NewItemConfigKeys[],
+    iconSlot?: TemplateResult
+  ): TableExpansionParams | null {
+    if (
+      !groupConfig ||
+      (typeof groupConfig === 'object' && isEmpty(groupConfig)) ||
+      (Array.isArray(groupConfig) && !groupConfig.length)
+    ) {
+      return null;
+    }
+
+    if (!iconSlot && PanelAreaKeys.includes(section as PanelArea)) {
+      iconSlot = this._renderGroupActionDropdown(section, groupName);
+    }
+
+    const items = Array.isArray(groupConfig) ? groupConfig : Object.values(groupConfig).flat();
+    return {
+      data: {
+        items,
+        columns,
+        itemActionRenderer,
+      },
+      expansionOptions: this._computeExpansionOptions({
+        id: section,
+        header: groupName,
+        iconSlot,
+        class: groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS ? 'uncategorized' : undefined,
+      }),
+    };
+  }
+
+  private _renderGroupActionDropdown = (section: PanelArea | string, groupName: string): TemplateResult => {
+    let dropdownActions: ActionType[] = ['edit-items', 'preview-item'];
+    if (section === PANEL_AREA.CUSTOM_GROUPS && groupName !== PANEL_TYPE.UNCATEGORIZED_ITEMS) {
+      dropdownActions.push('divider', 'delete');
+    } else if (groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS) {
+      dropdownActions.push('divider', 'uncategorized-as-group');
+    }
+
+    const actionsToShow = computeActionList(dropdownActions);
+    return html`
+      <ha-dropdown
+        slot="icons"
+        @click=${stopPropagation}
+        @wa-select=${this._handleActionGroupClick}
+        .section=${section}
+        .groupName=${groupName}
+      >
+        <ha-button size="small" variant="neutral" appearance="filled" with-caret slot="trigger">more</ha-button>
+        ${actionsToShow.map((item) =>
+          _renderActionItem({ item, option: { groupName, section, checked: this._dialog._uncategorizedIsActive } })
+        )}
+      </ha-dropdown>
+    `;
+  };
+
+  private _renderByGroupType(): TemplateResult {
+    const {
+      custom_groups = {},
+      bottom_items = [],
+      bottom_grid_items = [],
+    } = pick(this._sidebarConfig, [
       PANEL_TYPE.CUSTOM_GROUPS,
       PANEL_TYPE.BOTTOM_ITEMS,
       PANEL_TYPE.BOTTOM_GRID_ITEMS,
@@ -58,123 +194,131 @@ export class SoPanelAll extends BaseEditor {
 
     const uncategorizedItems = this._dialog._uncategorizedIsActive ? [] : this._dialog.uncategorizedItems;
 
-    const sectionToRender: Record<string, CustomGroups> = {
-      [CONFIG_AREA_LABELS[PANEL_AREA.CUSTOM_GROUPS]]: {
-        ...(configToUpdate.custom_groups || {}),
-      },
-    };
-    const bottomSectionsToRender: Record<string, CustomGroups> = {
-      [CONFIG_AREA_LABELS[PANEL_AREA.BOTTOM_PANELS]]: {
-        ...(configToUpdate.bottom_items?.length ? { [PANEL_TYPE.BOTTOM_ITEMS]: configToUpdate.bottom_items } : {}),
-        ...(configToUpdate.bottom_grid_items?.length
-          ? { [PANEL_TYPE.BOTTOM_GRID_ITEMS]: configToUpdate.bottom_grid_items }
-          : {}),
-      },
-    };
+    const customGroupsData = Object.entries(custom_groups)
+      .map(([groupName, groupConfig]) => this._computeGroupData(PANEL_AREA.CUSTOM_GROUPS, groupName, groupConfig))
+      .filter(Boolean);
+
+    const bottomItemsData = [
+      bottom_items.length
+        ? this._computeGroupData(PANEL_AREA.BOTTOM_PANELS, PANEL_TYPE.BOTTOM_ITEMS, bottom_items)
+        : null,
+      bottom_grid_items.length
+        ? this._computeGroupData(PANEL_AREA.BOTTOM_PANELS, PANEL_TYPE.BOTTOM_GRID_ITEMS, bottom_grid_items)
+        : null,
+    ].filter(Boolean);
+
+    const uncategorizedGroupData = uncategorizedItems.length
+      ? this._computeGroupData(PANEL_TYPE.UNCATEGORIZED_ITEMS, PANEL_TYPE.UNCATEGORIZED_ITEMS, uncategorizedItems)
+      : null;
+
     return html`
-      <div class="all-panels-wrapper">
-        <so-item-row no-edit ._item=${this._getPanelInfo(getDefaultPanelUrlPath(this.hass))}></so-item-row>
-        ${Object.entries(sectionToRender).map(([groupType, groupConfig]) =>
-          this._renderSectionGroup(groupType, groupConfig, PANEL_AREA.CUSTOM_GROUPS)
-        )}
-        ${Object.entries(bottomSectionsToRender).map(([groupType, groupConfig]) =>
-          this._renderSectionGroup(groupType, groupConfig, PANEL_AREA.BOTTOM_PANELS)
-        )}
-        ${uncategorizedItems.length
-          ? this._renderSectionGroup(PANEL_TYPE.UNCATEGORIZED_ITEMS, {
-              [PANEL_TYPE.UNCATEGORIZED_ITEMS]: uncategorizedItems,
-            })
-          : nothing}
-      </div>
+      ${this._renderGroupSection(PANEL_AREA.CUSTOM_GROUPS, customGroupsData, true)}
+      ${uncategorizedGroupData
+        ? this._renderSectionContent(PANEL_TYPE.UNCATEGORIZED_ITEMS, this._renderTableGrouped(uncategorizedGroupData), {
+            label: 'Set items to grouped',
+            onClick: this._toggleUncategorizedItemsActive,
+            hightLight: true,
+          })
+        : nothing}
+      ${this._renderGroupSection(PANEL_AREA.BOTTOM_PANELS, bottomItemsData, false, false)}
     `;
   }
 
-  private _renderSectionGroup(
-    groupType: PanelType | string,
-    groupConfig: CustomGroups,
-    panelArea?: PanelType | string
+  private _renderGroupSection(
+    section: PANEL_AREA,
+    groups: any[],
+    showHeader = true,
+    withDivider = true
+  ): TemplateResult | typeof nothing {
+    if (!groups.length) return nothing;
+
+    return this._renderSectionContent(
+      section,
+      html`${groups.map((groupData) => this._renderTableGrouped(groupData, showHeader))}`,
+      undefined,
+      withDivider
+    );
+  }
+
+  private _renderSectionContent(
+    sectionName: PanelType | string,
+    content: TemplateResult,
+    headerActionButton?: { label: string; onClick: () => void; hightLight?: boolean },
+    sortable = true
   ): TemplateResult {
-    if (
-      !groupConfig ||
-      (typeof groupConfig === 'object' && isEmpty(groupConfig)) ||
-      (Array.isArray(groupConfig) && !groupConfig.length)
-    ) {
-      return html``;
+    if (!headerActionButton && PanelAreaKeys.includes(sectionName as PanelArea)) {
+      headerActionButton = {
+        label: 'Expand/Collapse All',
+        onClick: () => this._toggleExpansionPanels(sectionName),
+      };
     }
-
     return html`
-      <wa-divider style="margin: 4px 0; --color: var(--divider-color);"></wa-divider>
-
       <div class="group-title">
-        <div>${CONFIG_AREA_LABELS[groupType] ?? groupType}</div>
-        ${groupType === PANEL_TYPE.UNCATEGORIZED_ITEMS && !this._dialog._uncategorizedIsActive
-          ? html` <ha-button size="small" appearance="plain" @click=${this._toggleUncategorizedItemsActive}
-              >Set items to grouped</ha-button
-            >`
-          : html` <ha-button
+        <div>${CONFIG_AREA_LABELS[sectionName] ?? sectionName}</div>
+        ${headerActionButton
+          ? html`<ha-button
               size="small"
-              variant="neutral"
+              variant=${headerActionButton.hightLight ? 'brand' : 'neutral'}
               appearance="plain"
-              @click=${() => this._toggleExpansionPanels(panelArea)}
-              >Expand/Collapse All</ha-button
-            >`}
+              @click=${headerActionButton.onClick}
+              >${headerActionButton.label}</ha-button
+            >`
+          : nothing}
       </div>
-      <ha-sortable draggable-selector="ha-expansion-panel" .disabled=${isMobile}>
-        <section class="group-wrapper">
-          ${repeat(
-            Object.entries(groupConfig),
-            ([groupName]) => groupName,
-            ([groupName, items]) => this._renderGroupedRows(groupName, items, panelArea)
-          )}
-        </section>
+      <ha-sortable handle-selector=".sortable-table" .disabled=${isMobile || !sortable}>
+        <section class="group-wrapper">${content}</section>
       </ha-sortable>
     `;
   }
 
-  private _renderGroupedRows(groupName: string, items: string[], panelArea?: PanelType | string): TemplateResult {
-    const isUncategorized = !this._dialog._uncategorizedIsActive && groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS;
-    const iconSlot = html` <ha-svg-icon
-      slot="icons"
-      label="Edit group"
-      .path=${mdiPencilBoxMultipleOutline}
-      @click=${(ev: Event) => {
-        ev.preventDefault();
-        fireEvent(this, 'group-action', { action: 'edit-items', key: groupName, type: panelArea });
-      }}
-    ></ha-svg-icon>`;
-    const expansionOptions: ExpandablePanelProps['options'] = {
-      ...(panelArea ? { id: panelArea } : {}),
-      header: groupName,
-      secondary: isUncategorized ? 'Uncategorized' : undefined,
+  private _renderTableGrouped(probs: TableExpansionParams, sortable = false): TemplateResult {
+    const columnsToShow = probs.data.columns ?? ['url_path', 'component_name'];
+    const tableContent = html` <so-data-item-table
+      .items=${this._computePanelInfoList(probs.data.items)}
+      .columns=${columnsToShow}
+      .narrow=${this.narrow}
+      .itemActionRenderer=${probs.data.itemActionRenderer}
+    ></so-data-item-table>`;
+    const expansionContent = probs.expansionOptions
+      ? createExpansionPanel({
+          options: probs.expansionOptions,
+          content: tableContent,
+        })
+      : tableContent;
+    const sortableDiv = html`
+      <div class="sortable-table">
+        <ha-icon-button class="drag-handle" .path=${mdiDrag} title="Drag to reorder"></ha-icon-button>
+        ${expansionContent}
+      </div>
+    `;
+    return probs.expansionOptions ? (sortable ? sortableDiv : expansionContent) : tableContent;
+  }
+
+  private _computeExpansionOptions = (options: {
+    id?: string;
+    header: string;
+    secondary?: string;
+    class?: string;
+    iconSlot?: TemplateResult;
+  }): ExpandablePanelProps['options'] => {
+    return {
+      ...options,
       noStyle: true,
       outlined: false,
-      class: `group-data-wrapper ${isUncategorized ? 'uncategorized' : ''}`,
-      ...(!isUncategorized ? { iconSlot } : {}),
+      class: `group-data-wrapper ${options.class ?? ''}`,
     };
-    const dataPanelHeader = html` <div class="item-row top">
-      <div class="cell icon"></div>
-      <div class="cell grows">Title</div>
-      ${!isMobile
-        ? html`
-            <div class="cell">URL Path</div>
-            <div class="cell">Component name</div>
-          `
-        : nothing}
-      <div class="cell icon"></div>
-    </div>`;
-    const groupItemsContent = html` ${dataPanelHeader}
-    ${repeat(
-      items,
-      (item) => item,
-      (item) => html`<so-item-row ._item=${this._getPanelInfo(item)}></so-item-row>`
-    )}`;
+  };
 
-    return html`
-      ${createExpansionPanel({
-        options: expansionOptions,
-        content: groupItemsContent,
-      })}
-    `;
+  private _handleActionGroupClick(ev: CustomEvent): void {
+    ev.stopPropagation();
+    if (!ev.detail || typeof (ev.detail as any).item?.value === 'undefined') {
+      return;
+    }
+    const { section, groupName } = ev.target as any;
+    const action = (ev.detail as any).item.value;
+    console.log('Group action clicked:', action, 'for group:', groupName, 'in section:', section);
+    // Handle the action accordingly, e.g., fire an event or call a method
+    fireEvent(this, 'group-action', { action, key: groupName, type: section });
   }
 
   private _toggleUncategorizedItemsActive = (): void => {
@@ -182,54 +326,55 @@ export class SoPanelAll extends BaseEditor {
     fireEvent(this, 'group-action', { action: 'uncategorized-as-group', key: PANEL_TYPE.UNCATEGORIZED_ITEMS });
   };
 
-  private _toggleExpansionPanels = (panelArea?: PanelType | string): void => {
+  private _toggleExpansionPanels(panelArea?: PanelType | string): void {
     if (!this._expansionPanels.length) return;
+    let sectionToToggle = Array.from(this._expansionPanels);
     if (panelArea) {
-      console.log('Toggling panels for panel area:', panelArea);
-      const filteredPanels = Array.from(this._expansionPanels).filter((panel) => panel.id === panelArea);
-      if (!filteredPanels.length) return;
-      const someExpanded = filteredPanels.some((panel) => panel.hasAttribute('expanded'));
-      filteredPanels.forEach((panel) => {
-        if (someExpanded) {
-          panel.removeAttribute('expanded');
-        } else {
-          panel.setAttribute('expanded', '');
-        }
-      });
-      return;
+      sectionToToggle = Array.from(this._expansionPanels).filter((panel) => panel.id === panelArea);
     }
 
-    const someExpanded = Array.from(this._expansionPanels).some((panel) => panel.hasAttribute('expanded'));
-    this._expansionPanels.forEach((panel) => {
+    const someExpanded = sectionToToggle.some((panel) => panel.hasAttribute(ATTRIBUTE.EXPANDED));
+    sectionToToggle.forEach((panel) => {
       if (someExpanded) {
-        panel.removeAttribute('expanded');
+        panel.removeAttribute(ATTRIBUTE.EXPANDED);
       } else {
-        panel.setAttribute('expanded', '');
+        panel.setAttribute(ATTRIBUTE.EXPANDED, '');
       }
     });
-  };
+  }
+
+  private _handleGroupByPanelType(ev: CustomEvent): void {
+    ev.stopPropagation();
+    if (!ev.detail || typeof (ev.detail as any).item?.value === 'undefined') {
+      return;
+    }
+    const value = (ev.detail as any).item.value;
+    this._showByGroup = value === 'groups';
+    window.localStorage.setItem(STORAGE.SHOW_BY_GROUP, String(this._showByGroup));
+  }
 
   static get styles() {
     return [
       super.styles,
       css`
         *::-webkit-scrollbar {
-          width: 4px;
-          height: 8px;
+          width: 0.2em;
+          height: 0.2em;
         }
         *::-webkit-scrollbar-thumb {
-          background-color: var(--scrollbar-thumb-color, rgba(0, 0, 0, 0.2));
-          border-radius: 4px;
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 8px;
         }
-        *::-webkit-scrollbar-thumb:hover {
-          background-color: var(--scrollbar-thumb-hover-color, rgba(0, 0, 0, 0.3));
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
         }
+
         .all-panels-wrapper {
           display: block;
           position: relative;
           max-height: calc(var(--so-content-fullscreen-max-height) - 48px);
           overflow: auto;
-          scroll-snap-type: y mandatory;
         }
         .group-title {
           scroll-snap-align: start;
@@ -265,6 +410,27 @@ export class SoPanelAll extends BaseEditor {
         }
         .group-data-wrapper .uncategorized {
           background-color: var(--disabled-background-color);
+        }
+        .group-data-wrapper so-item-row:not(:first-child) > .item-row {
+          border-top: 0.5px solid var(--divider-color);
+        }
+        .sortable-table {
+          display: flex;
+          flex-direction: row;
+          width: 100%;
+          align-items: center;
+          margin-bottom: var(--side-dialog-gutter);
+        }
+        .sortable-table .drag-handle {
+          align-self: start;
+          cursor: grab;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .sortable-table .group-data-wrapper {
+          width: 100%;
+          margin-bottom: 0;
         }
       `,
     ];

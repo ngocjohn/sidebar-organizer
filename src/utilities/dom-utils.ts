@@ -330,3 +330,26 @@ export const mapItemsForDebug = (
 
 export const isMobileClient = /(?:iphone|android|ipad)/i.test(navigator.userAgent);
 export const isMobile = window.matchMedia('all and (max-width: 450px), all and (max-height: 500px)').matches;
+
+export const stopPropagation = (ev) => ev.stopPropagation();
+
+export const createAlert = (
+  message: string,
+  type: 'error' | 'warning' | 'info' = 'info',
+  title?: string
+): TemplateResult => {
+  const dissmisClick = (ev: Event) => {
+    const alert = ev.currentTarget as HTMLElement;
+    alert.style.display = 'none';
+  };
+  return html`
+    <ha-alert
+      alert-type="${type}"
+      title=${ifDefined(title)}
+      .dismissable=${true}
+      @alert-dismissed-clicked=${dissmisClick}
+    >
+      ${message}
+    </ha-alert>
+  `;
+};

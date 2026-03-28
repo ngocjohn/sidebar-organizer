@@ -1,12 +1,12 @@
 import { mdiDotsVertical } from '@mdi/js';
-import { PanelInfo } from '@types';
+import { NewItemConfig } from '@types';
 import { isMobile } from '@utilities/dom-utils';
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('so-item-row')
 export class SoItemRow extends LitElement {
-  @property({ attribute: false }) private _item!: PanelInfo;
+  @property({ attribute: false }) private _item!: NewItemConfig;
   @property({ type: Boolean, attribute: 'no-edit' }) noEdit = false;
 
   protected createRenderRoot() {

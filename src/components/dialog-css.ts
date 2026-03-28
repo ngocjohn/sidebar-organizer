@@ -9,6 +9,19 @@ export const dialogStyles = css`
   *::after {
     box-sizing: border-box;
   }
+  *::-webkit-scrollbar {
+    width: 0.2em;
+    height: 0.2em;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  }
+
   :host ha-expansion-panel .container.expanded {
     background-color: var(--primary-background-color) !important;
   }
@@ -209,6 +222,13 @@ export const dialogStyles = css`
     overflow: auto;
     max-height: calc(var(--code-mirror-max-height) - 30px);
   }
+
+  .data-table {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
   .item-row {
     display: flex;
     height: 42px;
@@ -220,6 +240,7 @@ export const dialogStyles = css`
       color: var(--primary-text-color);
     }
   }
+
   .item-row.top {
     border-top: none;
     user-select: none;
@@ -229,6 +250,7 @@ export const dialogStyles = css`
   .top .cell {
     font-weight: var(--ha-font-weight-medium);
   }
+
   .cell {
     font-family: var(--ha-font-family-body);
     -webkit-font-smoothing: var(--ha-font-smoothing);
@@ -248,15 +270,24 @@ export const dialogStyles = css`
     flex: 1;
   }
   .cell.icon {
-    min-width: 48px;
-    flex: 0 0 48px !important;
+    min-width: 56px;
+    flex: 0 0 56px !important;
     display: flex;
     justify-content: center;
     color: var(--secondary-text-color);
     text-align: center;
   }
+
   .grows {
     flex-grow: 1;
     flex-shrink: 1;
+  }
+  .cell[square] {
+    min-width: 80px;
+    flex: 0 0 80px !important;
+    display: flex;
+    justify-content: center;
+    color: var(--secondary-text-color);
+    text-align: center;
   }
 `;

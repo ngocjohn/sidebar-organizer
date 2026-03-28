@@ -20,6 +20,7 @@ export * from './merge-with-cleanup';
 export * from './object-differences';
 export * from './fire_event';
 
+import * as ACTIONS from './action-menu';
 import { ARRAY_UTILS } from './array';
 import * as COMPUTE_PANELS from './compute-panels';
 import * as CONFIG from './configs';
@@ -34,6 +35,6 @@ export const UTILITIES = {
   DASHBOARD: DASHBOARD_HELPERS,
   OBJECT: OBJECT_DIFF,
   CONFIG,
-  DOM: { mapItemsForDebug },
+  DOM: { mapItemsForDebug, actionHelper: ACTIONS },
   ARRAY: ARRAY_UTILS,
 };
