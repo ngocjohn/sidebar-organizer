@@ -7,6 +7,7 @@ import { BOTTOM_SECTION, CONFIG_SECTION } from 'constants/config-area';
 import { capitalize, findKey, pick } from 'es-toolkit/compat';
 import { html, TemplateResult, nothing, PropertyValues, CSSResultGroup, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import memoizeOne from 'memoize-one';
 
@@ -40,6 +41,7 @@ export class SidebarDialogNewItems extends BaseEditor {
       } else {
         this._selectedItem = null;
         this._yamlMode = false;
+        this._dialog._dialogPreview._hightlightItem(null);
       }
     }
   }
@@ -143,7 +145,7 @@ export class SidebarDialogNewItems extends BaseEditor {
                   return html`
                     <div class="group-item-row" style="padding-inline-start: 1rem">
                       <div class="group-name" @click=${() => (this._selectedItemIndex = index)}>
-                        <ha-icon icon=${icon}></ha-icon>
+                        <ha-icon .icon=${icon}></ha-icon>
                         <div class="group-name-items">
                           ${title}
                           <span>${convertTitle(this.getGroupKey(title!))}</span>
@@ -209,7 +211,7 @@ export class SidebarDialogNewItems extends BaseEditor {
           ? html`
               <div class="group-item-row item-name-row">
                 <div class="group-name">
-                  <ha-icon icon=${newItems.icon}></ha-icon>
+                  <ha-icon .icon=${newItems.icon}></ha-icon>
                   <div class="group-name-items">
                     ${newItems.title}
                     <span>${groupName}</span>
@@ -280,6 +282,7 @@ export class SidebarDialogNewItems extends BaseEditor {
     } else {
       this._dialog._dialogPreview._toggleGroup(inGroups);
     }
+    this._dialog._dialogPreview._hightlightItem(itemTitle);
   }
 
   private _createHaForm(data: any, schema: any, configKey?: string | number | undefined, id?: string): TemplateResult {
@@ -292,7 +295,7 @@ export class SidebarDialogNewItems extends BaseEditor {
         .computeLabel=${this._computeLabel}
         .computeHelper=${this._computeHelper}
         @value-changed=${this._valueChanged}
-        id=${id ? id : nothing}
+        id=${ifDefined(id ? id : undefined)}
       >
       </ha-form>
     `;

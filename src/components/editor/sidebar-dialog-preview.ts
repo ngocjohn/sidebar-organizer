@@ -9,7 +9,7 @@ import { BaseEditor } from 'components/base-editor';
 import { BOTTOM_SECTION, CONFIG_SECTION } from 'constants/config-area';
 import { isEmpty } from 'es-toolkit/compat';
 import { html, css, TemplateResult, PropertyValues, CSSResultGroup, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, property, query, queryAll, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 export interface PreviewPanels {
@@ -37,6 +37,7 @@ export class SidebarDialogPreview extends BaseEditor {
   @query('.divider-preview') private _previewContainer!: HTMLElement;
   @query('.panels-list') private _panelsList!: HTMLElement;
   @query('.groups-container') private _groupsContainer!: HTMLElement;
+  @queryAll('a') private _itemAnchorList!: HTMLElement[];
 
   protected willUpdate(_changedProperties: PropertyValues): void {
     if (_changedProperties.has('_sidebarConfig') && this._sidebarConfig && isEmpty(this._previewPanels)) {
@@ -408,7 +409,7 @@ export class SidebarDialogPreview extends BaseEditor {
     };
 
     const { icon, title, url_path } = panel;
-    return html`<a data-panel=${url_path ?? title} @click=${itemClicked}>
+    return html`<a data-panel=${url_path ?? title!} @click=${itemClicked}>
       <div class="icon-item" ?grid-item=${gridItem}>
         <ha-icon .icon=${icon}> </ha-icon><span class="item-text">${title}</span>
       </div>
@@ -523,6 +524,20 @@ export class SidebarDialogPreview extends BaseEditor {
         });
       }
     });
+  }
+
+  public _hightlightItem(panelId: string | null): void {
+    if (!panelId) {
+      Array.from(this._itemAnchorList).forEach((item) => item.removeAttribute('highlight'));
+      return;
+    }
+    const itemToHighlight = Array.from(this._itemAnchorList).find(
+      (item) => item.getAttribute('data-panel') === panelId
+    );
+    if (itemToHighlight) {
+      Array.from(this._itemAnchorList).forEach((item) => item.removeAttribute('highlight'));
+      itemToHighlight.setAttribute('highlight', '');
+    }
   }
 
   private _dispatchEvent(eventName: string, detail?: any) {
@@ -788,6 +803,11 @@ export class SidebarDialogPreview extends BaseEditor {
         a:hover > .icon-item {
           background-color: var(--secondary-background-color);
         }
+        a[highlight] {
+          background-color: rgb(from var(--primary-color) r g b / 0.1);
+          border: 1px solid var(--selected-container-color);
+        }
+
         .icon-item {
           box-sizing: border-box;
           margin: 4px;

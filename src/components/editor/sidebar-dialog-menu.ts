@@ -46,11 +46,14 @@ export class SidebarDialogMenu extends BaseEditor {
                 this._open = true;
               }}
               @wa-select=${this._handleItemClick}
+              @click=${(ev: Event) => ev.stopPropagation()}
             >
               <ha-icon-button slot="trigger" .path=${this._open ? mdiClose : mdiMenu}> </ha-icon-button>
 
               ${Object.entries(options).map(
-                ([key, o]) => html` <ha-dropdown-item .value=${key}> ${o.label} </ha-dropdown-item> `
+                ([key, o]) => html`
+                  <ha-dropdown-item .value=${key} .selected=${key === value}> ${o.label} </ha-dropdown-item>
+                `
               )}
             </ha-dropdown>
           </div>
@@ -130,6 +133,7 @@ export class SidebarDialogMenu extends BaseEditor {
           height: 100%;
           align-items: center;
           justify-content: center;
+          outline: none;
         }
 
         ha-icon-button[disabled] {

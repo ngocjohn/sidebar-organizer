@@ -4,6 +4,7 @@ import {
   BottomSectionKeys,
   CONFIG_AREA_LABELS,
   CONFIG_SECTION,
+  ConfigSectionType,
   PANEL_AREA,
   PanelArea,
   PanelAreaTabs,
@@ -62,7 +63,11 @@ export class SidebarDialogPanels extends BaseEditor {
       }
     }
 
-    if (_changedProperties.has('_selectedBottom') && this._selectedBottom !== undefined) {
+    if (
+      _changedProperties.has('_selectedBottom') &&
+      this._selectedBottom !== undefined &&
+      this._selectedTab === PANEL_AREA.BOTTOM_PANELS
+    ) {
       const bottomSectionActive = this._selectedBottom as BOTTOM_SECTION;
       this._dialog._dialogPreview._toggleBottomPanel(bottomSectionActive);
     }
@@ -120,6 +125,7 @@ export class SidebarDialogPanels extends BaseEditor {
         ._store=${this._store}
         ._sidebarConfig=${this._sidebarConfig}
         @group-action=${this._handleGroupActionEvent}
+        @navigate-section=${this._handleNavigateSection}
         @item-moved=${this._groupMoved}
       ></so-panel-all>
     `;
@@ -480,6 +486,13 @@ export class SidebarDialogPanels extends BaseEditor {
 
     this._dispatchConfig(this._sidebarConfig);
   }
+
+  private _handleNavigateSection = (ev: CustomEvent) => {
+    ev.stopPropagation();
+    const section = ev.detail.section;
+    console.log('Navigate section event received:', section);
+    this._dialog._currSection = section;
+  };
 
   private _handleGroupActionEvent = async (event: CustomEvent): Promise<void> => {
     event.stopPropagation();
@@ -1234,5 +1247,6 @@ declare global {
   }
   interface HASSDomEvents {
     'group-action': { action: string; key: string; type?: string };
+    'navigate-section': { section: ConfigSectionType | string };
   }
 }

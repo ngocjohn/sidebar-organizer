@@ -1,4 +1,12 @@
-import { ATTRIBUTE, CONFIG_AREA_LABELS, PANEL_AREA, PanelArea, PanelAreaKeys, STORAGE } from '@constants';
+import {
+  ATTRIBUTE,
+  CONFIG_AREA_LABELS,
+  CONFIG_SECTION,
+  PANEL_AREA,
+  PanelArea,
+  PanelAreaKeys,
+  STORAGE,
+} from '@constants';
 import { mdiDrag } from '@mdi/js';
 import {
   CustomGroups,
@@ -61,12 +69,6 @@ export class SoPanelAll extends BaseEditor {
     this._showByGroup = window.localStorage.getItem(STORAGE.SHOW_BY_GROUP) === 'true';
   }
 
-  // protected firstUpdated(): void {
-  //   this._expansionPanels.forEach((panel) => {
-  //     this._styleManager.addStyle(expansionPanelStyles, panel.shadowRoot!);
-  //   });
-  // }
-
   protected updated(changedProps: PropertyValues): void {
     super.updated(changedProps);
     if (changedProps.has('_showByGroup') || changedProps.has('_sidebarConfig')) {
@@ -100,11 +102,10 @@ export class SoPanelAll extends BaseEditor {
     const newItems = this._dialog._newItems;
     const panelsWithoutNewItems = this._dialog._initCombiPanels.filter((panel) => !newItems.includes(panel));
 
-    const columnsToShow: NewItemConfigKeys[] = ['url_path', 'group', 'show_in_sidebar', 'notification'];
     const systemPanelData = {
       data: {
         items: panelsWithoutNewItems,
-        columns: columnsToShow,
+        columns: ['url_path', 'group', 'notification', 'show_in_sidebar'] as NewItemConfigKeys[],
       },
       expansionOptions: this._computeExpansionOptions({ id: 'system-panels', header: 'System Panels' }),
     };
@@ -113,8 +114,19 @@ export class SoPanelAll extends BaseEditor {
       ${this._renderTableGrouped(systemPanelData)}
       ${newItems.length > 0
         ? this._renderTableGrouped({
-            data: { items: newItems, columns: columnsToShow },
-            expansionOptions: this._computeExpansionOptions({ id: 'new-items', header: 'User Created' }),
+            data: { items: newItems, columns: ['group', 'notification'] },
+            expansionOptions: this._computeExpansionOptions({
+              id: 'new-items',
+              header: 'User Created',
+              iconSlot: html`<ha-button
+                size="small"
+                variant="brand"
+                appearance="filled"
+                slot="icons"
+                @click=${() => fireEvent(this, 'navigate-section', { section: CONFIG_SECTION.NEW_ITEMS })}
+                >Edit items</ha-button
+              >`,
+            }),
           })
         : nothing}
     `;

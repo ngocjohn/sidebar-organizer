@@ -61,7 +61,7 @@ export class SidebarConfigDialog extends BaseEditor {
   @state() public _tabState: TAB_STATE = TAB_STATE.BASE;
 
   @state() private _configLoaded = false;
-  @state() private _currSection: CONFIG_SECTION = CONFIG_SECTION.GENERAL;
+  @state() public _currSection: CONFIG_SECTION = CONFIG_SECTION.GENERAL;
 
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
@@ -365,7 +365,11 @@ export class SidebarConfigDialog extends BaseEditor {
     ev.stopPropagation();
     const newValue = ev.detail.value || null;
     const configArea = newValue ? (newValue as CONFIG_SECTION) : CONFIG_SECTION.GENERAL;
+    const sectionFrom = this._currSection;
     this._currSection = configArea;
+    if (sectionFrom === CONFIG_SECTION.NEW_ITEMS && configArea !== CONFIG_SECTION.NEW_ITEMS) {
+      this._dialogPreview._hightlightItem(null);
+    }
   }
 
   private _renderConfigSection(): TemplateResult {
