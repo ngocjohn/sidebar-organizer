@@ -18,7 +18,6 @@ import {
   mdiSortAlphabeticalVariant,
 } from '@mdi/js';
 import { SidebarConfig, PANEL_TYPE } from '@types';
-import { validateConfig } from '@utilities/configs/validators';
 import { createAlert, nextRender } from '@utilities/dom-utils';
 import { getDefaultPanelUrlPath, getPanelTitleFromUrlPath } from '@utilities/panel';
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
@@ -109,7 +108,7 @@ export class SidebarDialogPanels extends BaseEditor {
       [PANEL_AREA.BOTTOM_PANELS]: this._renderBottomItems(),
       [PANEL_AREA.CUSTOM_GROUPS]:
         this._selectedGroup === null ? this._renderCustomGroupList() : this._renderEditGroup(),
-      [PANEL_AREA.HIDDEN_ITEMS]: this._renderHiddenItems(),
+      [PANEL_AREA.VISIBILITY]: this._renderHiddenItems(),
       [PANEL_AREA.NOTIFICATIONS]: this._renderNotificationConfig(),
     };
     return html`
@@ -131,29 +130,11 @@ export class SidebarDialogPanels extends BaseEditor {
     `;
   }
   private _renderHiddenItems() {
-    const hiddenItems = this._sidebarConfig?.hidden_items || [];
-    const newItems = this._sidebarConfig?.new_items?.map((item) => item.title) || [];
-    const initPanelItems = this._dialog._initCombiPanels.filter((item) => !newItems.includes(item));
-
-    const selector = this._createSelectorOptions(initPanelItems, 'dropdown');
-
-    const selectedItems = Object.entries(hiddenItems).map(([, item]) => item);
-
-    return html` <div class="items-container" style="flex: none">
-      <div class="header-row flex-icon">
-        <span>HIDDEN ITEMS</span>
-      </div>
-      <ha-selector
-        .hass=${this.hass}
-        .selector=${selector}
-        .value=${selectedItems}
-        .required=${false}
-        id="customSelectorHidden"
-        @value-changed=${this._handleHiddenItemsChange}
-      >
-      </ha-selector>
-      ${this._renderSpacer()}
-    </div>`;
+    return html`<so-panel-visibility
+      .hass=${this.hass}
+      ._store=${this._store}
+      ._sidebarConfig=${this._sidebarConfig}
+    ></so-panel-visibility>`;
   }
 
   private _renderNotificationConfig() {
@@ -1057,22 +1038,6 @@ export class SidebarDialogPanels extends BaseEditor {
     this.requestUpdate();
   }
 
-  private _handleHiddenItemsChange(ev: any) {
-    ev.stopPropagation();
-    const value = ev.detail.value;
-    console.log('new value', value);
-    this._updatePanels(value);
-    const newConfig = validateConfig(this._sidebarConfig, value);
-    // const newConfig = removeHiddenItems(this._sidebarConfig, value);
-
-    this._sidebarConfig = {
-      ...this._sidebarConfig,
-      ...newConfig,
-    };
-
-    this._dispatchConfig(this._sidebarConfig);
-  }
-
   private _handlePinGroupChange = (ev: CustomEvent) => {
     ev.stopPropagation();
     const groupName = (ev as any).target.groupName;
@@ -1095,14 +1060,6 @@ export class SidebarDialogPanels extends BaseEditor {
     };
     this._dispatchConfig(this._sidebarConfig);
   };
-
-  private _updatePanels(hiddenItems: string[]) {
-    const combinedPanels = this._dialog._initCombiPanels;
-    let initPanelOrder = [...(this._dialog._initPanelOrder || [])];
-
-    initPanelOrder = combinedPanels.filter((panel) => !hiddenItems.includes(panel));
-    this._dialog._initPanelOrder = initPanelOrder;
-  }
 
   private _dispatchConfig(config: SidebarConfig) {
     const event = new CustomEvent('sidebar-changed', { detail: config, bubbles: true, composed: true });
