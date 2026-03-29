@@ -22,6 +22,7 @@ export interface PreviewPanels {
 export class SidebarDialogPreview extends BaseEditor {
   constructor() {
     super(CONFIG_SECTION.PREVIEW);
+    window.SoDialogPreview = this;
   }
   @property({ attribute: false }) _sidebarConfig: SidebarConfig = {};
 

@@ -21,10 +21,10 @@ export enum PANEL_AREA {
   ALL_ITEMS = 'all_items',
   BOTTOM_PANELS = 'bottom_panels',
   CUSTOM_GROUPS = 'custom_groups',
-  HIDDEN_ITEMS = 'hidden_items',
+  VISIBILITY = 'visibility',
   NOTIFICATIONS = 'notifications',
 }
-export const PanelAreaKeys = ['all_items', 'bottom_panels', 'custom_groups', 'hidden_items', 'notifications'] as const;
+export const PanelAreaKeys = ['all_items', 'bottom_panels', 'custom_groups', 'visibility', 'notifications'] as const;
 
 export type PanelArea = (typeof PANEL_AREA)[keyof typeof PANEL_AREA];
 
@@ -33,10 +33,16 @@ export enum BOTTOM_SECTION {
   BOTTOM_GRID_ITEMS = 'bottom_grid_items',
 }
 export const BottomSectionKeys = ['bottom_items', 'bottom_grid_items'] as const;
-
 export type BottomSection = (typeof BOTTOM_SECTION)[keyof typeof BOTTOM_SECTION];
 
-export type PanelAreaType = PanelArea | BottomSection;
+export enum VISIBILITY_SECTION {
+  HIDDEN_ITEMS = 'hidden_items',
+  VISIBILITY_TEMPLATES = 'visibility_templates',
+}
+export const VisibilitySectionKeys = ['hidden_items', 'visibility_templates'] as const;
+export type VisibilitySection = (typeof VISIBILITY_SECTION)[keyof typeof VISIBILITY_SECTION];
+
+export type PanelAreaType = PanelArea | BottomSection | VisibilitySection;
 
 export const CONFIG_AREA_LABELS: Record<PanelAreaType | ConfigSectionType | string, string> = {
   [CONFIG_SECTION.GENERAL]: 'Settings',
@@ -46,8 +52,10 @@ export const CONFIG_AREA_LABELS: Record<PanelAreaType | ConfigSectionType | stri
   [PANEL_AREA.ALL_ITEMS]: 'All Items',
   [PANEL_AREA.BOTTOM_PANELS]: 'Bottom Panels',
   [PANEL_AREA.CUSTOM_GROUPS]: 'Custom Groups',
-  [PANEL_AREA.HIDDEN_ITEMS]: 'Hidden Items',
+  [PANEL_AREA.VISIBILITY]: 'Visibility Settings',
   [PANEL_AREA.NOTIFICATIONS]: 'Notifications',
+  [VISIBILITY_SECTION.HIDDEN_ITEMS]: 'Hidden Items',
+  [VISIBILITY_SECTION.VISIBILITY_TEMPLATES]: 'Visibility Templates',
   [BOTTOM_SECTION.BOTTOM_ITEMS]: 'Bottom Items',
   [BOTTOM_SECTION.BOTTOM_GRID_ITEMS]: 'Bottom Grid Items',
   ['uncategorized_items']: 'Uncategorized Items',

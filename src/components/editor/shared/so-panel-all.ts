@@ -57,6 +57,7 @@ type TableExpansionParams = {
 export class SoPanelAll extends BaseEditor {
   constructor() {
     super(PANEL_AREA.ALL_ITEMS);
+    window.SoPanelAll = this;
   }
 
   @property({ attribute: false }) _sidebarConfig!: SidebarConfig;

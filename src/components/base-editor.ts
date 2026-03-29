@@ -1,13 +1,15 @@
 import { CONFIG_SECTION, PANEL_AREA } from '@constants';
 import { HomeAssistant, NewItemConfig, SidebarConfig } from '@types';
-import { UTILITIES } from '@utilities/index';
+import { fireEvent, UTILITIES } from '@utilities/index';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
-import { CSSResultGroup, LitElement } from 'lit';
+import { CSSResultGroup, html, LitElement, TemplateResult } from 'lit';
 import { property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { dialogStyles } from './dialog-css';
 import { EditorStore } from './editor-store';
 import { SidebarConfigDialog } from './sidebar-dialog';
+import { SelectSelector } from './types';
 
 export class BaseEditor extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
@@ -86,4 +88,68 @@ export class BaseEditor extends LitElement {
       show_in_sidebar: this._config?.hidden_items?.includes(panelId) ? false : true,
     }));
   };
+
+  protected _renderSpacerDiv() {
+    return html`<div style="flex: 1;"></div>`;
+  }
+
+  protected _computeSelectorOptions(
+    items: string[],
+    mode: 'list' | 'dropdown' | 'box' = 'list',
+    reorder: boolean = true,
+    includeDefault: boolean = true
+  ): SelectSelector {
+    const defaultPanel = this._utils.PANEL.getDefaultPanelUrlPath(this.hass);
+    const options = items.map((panel) => {
+      const isDefault = panel === defaultPanel;
+      const isDisabled = isDefault && !includeDefault ? true : false;
+      const panelName = this._utils.PANEL.getPanelTitleFromUrlPath(this.hass, panel) || panel;
+      return { value: panel, label: panelName + (isDefault ? ' (default)' : ''), disabled: isDisabled };
+    });
+
+    // options.sort((a, b) => a.label.localeCompare(b.label));
+
+    const selector = {
+      select: {
+        multiple: true,
+        mode: mode,
+        options: options,
+        sort: true,
+        reorder: reorder,
+      },
+    };
+    return selector;
+  }
+
+  protected _createHaSelector(
+    selectorConfig: SelectSelector,
+    value: string | string[] | undefined,
+    key?: string | number,
+    subKey?: string | number
+  ): TemplateResult {
+    return html`<ha-selector
+      .hass=${this.hass}
+      .value=${value}
+      .selector=${selectorConfig}
+      .required=${false}
+      .key=${key}
+      .subKey=${subKey}
+      id=${ifDefined(key !== undefined ? `selector-${key}` : undefined)}
+      @value-changed=${this._handleSelectorChange}
+    ></ha-selector>`;
+  }
+
+  protected _handleSelectorChange(e: CustomEvent): void {
+    console.debug('selector change from BaseEditor', e);
+    e.stopPropagation();
+    const { key, subKey } = e.target as any;
+    const value = e.detail.value;
+    console.debug('value changed:', value, 'key:', key, 'subKey:', subKey);
+  }
+
+  protected _configChanged(newConfig: Partial<SidebarConfig>): void {
+    console.debug('incoming change from:', this._configArea);
+    const updatedConfig = { ...this._config, ...newConfig };
+    fireEvent(this, 'sidebar-config-changed', { config: updatedConfig });
+  }
 }

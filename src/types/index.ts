@@ -167,7 +167,20 @@ export enum PANEL_TYPE {
 
 export type PinnedGroupEntry = true | { icon?: string };
 export type PinnedGroupsConfig = Record<string, PinnedGroupEntry>;
+export interface VisibilitySectionConfig {
+  [key: string]: string;
+}
 
+export interface VisibilityTemplateConfig {
+  /**
+   * A group entry applies to all panels in the group.
+   */
+  groups?: VisibilitySectionConfig;
+  /**
+   * Individual panel configuration. If a panel is included in a group with a visibility setting, the individual panel setting will be ignored in favor of the group setting.
+   */
+  items?: VisibilitySectionConfig;
+}
 export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceConfig {
   default_collapsed?: string[];
   color_config?: SidebarColorConfig;
@@ -180,4 +193,5 @@ export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceCon
    * - string[]: items in the specified order. Items not included in the array will be placed at the end of the 'Uncategorized' group in default order.
    */
   uncategorized_items?: boolean | string[];
+  visibility_templates?: VisibilityTemplateConfig;
 }

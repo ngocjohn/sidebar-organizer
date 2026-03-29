@@ -477,8 +477,10 @@ export class SidebarOrganizer {
         return;
       }
 
-      const { new_items, move_settings_from_fixed, notification, hidden_items } = this._config;
+      const { new_items, move_settings_from_fixed, notification, hidden_items, visibility_templates } = this._config;
       const notificationMap = new Map(Object.entries(notification || {}));
+      const groupVisibilityMap = new Map<string, string>(Object.entries(visibility_templates?.groups || {}));
+      const itemVisibilityMap = new Map<string, string>(Object.entries(visibility_templates?.items || {}));
 
       if (new_items && new_items.length > 0) {
         // Add new items to sidebar before spacer
@@ -544,10 +546,13 @@ export class SidebarOrganizer {
         const bottomGridItems = document.createDocumentFragment();
 
         const inGroup = (panel: string): string | null => this._getGroupOfPanel(panel);
+        const groupHasVisibilityTemplate = (group: string): boolean => groupVisibilityMap.has(group);
+        const itemHasVisibilityTemplate = (item: string): boolean => itemVisibilityMap.has(item);
 
         const defaultPanelUrlPath = getDefaultPanelUrlPath(this.hass);
 
         const orderedPanels: Omit<NewItemConfig, 'icon'>[] = [];
+        const visibilityTemplateUsageLog: { panelId: string; source: 'group' | 'item'; template: string }[] = [];
 
         this._baseOrder.forEach((panelId) => {
           const foundItem = Array.from(items).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
@@ -560,7 +565,20 @@ export class SidebarOrganizer {
             );
           } else {
             const group = inGroup(panelId);
+            const groupVisibilityTemplate =
+              group && groupHasVisibilityTemplate(group) ? groupVisibilityMap.get(group)! : null;
+            const itemVisibilityTemplate = itemHasVisibilityTemplate(panelId) ? itemVisibilityMap.get(panelId)! : null;
+            const visibilityTemplate = groupVisibilityTemplate || itemVisibilityTemplate;
 
+            if (visibilityTemplate) {
+              visibilityTemplateUsageLog.push({
+                panelId,
+                source: groupVisibilityTemplate ? 'group' : 'item',
+                template: visibilityTemplate,
+              });
+
+              this._subscribeVisibility(foundItem, visibilityTemplate);
+            }
             if (group === PANEL_TYPE.BOTTOM_ITEMS || group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
               if (group === PANEL_TYPE.BOTTOM_ITEMS) {
                 foundItem.setAttribute(ATTRIBUTE.BOTTOM, '');
@@ -587,6 +605,11 @@ export class SidebarOrganizer {
             orderedPanels.push({ ...parseItemValues(foundItem), group: group || 'uncategorized' });
           }
         });
+        visibilityTemplateUsageLog.length > 0 &&
+          console.groupCollapsed('Panels with visibility templates:', visibilityTemplateUsageLog.length);
+        console.table(visibilityTemplateUsageLog);
+        console.groupEnd();
+
         console.groupCollapsed('Ordering panels based on config:', this._baseOrder.length, 'panels');
         console.table(orderedPanels);
         console.groupEnd();
@@ -637,8 +660,10 @@ export class SidebarOrganizer {
 
   private _processSections() {
     this._getElements().then(async (elements: ElementsStore) => {
-      const { custom_groups } = this._config;
+      const { custom_groups, visibility_templates } = this._config;
       const { topItemsContainer, topItems, bottomItemsContainer, bottomItems } = elements;
+
+      const groupVisibilityMap = new Map<string, string>(Object.entries(visibility_templates?.groups || {}));
 
       this._sidebarItems = [
         ...Array.from(topItems),
@@ -647,12 +672,16 @@ export class SidebarOrganizer {
 
       Object.entries(custom_groups || {}).forEach(([groupName, panels]) => {
         if (groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS) return; // Skip uncategorized group as it's not an actual group but a placeholder for ungrouped items
+        const groupVisibilityTemplate = groupVisibilityMap.has(groupName) ? groupVisibilityMap.get(groupName)! : null;
         const isCollapsed = this.collapsedItems.has(groupName);
         panels.forEach((panelId, index) => {
           const item = Array.from(topItems).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
           if (item) {
             if (index === 0) {
               const groupDivider = this._createDividerWithGroup(groupName, isCollapsed);
+              if (groupVisibilityTemplate) {
+                this._subscribeVisibility(groupDivider, groupVisibilityTemplate);
+              }
               item.insertAdjacentElement('beforebegin', groupDivider);
             }
             item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
@@ -1220,6 +1249,21 @@ export class SidebarOrganizer {
       }
     };
     this._subscribeTemplate(value, callback);
+  }
+
+  private _subscribeVisibility(panel: HTMLElement, template: string) {
+    const callback = (result: any) => {
+      if (result != null) {
+        const isVisible = (typeof result === 'string' ? result.toLowerCase() === 'true' : Boolean(result)) ?? true;
+        if (!isVisible) {
+          panel.style.display = 'none';
+        } else {
+          panel.style.removeProperty('display');
+        }
+      }
+    };
+
+    this._subscribeTemplate(template, callback);
   }
 
   private _toggleGroup(event: MouseEvent) {
