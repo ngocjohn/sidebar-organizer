@@ -173,11 +173,11 @@ export interface VisibilitySectionConfig {
 
 export interface VisibilityTemplateConfig {
   /**
-   * Includes group will apply to all panels in the group.
+   * A group entry applies to all panels in the group.
    */
   groups?: VisibilitySectionConfig;
   /**
-   * Individual panel configuration. if a panel is included in group with visibility setting, the individual panel setting will be ignored in favor of the group setting.
+   * Individual panel configuration. If a panel is included in a group with a visibility setting, the individual panel setting will be ignored in favor of the group setting.
    */
   items?: VisibilitySectionConfig;
 }
