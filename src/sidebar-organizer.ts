@@ -606,7 +606,10 @@ export class SidebarOrganizer {
           }
         });
         visibilityTemplateUsageLog.length > 0 &&
-          console.table(visibilityTemplateUsageLog, ['panelId', 'source', 'template']);
+          console.groupCollapsed('Panels with visibility templates:', visibilityTemplateUsageLog.length);
+        console.table(visibilityTemplateUsageLog);
+        console.groupEnd();
+
         console.groupCollapsed('Ordering panels based on config:', this._baseOrder.length, 'panels');
         console.table(orderedPanels);
         console.groupEnd();

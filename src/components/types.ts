@@ -1,16 +1,3 @@
-import * as SEC from './editor';
-
-declare global {
-  interface Window {
-    SoDialogPreview: SEC.SidebarDialogPreview;
-    SoDialogPanels: SEC.SidebarDialogPanels;
-    SoDialogNewItems: SEC.SidebarDialogNewItems;
-    SoDialogColors: SEC.SidebarDialogColors;
-    SoPanelAll: SEC.SoPanelAll;
-    SoPanelVisibility: SEC.SoPanelVisibility;
-  }
-}
-
 export interface SelectOption {
   value: string;
   label: string;
