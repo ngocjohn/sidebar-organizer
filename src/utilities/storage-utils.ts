@@ -23,7 +23,7 @@ export const getHiddenPanels = (): string[] => {
 
 export const sidebarUseConfigFile = (): boolean => {
   const useJson = window.localStorage.getItem(STORAGE.USE_CONFIG_FILE) || '""';
-  return JSON.parse(useJson) === 'true';
+  return JSON.parse(useJson) === true;
 };
 
 export const getStorageConfig = (): SidebarConfig | undefined => {
