@@ -194,4 +194,8 @@ export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceCon
    */
   uncategorized_items?: boolean | string[];
   visibility_templates?: VisibilityTemplateConfig;
+  /**
+   * Hide header when scrolling down and show it when scrolling up. This is a personal feature for the developer and not mentioned in the readme as it is not a core part of the plugin.
+   */
+  scroll_hide_header?: boolean;
 }

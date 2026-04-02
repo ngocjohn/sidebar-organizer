@@ -53,7 +53,7 @@ import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
 import { SoGroupDivider } from './components/so-group-divider';
-import { DIVIDER_ADDED_STYLE, DRAWER_STYLE } from './sidebar-css';
+import { DIVIDER_ADDED_STYLE, DRAWER_STYLE, HUI_ROOT_STYLE } from './sidebar-css';
 
 export class SidebarOrganizer {
   constructor() {
@@ -214,6 +214,83 @@ export class SidebarOrganizer {
     }
   }
 
+  // This function is only for personal use, not mentioned in the readme as it is not a core part of the plugin.
+  // It adds a scroll listener to the lovelace panel to hide the header when scrolling down and show it when scrolling up.
+  // Set 'scroll_hide_header: true' in config to enable it.
+
+  private _onWindowScrollHideHeader?: () => void;
+  private async _watchScrollHideHeader() {
+    if (!this._config.scroll_hide_header) return;
+    const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
+    const panelLovelace = panelResolver.querySelector(ELEMENT.HA_PANEL_LOVELACE) as HTMLElement | null;
+    if (!panelLovelace) return;
+    const huiRoot = panelLovelace?.shadowRoot?.querySelector(SELECTOR.HUI_ROOT) as HTMLElement | null;
+    if (!huiRoot?.shadowRoot) return;
+    console.debug('watch scroll from panel loaded event', { panelLovelace, huiRoot });
+    this._styleManager.addStyle([HUI_ROOT_STYLE.toString()], huiRoot.shadowRoot);
+
+    const header = huiRoot.shadowRoot.querySelector('.header') as HTMLElement | null;
+    const toolbar = header?.querySelector('.toolbar') as HTMLElement | null;
+    if (!header || !toolbar) return;
+
+    const maxHide = toolbar.offsetHeight || header.offsetHeight || 56;
+
+    let ticking = false;
+    let lastScrollY = window.scrollY;
+    let currentOffset = 0;
+
+    // NEW
+    let accumulatedDelta = 0;
+    const threshold = maxHide; // Minimum scroll delta before reacting, this helps to prevent jitter on small scrolls. Defaults to header height;
+
+    const updateHeaderVisibility = () => {
+      ticking = false;
+
+      const scrollY = window.scrollY;
+      const delta = scrollY - lastScrollY;
+      lastScrollY = scrollY;
+
+      // accumulate movement
+      accumulatedDelta += delta;
+
+      const shouldReact = Math.abs(accumulatedDelta) >= threshold;
+
+      // only react if threshold is exceeded
+      if (!shouldReact) return;
+
+      // apply only the accumulated movement
+      currentOffset += accumulatedDelta;
+      // reset accumulator AFTER applying
+      accumulatedDelta = 0;
+
+      currentOffset = Math.max(0, Math.min(currentOffset, maxHide));
+
+      if (scrollY <= 0) currentOffset = 0;
+
+      const progress = currentOffset / maxHide;
+
+      toolbar.style.transform = `translateY(-${currentOffset}px)`;
+      toolbar.style.opacity = `${1 - progress}`;
+
+      header.classList.toggle('scroll-hide', currentOffset > 0);
+      header.style.setProperty('--header-hide-progress', `${progress}`);
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(updateHeaderVisibility);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    updateHeaderVisibility();
+
+    this._onWindowScrollHideHeader?.();
+    this._onWindowScrollHideHeader = () => {
+      window.removeEventListener('scroll', onScroll);
+    };
+  }
+
   private async _watchEditLegacySidebar(): Promise<void> {
     if (!this._hasSidebarConfig) return;
 
@@ -295,6 +372,7 @@ export class SidebarOrganizer {
     if (this._notCompatible) return;
 
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
+    this._watchScrollHideHeader();
     if (!panelResolver.route) return;
     const pathName = panelResolver.route?.path ?? window.location.pathname;
     if (!pathName) return;
