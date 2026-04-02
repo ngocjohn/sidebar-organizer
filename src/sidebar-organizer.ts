@@ -84,6 +84,12 @@ export class SidebarOrganizer {
       this._panelLoaded();
     });
 
+    instance.addEventListener(HAQuerySelectorEvent.ON_LOVELACE_PANEL_LOAD, async (event) => {
+      const { HA_PANEL_LOVELACE } = event.detail;
+      this._panelLovelace = HA_PANEL_LOVELACE;
+      console.log('Lovelace panel loaded event received');
+      this._watchScrollHideHeader();
+    });
     this._styleManager = new HomeAssistantStylesManager({
       prefix: NAMESPACE,
       throwWarnings: false,
@@ -118,6 +124,7 @@ export class SidebarOrganizer {
   private _drawer!: HAElement;
   private _ha!: HaExtened;
   public _haDrawer!: HaDrawer;
+  private _panelLovelace!: HAElement;
   private _notCompatible: boolean = false;
   private _blockEditModeChange: boolean = false;
   public _config: SidebarConfig = {};
@@ -221,15 +228,12 @@ export class SidebarOrganizer {
   private _onWindowScrollHideHeader?: () => void;
   private async _watchScrollHideHeader() {
     if (!this._config.scroll_hide_header) return;
-    const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
-    const panelLovelace = panelResolver.querySelector(ELEMENT.HA_PANEL_LOVELACE) as HTMLElement | null;
-    if (!panelLovelace) return;
-    const huiRoot = panelLovelace?.shadowRoot?.querySelector(SELECTOR.HUI_ROOT) as HTMLElement | null;
-    if (!huiRoot?.shadowRoot) return;
-    console.debug('watch scroll from panel loaded event', { panelLovelace, huiRoot });
-    this._styleManager.addStyle([HUI_ROOT_STYLE.toString()], huiRoot.shadowRoot);
+    const huiRoot = (await this._panelLovelace.selector.$.query(SELECTOR.HUI_ROOT).element) as HTMLElement;
+    if (!huiRoot) return;
 
-    const header = huiRoot.shadowRoot.querySelector('.header') as HTMLElement | null;
+    this._styleManager.addStyle([HUI_ROOT_STYLE.toString()], huiRoot.shadowRoot!);
+
+    const header = huiRoot.shadowRoot!.querySelector('.header') as HTMLElement | null;
     const toolbar = header?.querySelector('.toolbar') as HTMLElement | null;
     if (!header || !toolbar) return;
 
@@ -370,9 +374,8 @@ export class SidebarOrganizer {
 
   private async _panelLoaded(): Promise<void> {
     if (this._notCompatible) return;
-
-    const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     this._watchScrollHideHeader();
+    const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     if (!panelResolver.route) return;
     const pathName = panelResolver.route?.path ?? window.location.pathname;
     if (!pathName) return;
