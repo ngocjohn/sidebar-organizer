@@ -295,3 +295,31 @@ export const DRAWER_STYLE = css`
     background-color: transparent;
   }
 `;
+
+export const HUI_ROOT_STYLE = css`
+  :host .header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: var(--header-hide-progress, 0);
+    background: linear-gradient(180deg, var(--primary-background-color, rgba(0, 0, 0, 0.5)) 0%, transparent 100%);
+    transition: opacity 0.3s ease;
+  }
+
+  :host .header .toolbar {
+    will-change: transform, opacity;
+
+    transition:
+      transform 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045),
+      opacity 0.25s linear;
+  }
+
+  :host .header.scroll-hide,
+  :host([scrolled]) .header.scroll-hide {
+    box-shadow: none !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+`;
