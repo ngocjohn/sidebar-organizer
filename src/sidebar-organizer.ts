@@ -87,9 +87,10 @@ export class SidebarOrganizer {
     instance.addEventListener(HAQuerySelectorEvent.ON_LOVELACE_PANEL_LOAD, async (event) => {
       const { HA_PANEL_LOVELACE } = event.detail;
       this._panelLovelace = HA_PANEL_LOVELACE;
-      console.log('Lovelace panel loaded event received');
+      await nextRender();
       this._watchScrollHideHeader();
     });
+
     this._styleManager = new HomeAssistantStylesManager({
       prefix: NAMESPACE,
       throwWarnings: false,
@@ -215,6 +216,7 @@ export class SidebarOrganizer {
 
     if (this.firstSetUpDone && !this._userHasSidebarSettings) {
       await this._getConfig().then(() => {
+        this._watchScrollHideHeader();
         this._setupInitialConfig();
       });
       this._processSections();
@@ -226,8 +228,9 @@ export class SidebarOrganizer {
   // Set 'scroll_hide_header: true' in config to enable it.
 
   private _onWindowScrollHideHeader?: () => void;
-  private async _watchScrollHideHeader() {
+  private async _watchScrollHideHeader(): Promise<void> {
     if (!this._config.scroll_hide_header) return;
+    if (!this._panelLovelace) return;
     const huiRoot = (await this._panelLovelace.selector.$.query(SELECTOR.HUI_ROOT).element) as HTMLElement;
     if (!huiRoot) return;
 
@@ -236,7 +239,7 @@ export class SidebarOrganizer {
     const header = huiRoot.shadowRoot!.querySelector('.header') as HTMLElement | null;
     const toolbar = header?.querySelector('.toolbar') as HTMLElement | null;
     if (!header || !toolbar) return;
-
+    console.debug('Scroll hide header enabled, setting up scroll listener');
     const maxHide = toolbar.offsetHeight || header.offsetHeight || 56;
 
     let ticking = false;
@@ -374,7 +377,6 @@ export class SidebarOrganizer {
 
   private async _panelLoaded(): Promise<void> {
     if (this._notCompatible) return;
-    this._watchScrollHideHeader();
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     if (!panelResolver.route) return;
     const pathName = panelResolver.route?.path ?? window.location.pathname;
