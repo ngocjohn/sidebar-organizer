@@ -215,3 +215,26 @@ export const _changeStorageConfig = (config: SidebarConfig): void => {
     setStorage(STORAGE.UI_CONFIG, config);
   }
 };
+
+const ALLOWED_UNITS = ['%', 'em', 'ex', 'px', 'rem', 'vh', 'vmax', 'vmin', 'vw'];
+
+export const _computeWidth = (width?: number | string): string | undefined => {
+  if (!width) return undefined;
+  const widthRegex = new RegExp(`^\\s*(\\d+(\\.\\d+)?)(\\s*(${ALLOWED_UNITS.join('|')})?)\\s*$`);
+  // check if width has units, if not parse it as number and add 'px' unit, if it has units, validate the unit and return the value with unit
+
+  const match = widthRegex.exec(String(width));
+  if (!match) {
+    console.warn(
+      `%cVALIDATORS:%c Invalid width value "${width}". Please provide a valid CSS size (e.g. "250px", "20%", "15em").`,
+      'color: #ff9800;',
+      'color: #ff5722;'
+    );
+    return undefined;
+  }
+
+  const value = match[1];
+  const unit = match[4] || 'px'; // default to 'px' if no unit is provided
+
+  return `${value}${unit}`;
+};

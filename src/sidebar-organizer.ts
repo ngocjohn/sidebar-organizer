@@ -53,7 +53,7 @@ import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
 import { SoGroupDivider } from './components/so-group-divider';
-import { DIVIDER_ADDED_STYLE, DRAWER_STYLE, HUI_ROOT_STYLE } from './sidebar-css';
+import { DIVIDER_ADDED_STYLE, DRAWER_STYLE, HA_MAIN_CUSTOM_WIDTH_STYLE, HUI_ROOT_STYLE } from './sidebar-css';
 
 export class SidebarOrganizer {
   constructor() {
@@ -245,9 +245,8 @@ export class SidebarOrganizer {
     let ticking = false;
     let lastScrollY = window.scrollY;
     let currentOffset = 0;
-
-    // NEW
     let accumulatedDelta = 0;
+
     const threshold = maxHide; // Minimum scroll delta before reacting, this helps to prevent jitter on small scrolls. Defaults to header height;
 
     const updateHeaderVisibility = () => {
@@ -543,6 +542,9 @@ export class SidebarOrganizer {
     this._pinnedGroups = normalizePinnedGroups(pinned_groups || {});
     // Initialize collapsed groups based on config, this will be used to set initial state of groups and manage collapse/expand functionality
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
+
+    // Setup custom sidebar width
+    this._addCustomWidthStyle();
     // Setup additional styles based on color config
     this._addAdditionalStyles(color_config);
 
@@ -574,14 +576,14 @@ export class SidebarOrganizer {
             beforeSpacerContainer.appendChild(newItemEl);
           }
         });
-        console.log('New items added to sidebar:', new_items);
+        console.debug('New items added to sidebar:', new_items);
       }
 
       if (move_settings_from_fixed === true) {
         const settingsItem = sidebarShadowRoot.querySelector(SELECTOR.SETTINGS_ITEM) as SidebarPanelItem;
         if (settingsItem) {
           beforeSpacerContainer.appendChild(settingsItem);
-          console.log('Settings item moved from fixed:', move_settings_from_fixed);
+          console.debug('Settings item moved from fixed:', move_settings_from_fixed);
         } else {
           console.log(
             '%cSIDEBAR-ORGANIZER:%c ❌ Settings item not found',
@@ -734,7 +736,11 @@ export class SidebarOrganizer {
             this._panelsList.insertBefore(haMdList, spacer.nextElementSibling);
           }
           //success
-          console.log('%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar', 'color: #bada55;', 'color: #40c057;');
+          console.debug(
+            '%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar',
+            'color: #bada55;',
+            'color: #40c057;'
+          );
         }
         console.groupEnd();
       });
@@ -1115,6 +1121,23 @@ export class SidebarOrganizer {
       divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
       divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
       // console.log('Divider:', divider, 'Group:', group, 'Collapsed:', isGroupCollapsed);
+    });
+  }
+
+  private _addCustomWidthStyle(): void {
+    if (!this._config.width) return;
+    Promise.all([this._haMain.element as Promise<HTMLElement>]).then((elements) => {
+      const [haMain] = elements;
+      const { width } = this._config!;
+      const customWidth = this._store._utils.CONFIG._computeWidth(width);
+      if (!customWidth) {
+        console.debug('❌ Invalid custom width, skipping applying custom width style:', width);
+        return;
+      }
+      haMain.style.setProperty('--custom-sidebar-width', customWidth);
+      console.debug('Custom sidebar width applied:', customWidth);
+
+      this._styleManager.addStyle([HA_MAIN_CUSTOM_WIDTH_STYLE.toString()], haMain.shadowRoot!);
     });
   }
 
