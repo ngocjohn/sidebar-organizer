@@ -220,10 +220,11 @@ const ALLOWED_UNITS = ['%', 'em', 'ex', 'px', 'rem', 'vh', 'vmax', 'vmin', 'vw']
 const WIDTH_REGEX = new RegExp(`^\\s*(\\d+(\\.\\d+)?)(\\s*(${ALLOWED_UNITS.join('|')})?)\\s*$`);
 
 export const _computeWidth = (width?: number | string): string | undefined => {
-  if (!width) return undefined;
+  if (width == null) return undefined;
   // check if width has units, if not parse it as number and add 'px' unit, if it has units, validate the unit and return the value with unit
 
-  const match = WIDTH_REGEX.exec(String(width));
+  const normalizedWidth = typeof width === 'string' ? width.trim() : String(width);
+  const match = WIDTH_REGEX.exec(normalizedWidth);
   if (!match) {
     console.warn(
       `%cVALIDATORS:%c Invalid width value "${width}". Please provide a valid CSS size (e.g. "250px", "20%", "15em").`,
