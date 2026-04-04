@@ -121,6 +121,7 @@ export interface SidebarAppearanceConfig {
   hide_header_toggle?: boolean;
   animation_off?: boolean;
   animation_delay?: number;
+  accordion_mode?: boolean;
   text_transformation?: TextTransformation;
   move_settings_from_fixed?: boolean;
   force_transparent_background?: boolean;
@@ -130,6 +131,7 @@ export const AppearanceConfigKeys = [
   'hide_header_toggle',
   'animation_off',
   'animation_delay',
+  'accordion_mode',
   'text_transformation',
   'move_settings_from_fixed',
   'force_transparent_background',
