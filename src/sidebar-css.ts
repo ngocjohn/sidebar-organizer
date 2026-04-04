@@ -131,6 +131,8 @@ export const DIVIDER_ADDED_STYLE = css`
   }
   :host([expanded]) .grid-container {
     display: grid;
+    /* Use flexible minmax columns so grid items reflow with the available drawer width,
+     * which keeps the layout responsive when --custom-sidebar-width is changed. */
     grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
     grid-gap: 4px 4px;
     width: calc(100% - var(--ha-space-2));
