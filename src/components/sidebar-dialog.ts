@@ -632,8 +632,25 @@ export class SidebarConfigDialog extends BaseEditor {
 
     const { added, removed } = await comparePanelItems(this.hass, allPanels);
     if (Boolean(added.length || removed.length)) {
-      // If there are changes, update the sidebar items
+      // If there are changes, persist them first, then update the sidebar items
       console.log('Storage panels have changes compared to current panels:', { added, removed });
+
+      // Merge added panels into stored panel order so they are not re-detected as new
+      if (added.length > 0) {
+        const updatedOrder = [...currentPanelOrder, ...added];
+        setStorage(STORAGE.PANEL_ORDER, updatedOrder);
+        console.log('Persisted new panels to panel order:', added);
+      }
+      // Remove panels that are no longer shown in sidebar
+      if (removed.length > 0) {
+        const removedSet = new Set(removed);
+        const filteredOrder = currentPanelOrder.filter((item: string) => !removedSet.has(item));
+        setStorage(STORAGE.PANEL_ORDER, filteredOrder);
+        const updatedHidden = [...new Set([...hiddenItems, ...removed])];
+        setStorage(STORAGE.HIDDEN_PANELS, updatedHidden);
+        console.log('Moved removed panels to hidden:', removed);
+      }
+
       const mesg =
         added.length > 0
           ? `New panels added: ${added.map((panel) => this.hass.panels[panel]?.title || panel).join(', ')}. `
@@ -646,7 +663,7 @@ export class SidebarConfigDialog extends BaseEditor {
       Reload sidebar configuration to update panels.`;
       await this._alert(alertMesg, 'Reload page').then(() => {
         this._mainDialog.closeDialog();
-        // Reload the page to update the panels, to initial page
+        // Reload the page to update the panels
         window.location.reload();
       });
     } else {
