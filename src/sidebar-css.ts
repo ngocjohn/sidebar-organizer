@@ -178,13 +178,13 @@ export const DIVIDER_ADDED_STYLE = css`
   }
 
   :host .divider[added] .added-content span {
-    transform: translateX(30px);
+    transform: translateX(var(--so-group-header-expanded-shift, 30px));
   }
   :host .divider[added]:hover .added-content.collapsed > span {
     transform: translateX(var(--so-group-header-hover-shift, 10px));
   }
   :host .divider[added] .added-content.collapsed > span {
-    transform: translateX(10px);
+    transform: translateX(var(--so-group-header-collapsed-shift, 10px));
   }
 
   :host([expanded]) .ha-scrollbar .divider[added]::before {
