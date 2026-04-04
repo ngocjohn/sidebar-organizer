@@ -28,4 +28,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sidebar-organizer-fixed
-          path: dist/sidebar-organizer.js
+          path: build/sidebar-organizer.js
