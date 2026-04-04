@@ -6,7 +6,7 @@ import { DashboardPanels, DataTableItem } from '@utilities/dashboard';
 import { nextRender } from '@utilities/dom-utils';
 import { UTILITIES } from '@utilities/index';
 import { shallowEqual } from '@utilities/shallow-equal';
-import { setStorage } from '@utilities/storage-utils';
+import { getStorage, setStorage } from '@utilities/storage-utils';
 import { showToast } from '@utilities/toast-notify';
 import { isEmpty } from 'es-toolkit/compat';
 
@@ -101,8 +101,10 @@ export default class Store {
     if (!this._panelHasChanged || !this._dashboardPanels) {
       return shouldReload;
     }
-    const { notShowInSidebar, removed } = this._dashboardPanels;
+    const { notShowInSidebar, removed, added } = this._dashboardPanels;
     const configHelper = this._utils.CONFIG;
+
+    // Handle removed panels
     const itemToRemove = new Set([...(removed || []), ...(notShowInSidebar?.map((item) => item.url_path) || [])]);
     if (itemToRemove.size !== 0) {
       const config = { ...this._organizer._config };
@@ -125,6 +127,25 @@ export default class Store {
         );
       }
     }
+
+    // Handle added panels — merge into stored panel order so they are not re-detected as new
+    if (added && added.length > 0) {
+      const currentOrder: string[] = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
+      const addedPaths = added.map((item) => item.url_path);
+      const newPaths = addedPaths.filter((path) => !currentOrder.includes(path));
+      if (newPaths.length > 0) {
+        const updatedOrder = [...currentOrder, ...newPaths];
+        setStorage(STORAGE.PANEL_ORDER, updatedOrder);
+        console.debug(
+          '%cSTORE:',
+          'color: #4dabf7;',
+          'Added new panels to stored panel order:',
+          newPaths
+        );
+        shouldReload = true;
+      }
+    }
+
     return shouldReload;
   };
 
@@ -140,7 +161,10 @@ export default class Store {
       message: `${NAMESPACE.toUpperCase()}: Changes detected in sidebar panels. Reload page to apply changes.`,
       action: {
         text: 'Reload',
-        action: () => this._organizer._reloadWindow(),
+        action: async () => {
+          await this._shouldUpdateConfig();
+          this._organizer._reloadWindow();
+        },
       },
       duration: -1,
       dismissable: false,
