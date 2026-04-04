@@ -180,9 +180,6 @@ export const DIVIDER_ADDED_STYLE = css`
   :host .divider[added] .added-content span {
     transform: translateX(30px);
   }
-  :host .divider[added]:hover .added-content.collapsed > span {
-    transform: translateX(30px);
-  }
   :host .divider[added] .added-content.collapsed > span {
     transform: translateX(10px);
   }
@@ -229,7 +226,7 @@ export const DIVIDER_ADDED_STYLE = css`
   }
 
   :host([expanded]) ha-md-list-item[group] {
-    padding-left: 20px !important;
+    padding-left: var(--so-group-item-indent, 0px) !important;
   }
   :host ha-md-list-item:has([group]) {
     transition: all;
