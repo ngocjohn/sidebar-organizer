@@ -1294,17 +1294,6 @@ export class SidebarOrganizer {
     }
 
     const isCollapsed = items[0].classList.contains(CLASS.COLLAPSED);
-
-    // Accordion mode: collapse all other groups when opening one
-    if (this._config?.accordion_mode && isCollapsed) {
-      const allGroups = Object.keys(this._config?.custom_groups || {});
-      allGroups.forEach((otherGroup) => {
-        if (otherGroup !== group && !this.collapsedItems.has(otherGroup)) {
-          this._collapseGroup(otherGroup, noAnimation, animationDelay);
-        }
-      });
-    }
-
     this._setItemToLocalStorage(group!, !isCollapsed);
 
     // Toggle collapsed state for group and its items
@@ -1330,35 +1319,6 @@ export class SidebarOrganizer {
         },
         { once: true }
       );
-    });
-  }
-
-  private _collapseGroup(group: string, noAnimation: boolean, animationDelay: number) {
-    const items = Array.from(this._scrollbarItems).filter((item) => {
-      return item.getAttribute('group') === group && !item.hasAttribute('moved');
-    }) as HTMLElement[];
-    if (!items.length) return;
-
-    this._setItemToLocalStorage(group, true);
-
-    // Update divider state
-    const divider = this._scrollbar.querySelector(`${SELECTOR.DIVIDER_ADDED}[${ATTRIBUTE.GROUP}="${group}"]`);
-    if (divider) {
-      divider.classList.add(CLASS.COLLAPSED);
-      divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.add(CLASS.COLLAPSED);
-    }
-
-    if (noAnimation) {
-      items.forEach((item) => item.classList.add(CLASS.COLLAPSED));
-      return;
-    }
-    items.forEach((item, index) => {
-      item.style.animationDelay = `${index * animationDelay}ms`;
-      item.classList.add('slideOut');
-      item.addEventListener('animationend', () => {
-        item.classList.add(CLASS.COLLAPSED);
-        item.classList.remove('slideOut');
-      }, { once: true });
     });
   }
 
