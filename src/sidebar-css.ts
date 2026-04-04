@@ -306,7 +306,7 @@ export const DRAWER_STYLE = css`
 
 export const HA_MAIN_CUSTOM_WIDTH_STYLE = css`
   :host([expanded]:not([modal])) {
-    --mdc-drawer-width: var(--custom-sidebar-width, 'calc(256px + var(--safe-area-inset-left, 0px))');
+    --mdc-drawer-width: var(--custom-sidebar-width, calc(256px + var(--safe-area-inset-left, 0px)));
   }
 `;
 

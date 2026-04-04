@@ -217,13 +217,13 @@ export const _changeStorageConfig = (config: SidebarConfig): void => {
 };
 
 const ALLOWED_UNITS = ['%', 'em', 'ex', 'px', 'rem', 'vh', 'vmax', 'vmin', 'vw'];
+const WIDTH_REGEX = new RegExp(`^\\s*(\\d+(\\.\\d+)?)(\\s*(${ALLOWED_UNITS.join('|')})?)\\s*$`);
 
 export const _computeWidth = (width?: number | string): string | undefined => {
   if (!width) return undefined;
-  const widthRegex = new RegExp(`^\\s*(\\d+(\\.\\d+)?)(\\s*(${ALLOWED_UNITS.join('|')})?)\\s*$`);
   // check if width has units, if not parse it as number and add 'px' unit, if it has units, validate the unit and return the value with unit
 
-  const match = widthRegex.exec(String(width));
+  const match = WIDTH_REGEX.exec(String(width));
   if (!match) {
     console.warn(
       `%cVALIDATORS:%c Invalid width value "${width}". Please provide a valid CSS size (e.g. "250px", "20%", "15em").`,
