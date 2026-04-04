@@ -1,0 +1,31 @@
+name: Build Artifact
+
+on:
+  push:
+    branches:
+      - fix/panel-reload-loop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build
+        run: pnpm run rollup
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidebar-organizer-fixed
+          path: dist/sidebar-organizer.js
