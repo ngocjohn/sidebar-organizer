@@ -228,6 +228,9 @@ export const DIVIDER_ADDED_STYLE = css`
     background-color: rgb(from var(--sidebar-selected-icon-color) r g b / 0.2);
   }
 
+  :host([expanded]) ha-md-list-item[group] {
+    padding-left: 20px !important;
+  }
   :host ha-md-list-item:has([group]) {
     transition: all;
   }
