@@ -763,7 +763,6 @@ export class SidebarOrganizer {
         if (groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS) return; // Skip uncategorized group as it's not an actual group but a placeholder for ungrouped items
         const groupVisibilityTemplate = groupVisibilityMap.has(groupName) ? groupVisibilityMap.get(groupName)! : null;
         const isCollapsed = this.collapsedItems.has(groupName);
-        let lastGroupItem: Element | null = null;
         panels.forEach((panelId, index) => {
           const item = Array.from(topItems).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
           if (item) {
@@ -775,15 +774,8 @@ export class SidebarOrganizer {
               item.insertAdjacentElement('beforebegin', groupDivider);
             }
             item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
-            lastGroupItem = item;
           }
         });
-        // Insert a closing divider after the last item in this group
-        // to visually separate grouped items from ungrouped items below
-        if (lastGroupItem) {
-          const closingDivider = this._createDivider(ATTRIBUTE.UNGROUPED);
-          (lastGroupItem as Element).insertAdjacentElement('afterend', closingDivider);
-        }
       });
 
       const firstUngroupedItem = topItemsContainer.querySelector(

@@ -240,6 +240,7 @@ export const DIVIDER_ADDED_STYLE = css`
 
   :host([expanded]) ha-md-list-item[group] {
     padding-left: var(--so-group-item-indent, 0px) !important;
+    padding-inline-start: var(--so-group-item-indent, 0px) !important;
   }
   :host ha-md-list-item:has([group]) {
     transition: all;

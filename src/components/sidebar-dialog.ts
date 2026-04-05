@@ -549,7 +549,7 @@ export class SidebarConfigDialog extends BaseEditor {
               @change=${(ev: Event) => {
                 const checked = (ev.target as HTMLInputElement).checked;
                 this._useConfigFile = checked;
-                setStorage(STORAGE.USE_CONFIG_FILE, checked.toString());
+                setStorage(STORAGE.USE_CONFIG_FILE, checked);
               }}
             ></ha-switch>
           </ha-formfield>
@@ -726,7 +726,7 @@ export class SidebarConfigDialog extends BaseEditor {
           this._invalidConfig = undefined;
           this._useConfigFile = false;
           this._mainDialog._configValid = true;
-          setStorage(STORAGE.USE_CONFIG_FILE, 'false');
+          setStorage(STORAGE.USE_CONFIG_FILE, false);
           setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);
           this.requestUpdate();
         }
