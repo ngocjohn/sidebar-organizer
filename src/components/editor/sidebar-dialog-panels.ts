@@ -658,14 +658,98 @@ export class SidebarDialogPanels extends BaseEditor {
       }}
     ></ha-control-select>`;
 
-    const sectionMap = {
+    const sectionMap: Record<string, TemplateResult | typeof nothing> = {
       [BOTTOM_SECTION.BOTTOM_ITEMS]: this._renderPanelSelector(BOTTOM_SECTION.BOTTOM_ITEMS),
       [BOTTOM_SECTION.BOTTOM_GRID_ITEMS]: this._renderPanelSelector(BOTTOM_SECTION.BOTTOM_GRID_ITEMS),
+      [BOTTOM_SECTION.BOTTOM_GROUPS]: this._renderBottomGroupsList(),
     };
     return html`
       ${sectionSelector}
       <div class="config-content">${sectionMap[this._selectedBottom]}</div>
     `;
+  }
+
+  private _renderBottomGroupsList(): TemplateResult {
+    const bottomGroups = Object.keys(this._sidebarConfig.bottom_groups || {});
+    const textTransform = this._sidebarConfig?.text_transformation ?? 'capitalize';
+
+    return html`
+      ${!bottomGroups.length
+        ? html`<div>No bottom groups defined</div>`
+        : html`
+            <div class="group-list">
+              ${repeat(
+                bottomGroups,
+                (group) => group,
+                (group) => {
+                  const items = this._sidebarConfig.bottom_groups?.[group] || [];
+                  return html`
+                    <div class="group-item-row">
+                      <div class="group-name" @click=${() => this._editBottomGroup(group)}>
+                        <ha-icon icon="mdi:folder-outline"></ha-icon>
+                        <div class="group-name-items">
+                          <span style="text-transform: ${textTransform}">${group}</span>
+                          <span>${items.length} items</span>
+                        </div>
+                      </div>
+                      <div class="group-actions">
+                        <ha-icon-button
+                          .path=${'M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z'}
+                          @click=${() => this._deleteBottomGroup(group)}
+                        ></ha-icon-button>
+                      </div>
+                    </div>
+                  `;
+                }
+              )}
+            </div>
+          `}
+      <div class="header-row flex-end">
+        <ha-button appearance="plain" size="small" @click=${this._addBottomGroup}> Add New Group </ha-button>
+      </div>
+      ${this._selectedBottomGroup
+        ? html`
+            <div style="margin-top: 1rem;">
+              ${this._renderPanelSelector(BOTTOM_SECTION.BOTTOM_GROUPS, this._selectedBottomGroup)}
+            </div>
+          `
+        : nothing}
+    `;
+  }
+
+  @state() private _selectedBottomGroup: string | null = null;
+
+  private _editBottomGroup(group: string) {
+    this._selectedBottomGroup = this._selectedBottomGroup === group ? null : group;
+  }
+
+  private async _addBottomGroup() {
+    const bottomGroups = { ...(this._sidebarConfig.bottom_groups || {}) };
+    const groupName = await showPromptDialog(this, 'Enter new group name', 'System', 'Create');
+    if (groupName === null || groupName === '') return;
+    if (Object.keys(bottomGroups).includes(groupName)) {
+      await showAlertDialog(this, 'Group name already exists.');
+      return;
+    }
+    bottomGroups[groupName] = [];
+    this._sidebarConfig = { ...this._sidebarConfig, bottom_groups: bottomGroups };
+    this._dispatchConfig(this._sidebarConfig);
+    this._selectedBottomGroup = groupName;
+    this.requestUpdate();
+  }
+
+  private async _deleteBottomGroup(group: string) {
+    const confirmed = await showConfirmDialog(this, `Delete group "${group}"?`, 'Delete');
+    if (!confirmed) return;
+    const bottomGroups = { ...(this._sidebarConfig.bottom_groups || {}) };
+    delete bottomGroups[group];
+    this._sidebarConfig = {
+      ...this._sidebarConfig,
+      bottom_groups: Object.keys(bottomGroups).length > 0 ? bottomGroups : undefined,
+    };
+    this._dispatchConfig(this._sidebarConfig);
+    if (this._selectedBottomGroup === group) this._selectedBottomGroup = null;
+    this.requestUpdate();
   }
 
   private _renderPanelSelector(configValue: string, customGroup?: string): TemplateResult {
@@ -682,8 +766,11 @@ export class SidebarDialogPanels extends BaseEditor {
 
     const selectedType = customGroup ? customGroup : configValue;
 
+    const isBottomGroup = configValue === BOTTOM_SECTION.BOTTOM_GROUPS;
     const configItems = customGroup
-      ? this._sidebarConfig.custom_groups![customGroup] || []
+      ? (isBottomGroup
+          ? this._sidebarConfig.bottom_groups?.[customGroup] || []
+          : this._sidebarConfig.custom_groups![customGroup] || [])
       : this._sidebarConfig[configValue as keyof SidebarConfig] || [];
 
     const selectedItems = Object.entries(configItems).map(([, item]) => item);
@@ -1007,6 +1094,11 @@ export class SidebarDialogPanels extends BaseEditor {
       }
       bottomPanels = value;
       updates[bottom] = bottomPanels;
+    } else if (configValue === BOTTOM_SECTION.BOTTOM_GROUPS) {
+      const key = customGroup;
+      const bottomGroups = { ...(this._sidebarConfig.bottom_groups || {}) };
+      bottomGroups[key] = value;
+      updates.bottom_groups = bottomGroups;
     } else if (configValue === PANEL_AREA.CUSTOM_GROUPS) {
       const key = customGroup;
       const oldGroupItems = [...(currentConfig.custom_groups?.[key] || [])];
