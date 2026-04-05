@@ -152,17 +152,19 @@ export type CustomGroups = {
 
 export interface SidebardPanelConfig {
   custom_groups?: CustomGroups;
+  bottom_groups?: CustomGroups;
   bottom_items?: string[];
   bottom_grid_items?: string[];
   hidden_items?: string[];
 }
-export const PanelTypes = ['custom_groups', 'bottom_items', 'bottom_grid_items', 'hidden_items'] as const;
+export const PanelTypes = ['custom_groups', 'bottom_groups', 'bottom_items', 'bottom_grid_items', 'hidden_items'] as const;
 export type PanelType = (typeof PanelTypes)[number];
 
 export type ItemShallowKeys = keyof SidebardPanelConfig & 'new_items';
 
 export enum PANEL_TYPE {
   CUSTOM_GROUPS = 'custom_groups',
+  BOTTOM_GROUPS = 'bottom_groups',
   BOTTOM_ITEMS = 'bottom_items',
   BOTTOM_GRID_ITEMS = 'bottom_grid_items',
   HIDDEN_ITEMS = 'hidden_items',
