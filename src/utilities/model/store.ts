@@ -131,17 +131,12 @@ export default class Store {
     // Handle added panels — merge into stored panel order so they are not re-detected as new
     if (added && added.length > 0) {
       const currentOrder: string[] = JSON.parse(getStorage(STORAGE.PANEL_ORDER) || '[]');
-      const addedPaths = added.map((item) => item.url_path);
+      const addedPaths = added.map((item) => item.url_path!);
       const newPaths = addedPaths.filter((path) => !currentOrder.includes(path));
       if (newPaths.length > 0) {
         const updatedOrder = [...currentOrder, ...newPaths];
         setStorage(STORAGE.PANEL_ORDER, updatedOrder);
-        console.debug(
-          '%cSTORE:',
-          'color: #4dabf7;',
-          'Added new panels to stored panel order:',
-          newPaths
-        );
+        console.debug('%cSTORE:', 'color: #4dabf7;', 'Added new panels to stored panel order:', newPaths);
         shouldReload = true;
       }
     }
