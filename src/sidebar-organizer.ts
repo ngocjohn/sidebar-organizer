@@ -1239,8 +1239,10 @@ export class SidebarOrganizer {
   private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const customGroups = this._config.custom_groups || {};
+    const bottomGroups = this._config.bottom_groups || {};
     const bottomMovedItems = this._config.bottom_items || [];
     const bottomGridItems = this._config.bottom_grid_items || [];
+    const bottomGroupItems = Object.values(bottomGroups).flat();
 
     // Get grouped items
     const groupedItems = Object.values(customGroups)
@@ -1249,7 +1251,11 @@ export class SidebarOrganizer {
 
     // Filter default items that are not in grouped or bottom items
     const defaultItems = currentPanel.filter(
-      (item) => !groupedItems.includes(item) && !bottomMovedItems.includes(item) && !bottomGridItems.includes(item)
+      (item) =>
+        !groupedItems.includes(item) &&
+        !bottomMovedItems.includes(item) &&
+        !bottomGridItems.includes(item) &&
+        !bottomGroupItems.includes(item)
     );
 
     // Move default panel item to the front
@@ -1259,8 +1265,8 @@ export class SidebarOrganizer {
       groupedItems.unshift(defaultPanelItem);
     }
 
-    // Combine grouped, default, and bottom items
-    const reorderedPanels = [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems];
+    // Combine grouped, default, bottom, and bottom group items
+    const reorderedPanels = [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems, ...bottomGroupItems];
 
     return reorderedPanels;
   }
