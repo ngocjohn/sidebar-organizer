@@ -173,7 +173,8 @@ export class SidebarOrganizer {
   }
 
   get _scrollbarItems(): NodeListOf<SidebarPanelItem> {
-    return this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
+    // Query from _panelsList to include both top (ha-scrollbar) and bottom (bottom-list) items
+    return this._panelsList.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
   }
 
   get _hasSidebarConfig(): boolean {
@@ -1148,7 +1149,7 @@ export class SidebarOrganizer {
       });
 
     // Update dividers and their content
-    this._scrollbar.querySelectorAll(SELECTOR.DIVIDER_ADDED).forEach((divider) => {
+    this._panelsList.querySelectorAll(SELECTOR.DIVIDER_ADDED).forEach((divider) => {
       const group = divider.getAttribute(ATTRIBUTE.GROUP);
       const isGroupCollapsed = collapsedItems.has(group!);
       divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
@@ -1441,7 +1442,7 @@ export class SidebarOrganizer {
 
           this._setItemToLocalStorage(otherGroup, true);
 
-          const divider = this._scrollbar.querySelector(
+          const divider = this._panelsList.querySelector(
             `${SELECTOR.DIVIDER_ADDED}[${ATTRIBUTE.GROUP}="${otherGroup}"]`
           );
           if (divider) {
