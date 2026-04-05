@@ -667,7 +667,7 @@ export class SidebarOrganizer {
 
               this._subscribeVisibility(foundItem, visibilityTemplate);
             }
-            const isBottomGroup = group && bottom_groups && group in bottom_groups;
+            const isBottomGroup = group && this._config.bottom_groups && group in this._config.bottom_groups;
             if (group === PANEL_TYPE.BOTTOM_ITEMS || group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
               if (group === PANEL_TYPE.BOTTOM_ITEMS) {
                 foundItem.setAttribute(ATTRIBUTE.BOTTOM, '');
