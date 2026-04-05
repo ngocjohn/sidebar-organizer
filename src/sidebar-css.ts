@@ -60,7 +60,7 @@ export const DIVIDER_ADDED_STYLE = css`
     padding: 0;
     box-sizing: border-box;
     margin: var(--divider-margin-radius);
-    width: 248px;
+    width: calc(100% - var(--ha-space-2));
   }
   :host(:not([expanded])) .divider[added] {
     margin: 0 !important;
@@ -73,6 +73,13 @@ export const DIVIDER_ADDED_STYLE = css`
 
   :host ha-md-list-item > ha-icon.badge {
     --mdc-icon-size: 20px !important;
+  }
+
+  :host([expanded]) .menu {
+    width: 100% !important;
+  }
+  :host([expanded]) ha-md-list-item {
+    width: calc(100% - var(--ha-space-2)) !important;
   }
 
   :host([expanded]) .grid-container > ha-md-list-item[grid-item] > ha-icon.badge,
@@ -124,16 +131,19 @@ export const DIVIDER_ADDED_STYLE = css`
   }
   :host([expanded]) .grid-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, calc(25% - 0px));
+    /* Use flexible minmax columns so grid items reflow with the available drawer width,
+     * which keeps the layout responsive when --custom-sidebar-width is changed. */
+    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    grid-gap: 4px 4px;
+    width: calc(100% - var(--ha-space-2));
     padding: 0;
     margin: 0;
     overflow: clip;
     /* max-height: fit-content; */
-    justify-content: center;
-    /* grid-gap: 4px 4px; */
+    /* justify-content: flex-start; */
   }
   :host([expanded]) .grid-container > ha-md-list-item[grid-item] {
-    width: 48px;
+    width: 48px !important;
     height: 48px;
     /* justify-content: center;
     align-items: center; */
@@ -296,5 +306,39 @@ export const DIVIDER_ADDED_STYLE = css`
 export const DRAWER_STYLE = css`
   :host aside.mdc-drawer {
     background-color: transparent;
+  }
+`;
+
+export const HA_MAIN_CUSTOM_WIDTH_STYLE = css`
+  :host([expanded]:not([modal])) {
+    --mdc-drawer-width: var(--custom-sidebar-width, calc(256px + var(--safe-area-inset-left, 0px)));
+  }
+`;
+
+export const HUI_ROOT_STYLE = css`
+  :host .header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: var(--header-hide-progress, 0);
+    background: linear-gradient(180deg, var(--primary-background-color, rgba(0, 0, 0, 0.5)) 0%, transparent 100%);
+    transition: opacity 0.3s ease;
+  }
+
+  :host .header .toolbar {
+    will-change: transform, opacity;
+
+    transition:
+      transform 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045),
+      opacity 0.25s linear;
+  }
+
+  :host .header.scroll-hide,
+  :host([scrolled]) .header.scroll-hide {
+    box-shadow: none !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 `;

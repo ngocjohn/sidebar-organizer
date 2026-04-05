@@ -106,6 +106,13 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
                 },
               },
             },
+            {
+              name: 'width',
+              label: 'Custom Width',
+              helper:
+                'Set a custom width for the sidebar, allows values with css units (e.g., 300px or 20%), or a number (which will be treated as pixels)',
+              type: 'string',
+            },
           ] as const,
         },
       ],

@@ -53,7 +53,7 @@ import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
 import { SoGroupDivider } from './components/so-group-divider';
-import { DIVIDER_ADDED_STYLE, DRAWER_STYLE } from './sidebar-css';
+import { DIVIDER_ADDED_STYLE, DRAWER_STYLE, HA_MAIN_CUSTOM_WIDTH_STYLE, HUI_ROOT_STYLE } from './sidebar-css';
 
 export class SidebarOrganizer {
   constructor() {
@@ -82,6 +82,13 @@ export class SidebarOrganizer {
 
     instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
       this._panelLoaded();
+    });
+
+    instance.addEventListener(HAQuerySelectorEvent.ON_LOVELACE_PANEL_LOAD, async (event) => {
+      const { HA_PANEL_LOVELACE } = event.detail;
+      this._panelLovelace = HA_PANEL_LOVELACE;
+      await nextRender();
+      this._watchScrollHideHeader();
     });
 
     this._styleManager = new HomeAssistantStylesManager({
@@ -118,6 +125,7 @@ export class SidebarOrganizer {
   private _drawer!: HAElement;
   private _ha!: HaExtened;
   public _haDrawer!: HaDrawer;
+  private _panelLovelace!: HAElement;
   private _notCompatible: boolean = false;
   private _blockEditModeChange: boolean = false;
   public _config: SidebarConfig = {};
@@ -208,10 +216,85 @@ export class SidebarOrganizer {
 
     if (this.firstSetUpDone && !this._userHasSidebarSettings) {
       await this._getConfig().then(() => {
+        this._watchScrollHideHeader();
         this._setupInitialConfig();
       });
       this._processSections();
     }
+  }
+
+  // This function is only for personal use, not mentioned in the readme as it is not a core part of the plugin.
+  // It adds a scroll listener to the lovelace panel to hide the header when scrolling down and show it when scrolling up.
+  // Set 'scroll_hide_header: true' in config to enable it.
+
+  private _onWindowScrollHideHeader?: () => void;
+  private async _watchScrollHideHeader(): Promise<void> {
+    if (!this._config.scroll_hide_header) return;
+    if (!this._panelLovelace) return;
+    const huiRoot = (await this._panelLovelace.selector.$.query(SELECTOR.HUI_ROOT).element) as HTMLElement;
+    if (!huiRoot) return;
+
+    this._styleManager.addStyle([HUI_ROOT_STYLE.toString()], huiRoot.shadowRoot!);
+
+    const header = huiRoot.shadowRoot!.querySelector('.header') as HTMLElement | null;
+    const toolbar = header?.querySelector('.toolbar') as HTMLElement | null;
+    if (!header || !toolbar) return;
+    console.debug('Scroll hide header enabled, setting up scroll listener');
+    const maxHide = toolbar.offsetHeight || header.offsetHeight || 56;
+
+    let ticking = false;
+    let lastScrollY = window.scrollY;
+    let currentOffset = 0;
+    let accumulatedDelta = 0;
+
+    const threshold = maxHide; // Minimum scroll delta before reacting, this helps to prevent jitter on small scrolls. Defaults to header height;
+
+    const updateHeaderVisibility = () => {
+      ticking = false;
+
+      const scrollY = window.scrollY;
+      const delta = scrollY - lastScrollY;
+      lastScrollY = scrollY;
+
+      // accumulate movement
+      accumulatedDelta += delta;
+
+      const shouldReact = Math.abs(accumulatedDelta) >= threshold;
+
+      // only react if threshold is exceeded
+      if (!shouldReact) return;
+
+      // apply only the accumulated movement
+      currentOffset += accumulatedDelta;
+      // reset accumulator AFTER applying
+      accumulatedDelta = 0;
+
+      currentOffset = Math.max(0, Math.min(currentOffset, maxHide));
+
+      if (scrollY <= 0) currentOffset = 0;
+
+      const progress = currentOffset / maxHide;
+
+      toolbar.style.transform = `translateY(-${currentOffset}px)`;
+      toolbar.style.opacity = `${1 - progress}`;
+
+      header.classList.toggle('scroll-hide', currentOffset > 0);
+      header.style.setProperty('--header-hide-progress', `${progress}`);
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(updateHeaderVisibility);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    updateHeaderVisibility();
+
+    this._onWindowScrollHideHeader?.();
+    this._onWindowScrollHideHeader = () => {
+      window.removeEventListener('scroll', onScroll);
+    };
   }
 
   private async _watchEditLegacySidebar(): Promise<void> {
@@ -293,7 +376,6 @@ export class SidebarOrganizer {
 
   private async _panelLoaded(): Promise<void> {
     if (this._notCompatible) return;
-
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     if (!panelResolver.route) return;
     const pathName = panelResolver.route?.path ?? window.location.pathname;
@@ -460,6 +542,9 @@ export class SidebarOrganizer {
     this._pinnedGroups = normalizePinnedGroups(pinned_groups || {});
     // Initialize collapsed groups based on config, this will be used to set initial state of groups and manage collapse/expand functionality
     this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
+
+    // Setup custom sidebar width
+    this._addCustomWidthStyle();
     // Setup additional styles based on color config
     this._addAdditionalStyles(color_config);
 
@@ -491,14 +576,14 @@ export class SidebarOrganizer {
             beforeSpacerContainer.appendChild(newItemEl);
           }
         });
-        console.log('New items added to sidebar:', new_items);
+        console.debug('New items added to sidebar:', new_items);
       }
 
       if (move_settings_from_fixed === true) {
         const settingsItem = sidebarShadowRoot.querySelector(SELECTOR.SETTINGS_ITEM) as SidebarPanelItem;
         if (settingsItem) {
           beforeSpacerContainer.appendChild(settingsItem);
-          console.log('Settings item moved from fixed:', move_settings_from_fixed);
+          console.debug('Settings item moved from fixed:', move_settings_from_fixed);
         } else {
           console.log(
             '%cSIDEBAR-ORGANIZER:%c ❌ Settings item not found',
@@ -651,7 +736,11 @@ export class SidebarOrganizer {
             this._panelsList.insertBefore(haMdList, spacer.nextElementSibling);
           }
           //success
-          console.log('%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar', 'color: #bada55;', 'color: #40c057;');
+          console.debug(
+            '%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar',
+            'color: #bada55;',
+            'color: #40c057;'
+          );
         }
         console.groupEnd();
       });
@@ -1040,6 +1129,23 @@ export class SidebarOrganizer {
       divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
       divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
       // console.log('Divider:', divider, 'Group:', group, 'Collapsed:', isGroupCollapsed);
+    });
+  }
+
+  private _addCustomWidthStyle(): void {
+    if (!this._config.width) return;
+    Promise.all([this._haMain.element as Promise<HTMLElement>]).then((elements) => {
+      const [haMain] = elements;
+      const { width } = this._config!;
+      const customWidth = this._store._utils.CONFIG._computeWidth(width);
+      if (!customWidth) {
+        console.debug('❌ Invalid custom width, skipping applying custom width style:', width);
+        return;
+      }
+      haMain.style.setProperty('--custom-sidebar-width', customWidth);
+      console.debug('Custom sidebar width applied:', customWidth);
+
+      this._styleManager.addStyle([HA_MAIN_CUSTOM_WIDTH_STYLE.toString()], haMain.shadowRoot!);
     });
   }
 

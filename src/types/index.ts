@@ -124,6 +124,7 @@ export interface SidebarAppearanceConfig {
   text_transformation?: TextTransformation;
   move_settings_from_fixed?: boolean;
   force_transparent_background?: boolean;
+  width?: number | string;
 }
 export const AppearanceConfigKeys = [
   'header_title',
@@ -133,6 +134,7 @@ export const AppearanceConfigKeys = [
   'text_transformation',
   'move_settings_from_fixed',
   'force_transparent_background',
+  'width',
 ] as const;
 
 export interface SidebarColorConfig {
@@ -194,4 +196,8 @@ export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceCon
    */
   uncategorized_items?: boolean | string[];
   visibility_templates?: VisibilityTemplateConfig;
+  /**
+   * Hide header when scrolling down and show it when scrolling up. This is a personal feature for the developer and not mentioned in the readme as it is not a core part of the plugin.
+   */
+  scroll_hide_header?: boolean;
 }
