@@ -1392,6 +1392,32 @@ export class SidebarOrganizer {
     }
 
     const isCollapsed = items[0].classList.contains(CLASS.COLLAPSED);
+
+    // Accordion mode: collapse all other groups when expanding one
+    if (this._config?.accordion_mode && isCollapsed && this.setupConfigDone) {
+      const allGroups = Object.keys(this._config?.custom_groups || {});
+      allGroups.forEach((otherGroup) => {
+        if (otherGroup !== group && !this.collapsedItems.has(otherGroup)) {
+          const otherItems = Array.from(this._scrollbarItems).filter((item) => {
+            return item.getAttribute('group') === otherGroup && !item.hasAttribute('moved');
+          }) as HTMLElement[];
+          if (!otherItems.length) return;
+
+          this._setItemToLocalStorage(otherGroup, true);
+
+          const divider = this._scrollbar.querySelector(
+            `${SELECTOR.DIVIDER_ADDED}[${ATTRIBUTE.GROUP}="${otherGroup}"]`
+          );
+          if (divider) {
+            divider.classList.add(CLASS.COLLAPSED);
+            divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.add(CLASS.COLLAPSED);
+          }
+
+          otherItems.forEach((item) => item.classList.add(CLASS.COLLAPSED));
+        }
+      });
+    }
+
     this._setItemToLocalStorage(group!, !isCollapsed);
 
     // Toggle collapsed state for group and its items
