@@ -269,9 +269,25 @@ export class SidebarDialogColors extends BaseEditor {
     }
   }
 
+  @property({ type: String }) public renderMode: 'appearance' | 'colors' | 'all' = 'all';
+
   protected render(): TemplateResult {
     const config = { ...(this._sidebarConfig || {}) };
     const DATA = pick(config, [...AppearanceConfigKeys]) as SidebarAppearanceConfig;
+
+    if (this.renderMode === 'appearance') {
+      return html`
+        ${createHaForm(this, BASE_APPEARANCE_SCHEMA(DATA), DATA, { configKey: 'appearance' })}
+      `;
+    }
+
+    if (this.renderMode === 'colors') {
+      return html`
+        <div id="theme-container" style="display: none;"></div>
+        <div class="color-container">${this._renderColorConfigFields()}</div>
+      `;
+    }
+
     return html`
       <div id="theme-container" style="display: none;"></div>
       ${createHaForm(this, BASE_APPEARANCE_SCHEMA(DATA), DATA, { configKey: 'appearance' })}
