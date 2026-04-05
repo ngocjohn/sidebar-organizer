@@ -28,6 +28,11 @@ const BOOLEAN_OPTIONS = [
     name: 'force_transparent_background',
     helper: 'Force apply transparent background (fully transparent)',
   },
+  {
+    name: 'accordion_mode',
+    label: 'Accordion Mode',
+    helper: 'Only one group can be open at a time',
+  },
 ];
 
 const commonBooleanSchema = (name?: BooleanItem['name'][]) => {
@@ -88,7 +93,7 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
                   },
                 ]
               : []),
-            ...commonBooleanSchema(['move_settings_from_fixed', 'force_transparent_background']),
+            ...commonBooleanSchema(['move_settings_from_fixed', 'force_transparent_background', 'accordion_mode']),
             {
               name: 'text_transformation',
               label: 'Text Transformation',

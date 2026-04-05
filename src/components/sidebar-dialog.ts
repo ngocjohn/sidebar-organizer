@@ -549,7 +549,7 @@ export class SidebarConfigDialog extends BaseEditor {
               @change=${(ev: Event) => {
                 const checked = (ev.target as HTMLInputElement).checked;
                 this._useConfigFile = checked;
-                setStorage(STORAGE.USE_CONFIG_FILE, checked.toString());
+                setStorage(STORAGE.USE_CONFIG_FILE, checked);
               }}
             ></ha-switch>
           </ha-formfield>
@@ -632,23 +632,31 @@ export class SidebarConfigDialog extends BaseEditor {
 
     const { added, removed } = await comparePanelItems(this.hass, allPanels);
     if (Boolean(added.length || removed.length)) {
-      // If there are changes, update the sidebar items
+      // Silently merge panel changes into storage without requiring reload
       console.log('Storage panels have changes compared to current panels:', { added, removed });
-      const mesg =
-        added.length > 0
-          ? `New panels added: ${added.map((panel) => this.hass.panels[panel]?.title || panel).join(', ')}. `
-          : '';
-      const mesg2 =
-        removed.length > 0
-          ? `Panels not show in sidebar: ${removed.map((panel) => this.hass.panels[panel]?.title || panel).join(', ')}. `
-          : '';
-      const alertMesg = `Panels have changed since last configuration: ${mesg}${mesg2}
-      Reload sidebar configuration to update panels.`;
-      await this._alert(alertMesg, 'Reload page').then(() => {
-        this._mainDialog.closeDialog();
-        // Reload the page to update the panels, to initial page
-        window.location.reload();
-      });
+
+      let updatedOrder = [...currentPanelOrder];
+      let updatedHidden = [...hiddenItems];
+
+      // Merge added panels into stored panel order
+      if (added.length > 0) {
+        updatedOrder = [...updatedOrder, ...added];
+      }
+      // Remove panels that are no longer shown in sidebar
+      if (removed.length > 0) {
+        const removedSet = new Set(removed);
+        updatedOrder = updatedOrder.filter((item: string) => !removedSet.has(item));
+        updatedHidden = [...new Set([...updatedHidden, ...removed])];
+        setStorage(STORAGE.HIDDEN_PANELS, updatedHidden);
+      }
+
+      setStorage(STORAGE.PANEL_ORDER, updatedOrder);
+
+      // Continue with updated data instead of reloading
+      this._sidebarConfig = getStorageConfig() || {};
+      removeStorage(STORAGE.HIDDEN_PANELS);
+      this._updateSidebarItems(updatedOrder, updatedHidden);
+      return;
     } else {
       //success
       console.log(
@@ -718,7 +726,7 @@ export class SidebarConfigDialog extends BaseEditor {
           this._invalidConfig = undefined;
           this._useConfigFile = false;
           this._mainDialog._configValid = true;
-          setStorage(STORAGE.USE_CONFIG_FILE, 'false');
+          setStorage(STORAGE.USE_CONFIG_FILE, false);
           setStorage(STORAGE.UI_CONFIG, this._sidebarConfig);
           this.requestUpdate();
         }

@@ -188,13 +188,13 @@ export const DIVIDER_ADDED_STYLE = css`
   }
 
   :host .divider[added] .added-content span {
-    transform: translateX(30px);
+    transform: translateX(var(--so-group-header-expanded-shift, 30px));
   }
   :host .divider[added]:hover .added-content.collapsed > span {
-    transform: translateX(30px);
+    transform: translateX(var(--so-group-header-hover-shift, 10px));
   }
   :host .divider[added] .added-content.collapsed > span {
-    transform: translateX(10px);
+    transform: translateX(var(--so-group-header-collapsed-shift, 10px));
   }
 
   :host([expanded]) .ha-scrollbar .divider[added]::before {
@@ -238,6 +238,10 @@ export const DIVIDER_ADDED_STYLE = css`
     background-color: rgb(from var(--sidebar-selected-icon-color) r g b / 0.2);
   }
 
+  :host([expanded]) ha-md-list-item[group] {
+    padding-left: var(--so-group-item-indent, 0px) !important;
+    padding-inline-start: var(--so-group-item-indent, 0px) !important;
+  }
   :host ha-md-list-item:has([group]) {
     transition: all;
   }
