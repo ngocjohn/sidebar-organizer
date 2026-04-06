@@ -25,11 +25,14 @@ import {
   SidebarConfig,
   SidebarPanelItem,
   ElementsStore,
+  LovelaceCardConfig,
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { compareHacsTagDiff } from '@utilities/compare-urls';
 
 import './components/so-group-divider';
+import './components/so-custom-card';
+
 import { getBuiltInPanels } from '@utilities/compute-panels';
 import { fetchConfig } from '@utilities/configs';
 import {
@@ -52,6 +55,7 @@ import { getPromisableResult, PromisableOptions } from 'get-promisable-result';
 import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from 'home-assistant-query-selector';
 import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
 
+import { SoCustomCard } from './components/so-custom-card';
 import { SoGroupDivider } from './components/so-group-divider';
 import { DIVIDER_ADDED_STYLE, DRAWER_STYLE, HA_MAIN_CUSTOM_WIDTH_STYLE, HUI_ROOT_STYLE } from './sidebar-css';
 
@@ -742,8 +746,40 @@ export class SidebarOrganizer {
             'color: #40c057;'
           );
         }
-        console.groupEnd();
       });
+
+      if (!this._config.custom_cards) return;
+
+      const { top_container, bottom_container } = this._config.custom_cards;
+      const wrapper = this._panelsList.querySelector(SELECTOR.WRAPPER) as HTMLElement;
+      const spacer = this._panelsList.querySelector(SELECTOR.SPACER) as HTMLElement;
+
+      const insert = (configs?: LovelaceCardConfig[], fn?: (el: DocumentFragment) => void) => {
+        if (!configs?.length || !fn) return;
+        const container = document.createDocumentFragment();
+        configs.forEach((config) => {
+          const card = document.createElement(ELEMENT.SO_CUSTOM_CARD) as SoCustomCard;
+          card.cardConfig = config;
+          this._ha.provideHass(card);
+          container.appendChild(card);
+        });
+        fn(container);
+      };
+
+      // Top container
+      if (top_container) {
+        insert(top_container.header_cards, (el) => wrapper.prepend(el));
+        insert(top_container.footer_cards, (el) => wrapper.appendChild(el));
+        console.debug('Custom cards added to top container:', top_container);
+      }
+
+      // Bottom container
+      if (bottom_container) {
+        insert(bottom_container.header_cards, (el) => this._panelsList.insertBefore(el, spacer));
+        insert(bottom_container.footer_cards, (el) => this._panelsList.insertBefore(el, spacer.nextElementSibling));
+        console.debug('Custom cards added to bottom container:', bottom_container);
+      }
+      console.groupEnd();
     });
   }
 
@@ -797,7 +833,6 @@ export class SidebarOrganizer {
       this._checkDiffs();
       // Handle sidebar header after processing sections to ensure toggle button is added based on the presence of groups in the config and their collapsed state
       this._handleSidebarHeader();
-
       // Mark setup config as done to allow panel loaded logic to run when panels are loaded
       this.setupConfigDone = true;
       this._watchHaSidebarShouldUpdate();
@@ -1010,67 +1045,6 @@ export class SidebarOrganizer {
     contentDiv.classList.toggle(CLASS.COLLAPSED, isCollapsed);
     return contentDiv;
   };
-
-  private _addBottomItems(): void {
-    const bottomItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_ITEMS) || [];
-    const bottomGridItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID_ITEMS) || [];
-    if (bottomItems.length === 0 && bottomGridItems.length === 0) {
-      return;
-    }
-    const panelsList = this._panelsList;
-    const afterSpacer = panelsList.querySelector(SELECTOR.AFTER_SPACER) as HTMLElement;
-    panelsList.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`)?.forEach((el) => el.remove());
-    // // console.log({ bottomItems, bottomGridItems }, { panelsList, scrollbarItems, afterSpacer });
-    // const resetExistingElements = () => {
-    //   const existingBottomContainer = panelsList.querySelectorAll(SELECTOR.BOTTOM_CONTAINER);
-    //   const emptyExistingGridContainer = panelsList.querySelectorAll(SELECTOR.GRID_CONTAINER);
-    //   const dividerExisting = panelsList.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`);
-    //   if (existingBottomContainer.length > 0 || emptyExistingGridContainer.length > 0 || dividerExisting.length > 0) {
-    //     existingBottomContainer.forEach((el) => el.remove());
-    //     emptyExistingGridContainer.forEach((el) => el.remove());
-    //     dividerExisting.forEach((el) => el.remove());
-    //   }
-    // };
-    // resetExistingElements();
-
-    if (bottomItems.length > 0) {
-      const bottomContainer = document.createElement('div') as HTMLElement;
-      bottomContainer.classList.add('bottom-container');
-      bottomItems.forEach((item) => {
-        const bottomItem = this._sidebarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
-        if (!bottomItem) return;
-        bottomItem.setAttribute(ATTRIBUTE.MOVED, '');
-        bottomContainer.appendChild(bottomItem);
-      });
-
-      if (bottomContainer.children.length > 0) {
-        const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
-        panelsList.insertBefore(bottomContainer, afterSpacer);
-        panelsList.insertBefore(bottomDivider, afterSpacer);
-      }
-    }
-
-    if (bottomGridItems.length > 0) {
-      const gridContainer = document.createElement('div') as HTMLElement;
-      gridContainer.classList.add('grid-container');
-      bottomGridItems.forEach((item) => {
-        const panel = this._sidebarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
-        if (!panel) return;
-
-        panel.setAttribute(ATTRIBUTE.GRID_ITEM, '');
-        panel.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
-        panel.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
-        gridContainer.appendChild(panel);
-      });
-
-      if (gridContainer.children.length > 0) {
-        panelsList.querySelector(SELECTOR.GRID_CONTAINER)?.remove();
-        const divider = this._createDivider(ATTRIBUTE.BOTTOM);
-        panelsList.insertBefore(gridContainer, afterSpacer);
-        panelsList.insertBefore(divider, afterSpacer);
-      }
-    }
-  }
 
   private _handleNewConfig(config: SidebarConfig, useConfigFile: boolean) {
     if (useConfigFile) {

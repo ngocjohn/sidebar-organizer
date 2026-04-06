@@ -129,6 +129,29 @@ export interface AreaRegistryEntry {
 
 export type EntityNameType = 'entity' | 'device' | 'area' | 'floor';
 
+export type LovelaceVisibilityCondition = Record<string, unknown>;
+
+export interface LovelaceCardConfig {
+  type: string;
+  [key: string]: any;
+  disabled?: boolean;
+  visibility?: LovelaceVisibilityCondition[];
+}
+
+export interface HuiCardElement extends HTMLElement {
+  hass?: HomeAssistant;
+  config?: LovelaceCardConfig;
+  load: () => Promise<void>;
+}
+
+export interface LovelaceCard extends HTMLElement {
+  hass?: HomeAssistant;
+  isPanel?: boolean;
+  preview?: boolean;
+  layout?: string;
+  getCardSize(): number | Promise<number>;
+  setConfig(config: LovelaceCardConfig): void;
+}
 export interface HomeAssistant {
   auth: Auth & { external?: any };
   connection: Connection;

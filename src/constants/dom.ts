@@ -32,6 +32,7 @@ export enum SELECTOR {
   CONTENT = '.content',
   SIDEBAR_LOADER = 'ha-fade-in',
   HUI_ROOT = 'hui-root',
+  WRAPPER = '.wrapper',
 }
 export enum ELEMENT {
   ITEM = 'ha-md-list-item',
@@ -57,6 +58,7 @@ export enum ELEMENT {
   SO_PROFILE_SECTION = 'so-profile-section',
   CONFIG_LOVELACE_DASHBOARDS = 'ha-config-lovelace-dashboards',
   HA_PANEL_LOVELACE = 'ha-panel-lovelace',
+  SO_CUSTOM_CARD = 'so-custom-card',
 }
 
 export enum CLASS {

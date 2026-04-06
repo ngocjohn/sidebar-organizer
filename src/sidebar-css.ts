@@ -13,6 +13,7 @@ export const DIVIDER_ADDED_STYLE = css`
     color: var(--so-tooltip-text-color, inherit);
     background-color: var(--so-tooltip-background-color, inherit);
   }
+
   :host .ha-scrollbar {
     padding: 0;
   }

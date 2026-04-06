@@ -1,6 +1,6 @@
 import { ActionConfig } from '@utilities/action';
 
-import { HomeAssistant } from './ha';
+import { HomeAssistant, LovelaceCardConfig } from './ha';
 
 export * from './ha';
 export * from './elements';
@@ -14,6 +14,7 @@ export type HA = HomeAssistant;
 
 export interface HaExtened extends HTMLElement {
   hass: HomeAssistant;
+  provideHass(element: HTMLElement): void;
 }
 
 export interface Router extends HTMLElement {
@@ -171,6 +172,7 @@ export enum PANEL_TYPE {
 
 export type PinnedGroupEntry = true | { icon?: string };
 export type PinnedGroupsConfig = Record<string, PinnedGroupEntry>;
+
 export interface VisibilitySectionConfig {
   [key: string]: string;
 }
@@ -185,6 +187,22 @@ export interface VisibilityTemplateConfig {
    */
   items?: VisibilitySectionConfig;
 }
+
+export interface CardSectionArrangement {
+  header_cards?: LovelaceCardConfig[];
+  footer_cards?: LovelaceCardConfig[];
+}
+
+/**
+ * Add custom cards to the top and bottom of the sidebar section.
+ * - top_container: cards to be added to the top section of the sidebar.
+ * - bottom_container: cards to be added to the bottom section of the sidebar.
+ */
+export interface CustomCardsConfig {
+  top_container?: CardSectionArrangement;
+  bottom_container?: CardSectionArrangement;
+}
+
 export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceConfig {
   default_collapsed?: string[];
   color_config?: SidebarColorConfig;
@@ -198,6 +216,7 @@ export interface SidebarConfig extends SidebardPanelConfig, SidebarAppearanceCon
    */
   uncategorized_items?: boolean | string[];
   visibility_templates?: VisibilityTemplateConfig;
+  custom_cards?: CustomCardsConfig;
   /**
    * Hide header when scrolling down and show it when scrolling up. This is a personal feature for the developer and not mentioned in the readme as it is not a core part of the plugin.
    */
