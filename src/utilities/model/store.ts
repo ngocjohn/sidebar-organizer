@@ -187,4 +187,22 @@ export default class Store {
     };
     showToast(this.haElement, toastParams);
   };
+
+  public _navigateHome = (): void => {
+    const defaultPanel = this._utils.PANEL.getDefaultPanelUrlPath(this.hass);
+    this._utils.DOM.navigate(`/${defaultPanel}`);
+  };
+
+  public _navigateToLovelacePanel = (): void => {
+    const lovelacePanel = Object.values(this.hass.panels).find(
+      (panel) =>
+        panel.component_name === 'lovelace' && panel.url_path && panel.show_in_sidebar && panel.config!.mode !== 'yaml'
+    );
+    if (lovelacePanel) {
+      console.debug('%cSTORE:', 'color: #4dabf7;', 'Navigating to Lovelace dashboard panel:', lovelacePanel);
+      this._utils.DOM.navigate(`/${lovelacePanel.url_path}`);
+    } else {
+      this._showToast('Lovelace dashboard panel not found in sidebar');
+    }
+  };
 }

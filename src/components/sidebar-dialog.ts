@@ -1,5 +1,5 @@
 import { ALERT_MSG, CONFIG_SECTION, DIALOG_TAG, STORAGE, TAB_STATE } from '@constants';
-import { SidebarConfig, NewItemConfig, SidebardPanelConfig, PANEL_TYPE } from '@types';
+import { SidebarConfig, NewItemConfig, SidebardPanelConfig, PANEL_TYPE, LovelaceExtended } from '@types';
 import {
   fetchFileConfig,
   INVALID_ITEM_KEYS,
@@ -53,7 +53,7 @@ export class SidebarConfigDialog extends BaseEditor {
   @property({ type: Boolean, reflect: true, attribute: 'fullscreen' }) fullscreen: boolean = false;
   @property({ attribute: false }) _mainDialog!: SidebarOrganizerDialog | SidebarOrganizerDialogWA;
   @property({ attribute: false }) readonly _initConfig!: SidebarConfig;
-
+  @property({ attribute: false }) _lovelace?: LovelaceExtended['lovelace'];
   @state() _connected: boolean = false;
   @state() public _sidebarConfig = {} as SidebarConfig;
   @state() public _useConfigFile = false;
@@ -378,6 +378,7 @@ export class SidebarConfigDialog extends BaseEditor {
       [CONFIG_SECTION.APPEARANCE]: this._renderBaseConfig(),
       [CONFIG_SECTION.PANELS]: this._renderPanelConfig(),
       [CONFIG_SECTION.NEW_ITEMS]: this._renderNewItemsConfig(),
+      [CONFIG_SECTION.CUSTOM_CARDS]: this._renderCustomCardsConfig(),
     };
 
     return areaMap[selectedArea] || html``;
@@ -428,6 +429,17 @@ export class SidebarConfigDialog extends BaseEditor {
         @sidebar-changed=${this._handleSidebarChanged}
         @item-clicked=${this._handleItemClicked}
       ></sidebar-dialog-new-items>
+    `;
+  }
+
+  private _renderCustomCardsConfig(): TemplateResult {
+    return html`
+      <sidebar-dialog-custom-cards
+        .hass=${this.hass}
+        ._store=${this._store}
+        ._sidebarConfig=${this._sidebarConfig}
+        @sidebar-changed=${this._handleSidebarChanged}
+      ></sidebar-dialog-custom-cards>
     `;
   }
 

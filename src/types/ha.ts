@@ -12,6 +12,8 @@ import {
   MessageBase,
 } from 'home-assistant-js-websocket';
 
+import { LovelaceCardConfig } from './frontend-lovelace';
+
 export interface ThemeSettings {
   theme?: string;
   // Radio box selection for theme picker. Do not use in Lovelace rendering as
@@ -127,17 +129,6 @@ export interface AreaRegistryEntry {
   picture: string | null;
 }
 
-export type EntityNameType = 'entity' | 'device' | 'area' | 'floor';
-
-export type LovelaceVisibilityCondition = Record<string, unknown>;
-
-export interface LovelaceCardConfig {
-  type: string;
-  [key: string]: any;
-  disabled?: boolean;
-  visibility?: LovelaceVisibilityCondition[];
-}
-
 export interface HuiCardElement extends HTMLElement {
   hass?: HomeAssistant;
   config?: LovelaceCardConfig;
@@ -152,6 +143,11 @@ export interface LovelaceCard extends HTMLElement {
   getCardSize(): number | Promise<number>;
   setConfig(config: LovelaceCardConfig): void;
 }
+
+export interface LovelaceExtended extends HTMLElement {
+  lovelace?: any;
+}
+
 export interface HomeAssistant {
   auth: Auth & { external?: any };
   connection: Connection;
@@ -215,7 +211,6 @@ export interface HomeAssistant {
   formatEntityState(stateObj: HassEntity, state?: string): string;
   formatEntityAttributeValue(stateObj: HassEntity, attribute: string, value?: any): string;
   formatEntityAttributeName(stateObj: HassEntity, attribute: string): string;
-  formatEntityName(stateObj: HassEntity, type: EntityNameType | EntityNameType[], separator?: string): string;
 }
 
 export type Constructor<T = any> = new (...args: any[]) => T;

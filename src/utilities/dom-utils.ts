@@ -353,3 +353,27 @@ export const createAlert = (
     </ha-alert>
   `;
 };
+
+const dispatchLocationChanged = (pathname: string): void => {
+  window.dispatchEvent(
+    new CustomEvent('location-changed', {
+      detail: {
+        replace: pathname,
+      },
+    })
+  );
+};
+
+export const navigate = (pathname: string, replace: boolean = false): void => {
+  if (pathname.startsWith('/')) {
+    const params: Parameters<typeof window.history.replaceState> = [null, '', pathname];
+    if (replace) {
+      window.history.replaceState(...params);
+    } else {
+      window.history.pushState(...params);
+    }
+    dispatchLocationChanged(pathname);
+  } else {
+    console.warn(`Attempted to navigate to a non-root-relative path: ${pathname}`);
+  }
+};

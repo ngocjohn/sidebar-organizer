@@ -4,6 +4,7 @@ import { mdiArrowExpand, mdiClose, mdiInformation } from '@mdi/js';
 import './sidebar-dialog';
 
 import { clearSidebarOrganizerStorage } from '@utilities/configs/misc';
+import { loadHaComponents, loadVerticalStackConfigElement } from '@utilities/loader';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog } from '@utilities/show-dialog-box';
 import { SidebarConfigDialogParams } from '@utilities/show-dialog-sidebar-organizer';
@@ -51,6 +52,8 @@ export class SidebarOrganizerDialog extends LitElement implements HassDialog<Sid
     if (mql.matches) {
       this.large = true; // Default to large dialog
     }
+    void loadHaComponents();
+    void loadVerticalStackConfigElement();
   }
 
   public closeDialog(): boolean {

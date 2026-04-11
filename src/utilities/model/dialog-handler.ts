@@ -217,11 +217,23 @@ export default class DialogHandler {
   }
   public _showConfigDialogEditor = async (): Promise<void> => {
     const shouldLoadNewDialog = atLeastVersion(this.hass.config.version, 2026, 3);
-
     this._organizer.HaSidebar.editMode = false;
     await this._checkStorageOrder();
+    if (!this._organizer.lovelace) {
+      console.debug(
+        '%cDIALOG-HANDLER:',
+        'color: #4dabf7;',
+        'Lovelace object not available, navigating to home to load it for dialog...'
+      );
+      // navigate to lovelace dashboard to get lovelace object loaded for dialog
+      await this._organizer._getLovelaceObj();
+    }
 
-    showDialogSidebarOrganizer(this.haElement, { config: this._organizer._config }, shouldLoadNewDialog);
+    showDialogSidebarOrganizer(
+      this.haElement,
+      { config: this._organizer._config, lovelace: this._organizer.lovelace },
+      shouldLoadNewDialog
+    );
   };
 
   public async _injectSidebarOrganizerElement(panelResolver: PartialPanelResolver): Promise<void> {

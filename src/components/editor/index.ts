@@ -4,6 +4,7 @@ export * from './sidebar-dialog-panels';
 export * from './sidebar-dialog-preview';
 export * from './sidebar-dialog-code-editor';
 export * from './sidebar-dialog-menu';
+export * from './sidebar-dialog-custom-cards';
 
 // Shared components
 export * from './shared/so-panel-all';

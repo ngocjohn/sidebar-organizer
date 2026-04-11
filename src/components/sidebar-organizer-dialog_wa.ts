@@ -137,6 +137,7 @@ export class SidebarOrganizerDialogWA extends LitElement implements HassDialog<S
         .hass=${this.hass}
         ._mainDialog=${this}
         ._initConfig=${this._initConfig}
+        ._lovelace=${this._params?.lovelace}
       ></sidebar-organizer-config-dialog>
     `;
   }

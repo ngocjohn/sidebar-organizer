@@ -9,6 +9,7 @@ declare global {
     SoDialogColors: SEC.SidebarDialogColors;
     SoPanelAll: SEC.SoPanelAll;
     SoPanelVisibility: SEC.SoPanelVisibility;
+    SoDialogCustomCards: SEC.SidebarDialogCustomCards;
   }
 }
 

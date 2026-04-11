@@ -26,6 +26,7 @@ import {
   SidebarPanelItem,
   ElementsStore,
   LovelaceCardConfig,
+  LovelaceExtended,
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { compareHacsTagDiff } from '@utilities/compare-urls';
@@ -89,8 +90,10 @@ export class SidebarOrganizer {
     });
 
     instance.addEventListener(HAQuerySelectorEvent.ON_LOVELACE_PANEL_LOAD, async (event) => {
-      const { HA_PANEL_LOVELACE } = event.detail;
+      const { HA_PANEL_LOVELACE, HUI_VIEW } = event.detail;
       this._panelLovelace = HA_PANEL_LOVELACE;
+      this._lovelace = (await HA_PANEL_LOVELACE.element) as LovelaceExtended;
+      this._huiView = (await HUI_VIEW.element) as any;
       await nextRender();
       this._watchScrollHideHeader();
     });
@@ -130,6 +133,8 @@ export class SidebarOrganizer {
   private _ha!: HaExtened;
   public _haDrawer!: HaDrawer;
   private _panelLovelace!: HAElement;
+  private _lovelace!: LovelaceExtended;
+  private _huiView!: HAElement;
   private _notCompatible: boolean = false;
   private _blockEditModeChange: boolean = false;
   public _config: SidebarConfig = {};
@@ -162,6 +167,10 @@ export class SidebarOrganizer {
 
   get hass(): HaExtened['hass'] {
     return this._ha!.hass;
+  }
+
+  public get lovelace(): LovelaceExtended['lovelace'] | undefined {
+    return this._lovelace?.lovelace;
   }
 
   get darkMode(): boolean {
@@ -1448,6 +1457,31 @@ export class SidebarOrganizer {
 
   _removeUserSidebarData = () => {
     return clearSidebarUserData(this.hass.connection);
+  };
+
+  public _getLovelaceObj = async (timeout = 3000): Promise<void> => {
+    const currentPath = this._currentPath;
+
+    // Navigate to home first
+    this._store._navigateHome();
+
+    const start = performance.now();
+
+    await new Promise<void>((resolve, reject) => {
+      const check = () => {
+        if (this.lovelace) {
+          resolve();
+        } else if (performance.now() - start > timeout) {
+          reject(new Error('Lovelace not available'));
+        } else {
+          requestAnimationFrame(check);
+        }
+      };
+      check();
+    });
+
+    // Navigate back
+    this._store._utils.DOM.navigate(currentPath);
   };
 }
 

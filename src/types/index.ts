@@ -1,9 +1,11 @@
 import { ActionConfig } from '@utilities/action';
 
-import { HomeAssistant, LovelaceCardConfig } from './ha';
+import { LovelaceCardConfig } from './frontend-lovelace';
+import { HomeAssistant } from './ha';
 
 export * from './ha';
 export * from './elements';
+export * from './frontend-lovelace';
 
 declare global {
   var __DEV__: boolean;

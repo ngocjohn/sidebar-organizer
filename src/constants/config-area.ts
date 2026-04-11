@@ -13,6 +13,7 @@ export enum CONFIG_SECTION {
   PANELS = 'panels',
   NEW_ITEMS = 'new_items',
   PREVIEW = 'preview',
+  CUSTOM_CARDS = 'custom_cards',
 }
 
 export type ConfigSectionType = (typeof CONFIG_SECTION)[keyof typeof CONFIG_SECTION];
@@ -42,13 +43,33 @@ export enum VISIBILITY_SECTION {
 export const VisibilitySectionKeys = ['hidden_items', 'visibility_templates'] as const;
 export type VisibilitySection = (typeof VISIBILITY_SECTION)[keyof typeof VISIBILITY_SECTION];
 
-export type PanelAreaType = PanelArea | BottomSection | VisibilitySection;
+export enum CUSTOM_CARD_SECTION {
+  TOP_CONTAINER = 'top_container',
+  BOTTOM_CONTAINER = 'bottom_container',
+}
+export const CustomCardSectionKeys = ['top_container', 'bottom_container'] as const;
+export type CustomCardSection = (typeof CUSTOM_CARD_SECTION)[keyof typeof CUSTOM_CARD_SECTION];
+
+export enum CARD_SECTION_ARRANGEMENT {
+  HEADER_CARDS = 'header_cards',
+  FOOTER_CARDS = 'footer_cards',
+}
+export const CardSectionArrangementKeys = ['header_cards', 'footer_cards'] as const;
+export type CardSectionArrangementType = (typeof CARD_SECTION_ARRANGEMENT)[keyof typeof CARD_SECTION_ARRANGEMENT];
+
+export type PanelAreaType =
+  | PanelArea
+  | BottomSection
+  | VisibilitySection
+  | CustomCardSection
+  | CardSectionArrangementType;
 
 export const CONFIG_AREA_LABELS: Record<PanelAreaType | ConfigSectionType | string, string> = {
   [CONFIG_SECTION.GENERAL]: 'Settings',
   [CONFIG_SECTION.APPEARANCE]: 'Appearance',
   [CONFIG_SECTION.PANELS]: 'Panels',
   [CONFIG_SECTION.NEW_ITEMS]: 'New Items',
+  [CONFIG_SECTION.CUSTOM_CARDS]: 'Custom Cards',
   [PANEL_AREA.ALL_ITEMS]: 'All Items',
   [PANEL_AREA.BOTTOM_PANELS]: 'Bottom Panels',
   [PANEL_AREA.CUSTOM_GROUPS]: 'Custom Groups',
@@ -58,6 +79,10 @@ export const CONFIG_AREA_LABELS: Record<PanelAreaType | ConfigSectionType | stri
   [VISIBILITY_SECTION.VISIBILITY_TEMPLATES]: 'Visibility Templates',
   [BOTTOM_SECTION.BOTTOM_ITEMS]: 'Bottom Items',
   [BOTTOM_SECTION.BOTTOM_GRID_ITEMS]: 'Bottom Grid Items',
+  [CUSTOM_CARD_SECTION.TOP_CONTAINER]: 'Top Container',
+  [CUSTOM_CARD_SECTION.BOTTOM_CONTAINER]: 'Bottom Container',
+  [CARD_SECTION_ARRANGEMENT.HEADER_CARDS]: 'Header Cards',
+  [CARD_SECTION_ARRANGEMENT.FOOTER_CARDS]: 'Footer Cards',
   ['uncategorized_items']: 'Uncategorized Items',
 };
 
@@ -77,6 +102,10 @@ export const CONFIG_SECTIONS_MENU: Record<ConfigSectionType | string, { label: s
   [CONFIG_SECTION.NEW_ITEMS]: {
     label: CONFIG_AREA_LABELS[CONFIG_SECTION.NEW_ITEMS],
     description: 'Add new items to your sidebar.',
+  },
+  [CONFIG_SECTION.CUSTOM_CARDS]: {
+    label: CONFIG_AREA_LABELS[CONFIG_SECTION.CUSTOM_CARDS],
+    description: 'Add any lovelace card to sidebar.',
   },
 };
 export interface TabsMenuItem {

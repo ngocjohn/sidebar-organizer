@@ -25,7 +25,7 @@ import { ARRAY_UTILS } from './array';
 import * as COMPUTE_PANELS from './compute-panels';
 import * as CONFIG from './configs';
 import * as DASHBOARD_HELPERS from './dashboard';
-import { mapItemsForDebug } from './dom-utils';
+import { mapItemsForDebug, navigate } from './dom-utils';
 import * as OBJECT_DIFF from './object-differences';
 import * as PANEL_HELPER from './panel';
 
@@ -35,6 +35,6 @@ export const UTILITIES = {
   DASHBOARD: DASHBOARD_HELPERS,
   OBJECT: OBJECT_DIFF,
   CONFIG,
-  DOM: { mapItemsForDebug, actionHelper: ACTIONS },
+  DOM: { mapItemsForDebug, actionHelper: ACTIONS, navigate },
   ARRAY: ARRAY_UTILS,
 };

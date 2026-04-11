@@ -1,10 +1,11 @@
 import { ELEMENT } from '@constants';
-import { SidebarConfig } from '@types';
+import { LovelaceExtended, SidebarConfig } from '@types';
 
 import { fireEvent } from './fire_event';
 
 export interface SidebarConfigDialogParams {
   config: SidebarConfig;
+  lovelace?: LovelaceExtended['lovelace'];
 }
 export const loadSidebarOrganizerDialog = () => import('../components/sidebar-organizer-dialog');
 export const loadSidebarOrganizerDialogWA = () => import('../components/sidebar-organizer-dialog_wa');
