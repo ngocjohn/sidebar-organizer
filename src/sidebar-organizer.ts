@@ -173,7 +173,8 @@ export class SidebarOrganizer {
   }
 
   get _scrollbarItems(): NodeListOf<SidebarPanelItem> {
-    return this._scrollbar.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
+    // Query from _panelsList to include both top (ha-scrollbar) and bottom (bottom-list) items
+    return this._panelsList.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
   }
 
   get _hasSidebarConfig(): boolean {
@@ -528,12 +529,13 @@ export class SidebarOrganizer {
     // info
     console.groupCollapsed('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
 
-    const { default_collapsed, custom_groups, color_config, bottom_items, bottom_grid_items, pinned_groups } =
+    const { default_collapsed, custom_groups, bottom_groups, color_config, bottom_items, bottom_grid_items, pinned_groups } =
       this._config;
 
     this._configPanelMap = new Map<string, string[]>(
       Object.entries({
         ...(custom_groups || {}),
+        ...(bottom_groups || {}),
         ...(bottom_items ? { [PANEL_TYPE.BOTTOM_ITEMS]: bottom_items } : {}),
         ...(bottom_grid_items ? { [PANEL_TYPE.BOTTOM_GRID_ITEMS]: bottom_grid_items } : {}),
       })
@@ -541,7 +543,8 @@ export class SidebarOrganizer {
     // Normalize pinned groups config to ensure consistent structure
     this._pinnedGroups = normalizePinnedGroups(pinned_groups || {});
     // Initialize collapsed groups based on config, this will be used to set initial state of groups and manage collapse/expand functionality
-    this.collapsedItems = getCollapsedItems(custom_groups, default_collapsed);
+    const allGroups = { ...(custom_groups || {}), ...(bottom_groups || {}) };
+    this.collapsedItems = getCollapsedItems(allGroups, default_collapsed);
 
     // Setup custom sidebar width
     this._addCustomWidthStyle();
@@ -664,6 +667,7 @@ export class SidebarOrganizer {
 
               this._subscribeVisibility(foundItem, visibilityTemplate);
             }
+            const isBottomGroup = group && this._config.bottom_groups && group in this._config.bottom_groups;
             if (group === PANEL_TYPE.BOTTOM_ITEMS || group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
               if (group === PANEL_TYPE.BOTTOM_ITEMS) {
                 foundItem.setAttribute(ATTRIBUTE.BOTTOM, '');
@@ -674,6 +678,10 @@ export class SidebarOrganizer {
                 foundItem.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
                 bottomGridItems.appendChild(foundItem);
               }
+            } else if (isBottomGroup) {
+              foundItem.setAttribute(ATTRIBUTE.GROUP, group);
+              foundItem.setAttribute(ATTRIBUTE.BOTTOM, '');
+              bottomItems.appendChild(foundItem);
             } else if (group) {
               if (group !== PANEL_TYPE.UNCATEGORIZED_ITEMS) {
                 foundItem.setAttribute(ATTRIBUTE.GROUP, group);
@@ -749,7 +757,7 @@ export class SidebarOrganizer {
 
   private _processSections() {
     this._getElements().then(async (elements: ElementsStore) => {
-      const { custom_groups, visibility_templates } = this._config;
+      const { custom_groups, bottom_groups, visibility_templates } = this._config;
       const { topItemsContainer, topItems, bottomItemsContainer, bottomItems } = elements;
 
       const groupVisibilityMap = new Map<string, string>(Object.entries(visibility_templates?.groups || {}));
@@ -786,10 +794,36 @@ export class SidebarOrganizer {
         firstUngroupedItem.insertAdjacentElement('beforebegin', ungroupedDivider);
       }
 
+      // Process bottom groups (folder groups in bottom section)
+      if (bottomItemsContainer && bottom_groups) {
+        Object.entries(bottom_groups).forEach(([groupName, panels]) => {
+          const isCollapsed = this.collapsedItems.has(groupName);
+          const groupVisibilityTemplate = groupVisibilityMap.has(groupName) ? groupVisibilityMap.get(groupName)! : null;
+          panels.forEach((panelId, index) => {
+            const item = bottomItems
+              ? Array.from(bottomItems).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId)
+              : null;
+            if (item) {
+              if (index === 0) {
+                const groupDivider = this._createDividerWithGroup(groupName, isCollapsed);
+                if (groupVisibilityTemplate) {
+                  this._subscribeVisibility(groupDivider, groupVisibilityTemplate);
+                }
+                item.insertAdjacentElement('beforebegin', groupDivider);
+              }
+              item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+            }
+          });
+        });
+      }
+
+      // Add plain dividers for non-grouped bottom items
       if (bottomItemsContainer && bottomItemsContainer.children.length > 0) {
         Array.from(bottomItemsContainer.children).forEach((item) => {
-          const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
-          item.insertAdjacentElement('afterend', bottomDivider);
+          if (item instanceof HTMLElement && !item.getAttribute(ATTRIBUTE.GROUP) && !item.classList.contains('divider')) {
+            const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
+            item.insertAdjacentElement('afterend', bottomDivider);
+          }
         });
       }
       // Wait for DOM updates to complete before checking diffs and handling header to ensure we are working with the latest rendered state
@@ -1115,7 +1149,7 @@ export class SidebarOrganizer {
       });
 
     // Update dividers and their content
-    this._scrollbar.querySelectorAll(SELECTOR.DIVIDER_ADDED).forEach((divider) => {
+    this._panelsList.querySelectorAll(SELECTOR.DIVIDER_ADDED).forEach((divider) => {
       const group = divider.getAttribute(ATTRIBUTE.GROUP);
       const isGroupCollapsed = collapsedItems.has(group!);
       divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
@@ -1205,8 +1239,10 @@ export class SidebarOrganizer {
   private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {
     const defaultPanel = getDefaultPanelUrlPath(this.hass);
     const customGroups = this._config.custom_groups || {};
+    const bottomGroups = this._config.bottom_groups || {};
     const bottomMovedItems = this._config.bottom_items || [];
     const bottomGridItems = this._config.bottom_grid_items || [];
+    const bottomGroupItems = Object.values(bottomGroups).flat();
 
     // Get grouped items
     const groupedItems = Object.values(customGroups)
@@ -1215,7 +1251,11 @@ export class SidebarOrganizer {
 
     // Filter default items that are not in grouped or bottom items
     const defaultItems = currentPanel.filter(
-      (item) => !groupedItems.includes(item) && !bottomMovedItems.includes(item) && !bottomGridItems.includes(item)
+      (item) =>
+        !groupedItems.includes(item) &&
+        !bottomMovedItems.includes(item) &&
+        !bottomGridItems.includes(item) &&
+        !bottomGroupItems.includes(item)
     );
 
     // Move default panel item to the front
@@ -1225,8 +1265,8 @@ export class SidebarOrganizer {
       groupedItems.unshift(defaultPanelItem);
     }
 
-    // Combine grouped, default, and bottom items
-    const reorderedPanels = [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems];
+    // Combine grouped, default, bottom, and bottom group items
+    const reorderedPanels = [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems, ...bottomGroupItems];
 
     return reorderedPanels;
   }
@@ -1395,7 +1435,10 @@ export class SidebarOrganizer {
 
     // Accordion mode: collapse all other groups when expanding one
     if (this._config?.accordion_mode && isCollapsed && this.setupConfigDone) {
-      const allGroups = Object.keys(this._config?.custom_groups || {});
+      const allGroups = [
+        ...Object.keys(this._config?.custom_groups || {}),
+        ...Object.keys(this._config?.bottom_groups || {}),
+      ];
       allGroups.forEach((otherGroup) => {
         if (otherGroup !== group && !this.collapsedItems.has(otherGroup)) {
           const otherItems = Array.from(this._scrollbarItems).filter((item) => {
@@ -1405,7 +1448,7 @@ export class SidebarOrganizer {
 
           this._setItemToLocalStorage(otherGroup, true);
 
-          const divider = this._scrollbar.querySelector(
+          const divider = this._panelsList.querySelector(
             `${SELECTOR.DIVIDER_ADDED}[${ATTRIBUTE.GROUP}="${otherGroup}"]`
           );
           if (divider) {
