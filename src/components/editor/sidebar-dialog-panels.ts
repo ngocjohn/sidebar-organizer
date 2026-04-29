@@ -926,14 +926,26 @@ export class SidebarDialogPanels extends BaseEditor {
     };
 
     switch (this._selectedTab) {
-      case PANEL_AREA.BOTTOM_PANELS:
+      case PANEL_AREA.BOTTOM_PANELS: {
         const bottomSection = this._selectedBottom;
-        const bottomItems = [...(this._sidebarConfig[bottomSection] || [])].concat();
-        console.log(bottomSection, bottomItems);
-        bottomItems.splice(newIndex, 0, bottomItems.splice(oldIndex, 1)[0]);
-        console.log('Bottom items after move:', bottomItems);
-        updateConfig({ [bottomSection]: bottomItems });
+        if (bottomSection === BOTTOM_SECTION.BOTTOM_GROUPS) {
+          const groupName = this._selectedBottomGroup;
+          if (!groupName) break;
+          const bottomGroups = { ...(this._sidebarConfig.bottom_groups || {}) };
+          const items = [...(bottomGroups[groupName] || [])];
+          items.splice(newIndex, 0, items.splice(oldIndex, 1)[0]);
+          bottomGroups[groupName] = items;
+          updateConfig({ bottom_groups: bottomGroups });
+        } else {
+          const items = [
+            ...(this._sidebarConfig[bottomSection as BOTTOM_SECTION.BOTTOM_ITEMS | BOTTOM_SECTION.BOTTOM_GRID_ITEMS] ||
+              []),
+          ];
+          items.splice(newIndex, 0, items.splice(oldIndex, 1)[0]);
+          updateConfig({ [bottomSection]: items });
+        }
         break;
+      }
       case PANEL_AREA.CUSTOM_GROUPS:
         const customGroups = { ...(this._sidebarConfig.custom_groups || {}) };
         const groupName = this._selectedGroup;
