@@ -177,7 +177,9 @@ In this section, you can organize the layout of the sidebar panels by customizin
 
 - **Custom Groups**: Organize your sidebar items into custom groups for better clarity and navigation. You can create, rename, and reorder these groups based on your preferences.
 
-- **Default Collapsed**: Choose which groups will be collapsed by default when the sidebar loads, helping to reduce clutter and create a cleaner interface.
+- **Bottom Groups**: Same idea as Custom Groups, but the groups appear in the bottom section of the sidebar (above the profile entry). Useful for separating utility/admin groups from your main navigation while keeping them grouped and collapsible.
+
+- **Default Collapsed**: Choose which groups will be collapsed by default when the sidebar loads, helping to reduce clutter and create a cleaner interface. Both Custom Groups and Bottom Groups can be referenced here.
 
   <table>
     <thead>
@@ -240,10 +242,18 @@ In this section, you can organize the layout of the sidebar panels by customizin
       - history
       - logbook
       - todo
+  bottom_groups:
+    admin:
+      - config
+      - developer-tools
+    tools:
+      - logbook
+      - history
   default_collapsed:
     - system
     - dashboards
     - components
+    - admin
   ```
 
   </details>
