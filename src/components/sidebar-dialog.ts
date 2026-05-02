@@ -61,7 +61,7 @@ export class SidebarConfigDialog extends BaseEditor {
   @state() public _tabState: TAB_STATE = TAB_STATE.BASE;
 
   @state() private _configLoaded = false;
-  @state() public _currSection: CONFIG_SECTION = CONFIG_SECTION.GENERAL;
+  @state() public _currSection: CONFIG_SECTION = CONFIG_SECTION.APPEARANCE;
 
   @state() public _initPanelOrder: string[] = [];
   @state() public _initCombiPanels: string[] = [];
@@ -346,41 +346,51 @@ export class SidebarConfigDialog extends BaseEditor {
       return this._renderCodeEditor();
     }
 
+    const tabs = [
+      { key: CONFIG_SECTION.APPEARANCE, label: 'Appearance' },
+      { key: 'colors' as CONFIG_SECTION, label: 'Colors' },
+      { key: CONFIG_SECTION.PANELS, label: 'Panels' },
+      { key: CONFIG_SECTION.NEW_ITEMS, label: 'Items' },
+    ];
+
     return html`
       <div id="sidebar-config">
-        <div class="dialog-menu">
-          <sidebar-dialog-menu
-            .hass=${this.hass}
-            ._store=${this._store}
-            .value=${this._currSection}
-            @menu-value-changed=${this._handleMenuValueChanged}
-          ></sidebar-dialog-menu>
+        <div class="dialog-tabs">
+          ${tabs.map(
+            (tab) => html`
+              <sidebar-organizer-tab
+                .name=${tab.label}
+                .active=${this._currSection === tab.key}
+                @click=${() => this._handleTabClick(tab.key)}
+              ></sidebar-organizer-tab>
+            `
+          )}
         </div>
-        ${this._renderConfigSection()}
+        <div class="tab-content">
+          ${this._renderConfigSection()}
+        </div>
       </div>
     `;
   }
 
-  private _handleMenuValueChanged(ev: CustomEvent): void {
-    ev.stopPropagation();
-    const newValue = ev.detail.value || null;
-    const configArea = newValue ? (newValue as CONFIG_SECTION) : CONFIG_SECTION.GENERAL;
+  private _handleTabClick(section: CONFIG_SECTION): void {
     const sectionFrom = this._currSection;
-    this._currSection = configArea;
-    if (sectionFrom === CONFIG_SECTION.NEW_ITEMS && configArea !== CONFIG_SECTION.NEW_ITEMS) {
+    this._currSection = section;
+    if (sectionFrom === CONFIG_SECTION.NEW_ITEMS && section !== CONFIG_SECTION.NEW_ITEMS) {
       this._dialogPreview._hightlightItem(null);
     }
   }
 
   private _renderConfigSection(): TemplateResult {
     const selectedArea = this._currSection;
-    const areaMap = {
+    const areaMap: Record<string, TemplateResult> = {
       [CONFIG_SECTION.APPEARANCE]: this._renderBaseConfig(),
+      ['colors']: this._renderColorsConfig(),
       [CONFIG_SECTION.PANELS]: this._renderPanelConfig(),
       [CONFIG_SECTION.NEW_ITEMS]: this._renderNewItemsConfig(),
     };
 
-    return areaMap[selectedArea] || html``;
+    return areaMap[selectedArea] || areaMap[CONFIG_SECTION.APPEARANCE];
   }
 
   private _renderSidebarPreview(): TemplateResult {
@@ -406,6 +416,17 @@ export class SidebarConfigDialog extends BaseEditor {
       .hass=${this.hass}
       ._store=${this._store}
       ._sidebarConfig=${this._sidebarConfig}
+      .renderMode=${'appearance'}
+      @sidebar-changed=${this._handleSidebarChanged}
+    ></sidebar-dialog-colors>`;
+  }
+
+  private _renderColorsConfig(): TemplateResult {
+    return html` <sidebar-dialog-colors
+      .hass=${this.hass}
+      ._store=${this._store}
+      ._sidebarConfig=${this._sidebarConfig}
+      .renderMode=${'colors'}
       @sidebar-changed=${this._handleSidebarChanged}
     ></sidebar-dialog-colors>`;
   }
@@ -916,17 +937,33 @@ export class SidebarConfigDialog extends BaseEditor {
           z-index: 10;
           background-color: var(--mdc-theme-surface);
         }
+        .dialog-tabs {
+          display: flex;
+          font-size: 0.9rem;
+          overflow: hidden;
+          text-transform: uppercase;
+          border-bottom: 1px solid var(--divider-color);
+          margin-bottom: var(--side-dialog-padding);
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background-color: var(--mdc-theme-surface);
+        }
+        .dialog-tabs sidebar-organizer-tab {
+          flex: 1 1 0%;
+        }
+        .tab-content {
+          overflow-y: auto;
+          max-height: calc(var(--mdc-dialog-min-height, 700px) - 100px);
+          padding-bottom: 1rem;
+        }
+        :host([fullscreen]) .tab-content {
+          max-height: calc(var(--mdc-dialog-min-height, 700px) - 128px - 50px);
+        }
         sidebar-dialog-panels {
           display: block;
           position: relative;
-          max-height: calc(var(--mdc-dialog-min-height) - 50px);
           width: inherit;
-          overflow-y: auto;
-        }
-
-        :host([fullscreen]) sidebar-dialog-panels {
-          --so-content-fullscreen-max-height: calc(var(--mdc-dialog-min-height) - 128px - 50px);
-          max-height: var(--so-content-fullscreen-max-height);
         }
 
         #tabbar {

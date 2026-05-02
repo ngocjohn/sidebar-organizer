@@ -59,68 +59,59 @@ export const BASE_APPEARANCE_SCHEMA = memoizeOne((data: SidebarAppearanceConfig)
   const delayDisabled = data?.animation_off === true;
   return [
     {
-      title: 'Appearance Settings',
-      type: 'expandable',
-      expanded: true,
-      flatten: true,
-      icon: 'mdi:format-text',
+      type: 'grid',
       schema: [
         {
-          type: 'grid',
-          schema: [
-            {
-              name: 'header_title',
-              type: 'string',
-            },
-            ...commonBooleanSchema(['hide_header_toggle', 'animation_off']),
-            ...(!delayDisabled
-              ? [
-                  {
-                    name: 'animation_delay',
-                    label: 'Animation Delay (ms)',
-                    selector: {
-                      number: {
-                        min: 0,
-                        max: 100,
-                        step: 10,
-                        mode: 'slider',
-                        unit_of_measurement: 'ms',
-                      },
-                    },
-                    helper: 'Delay for each item (default: 50ms)',
-                    default: 50,
-                    disabled: delayDisabled,
-                  },
-                ]
-              : []),
-            ...commonBooleanSchema(['move_settings_from_fixed', 'force_transparent_background', 'accordion_mode']),
-            {
-              name: 'text_transformation',
-              label: 'Text Transformation',
-              default: 'capitalize',
-              helper: 'Transform the text of group names',
-              selector: {
-                select: {
-                  mode: 'dropdown',
-                  options: [
-                    ...TextTransformations.map((mode) => ({
-                      value: mode,
-                      label: mode.charAt(0).toUpperCase() + mode.slice(1),
-                    })),
-                  ],
-                },
-              },
-            },
-            {
-              name: 'width',
-              label: 'Custom Width',
-              helper:
-                'Set a custom width for the sidebar, allows values with css units (e.g., 300px or 20%), or a number (which will be treated as pixels)',
-              type: 'string',
-            },
-          ] as const,
+          name: 'header_title',
+          type: 'string',
         },
-      ],
+        ...commonBooleanSchema(['hide_header_toggle', 'animation_off']),
+        ...(!delayDisabled
+          ? [
+              {
+                name: 'animation_delay',
+                label: 'Animation Delay (ms)',
+                selector: {
+                  number: {
+                    min: 0,
+                    max: 100,
+                    step: 10,
+                    mode: 'slider',
+                    unit_of_measurement: 'ms',
+                  },
+                },
+                helper: 'Delay for each item (default: 50ms)',
+                default: 50,
+                disabled: delayDisabled,
+              },
+            ]
+          : []),
+        ...commonBooleanSchema(['move_settings_from_fixed', 'force_transparent_background', 'accordion_mode']),
+        {
+          name: 'text_transformation',
+          label: 'Text Transformation',
+          default: 'capitalize',
+          helper: 'Transform the text of group names',
+          selector: {
+            select: {
+              mode: 'dropdown',
+              options: [
+                ...TextTransformations.map((mode) => ({
+                  value: mode,
+                  label: mode.charAt(0).toUpperCase() + mode.slice(1),
+                })),
+              ],
+            },
+          },
+        },
+        {
+          name: 'width',
+          label: 'Custom Width',
+          helper:
+            'Set a custom width for the sidebar, allows values with css units (e.g., 300px or 20%), or a number (which will be treated as pixels)',
+          type: 'string',
+        },
+      ] as const,
     },
   ] as const;
 });
