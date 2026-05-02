@@ -6,3 +6,10 @@ export interface ElementsStore {
   topItems: NodeListOf<SidebarPanelItem>;
   bottomItems: NodeListOf<SidebarPanelItem> | null;
 }
+
+export interface HaTooltip extends HTMLElement {
+  for: string | null;
+  placement: string;
+  show(): Promise<void>;
+  hide(): Promise<void>;
+}

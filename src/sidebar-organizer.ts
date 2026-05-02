@@ -3,7 +3,6 @@ import {
   ATTRIBUTE,
   CLASS,
   ELEMENT,
-  EVENT,
   HA_EVENT,
   HA_STATE,
   MDI,
@@ -21,7 +20,6 @@ import {
   PANEL_TYPE,
   PanelInfo,
   PartialPanelResolver,
-  Sidebar,
   SidebarConfig,
   SidebarPanelItem,
   ElementsStore,
@@ -45,7 +43,13 @@ import { isIcon } from '@utilities/is-icon';
 import * as LOGGER from '@utilities/logger';
 import DialogHandler from '@utilities/model/dialog-handler';
 import Store from '@utilities/model/store';
-import { computeBadge, computeNewItem, computeNotifyIcon, getDefaultPanelUrlPath } from '@utilities/panel';
+import {
+  computeBadge,
+  computeNewItem,
+  computeNotifyIcon,
+  getDefaultPanelUrlPath,
+  createHaTooltipForItem,
+} from '@utilities/panel';
 import { setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
 import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
 import { getPromisableResult, PromisableOptions } from 'get-promisable-result';
@@ -115,8 +119,6 @@ export class SidebarOrganizer {
     this._sidebarItems = [];
     this._currentPath = window.location.pathname;
     this._watchPathChanges();
-    this._mouseEnterBinded = this._mouseEnter.bind(this);
-    this._mouseLeaveBinded = this._mouseLeave.bind(this);
     instance.listen();
   }
 
@@ -127,7 +129,6 @@ export class SidebarOrganizer {
   public _haDrawer!: HaDrawer;
   private _panelLovelace!: HAElement;
   private _notCompatible: boolean = false;
-  private _blockEditModeChange: boolean = false;
   public _config: SidebarConfig = {};
   private _currentPath: string;
   private _delayTimeout: number | null = null;
@@ -152,9 +153,6 @@ export class SidebarOrganizer {
   private sideBarRoot!: ShadowRoot;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
-
-  private _mouseEnterBinded: (event: MouseEvent) => void;
-  private _mouseLeaveBinded: () => void;
 
   get hass(): HaExtened['hass'] {
     return this._ha!.hass;
@@ -650,6 +648,7 @@ export class SidebarOrganizer {
             );
           } else {
             const group = inGroup(panelId);
+            const isNewItem = foundItem.hasAttribute(ATTRIBUTE.NEW_ITEM);
             const groupVisibilityTemplate =
               group && groupHasVisibilityTemplate(group) ? groupVisibilityMap.get(group)! : null;
             const itemVisibilityTemplate = itemHasVisibilityTemplate(panelId) ? itemVisibilityMap.get(panelId)! : null;
@@ -664,14 +663,19 @@ export class SidebarOrganizer {
 
               this._subscribeVisibility(foundItem, visibilityTemplate);
             }
+            if (isNewItem || group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+              const haTooltip = createHaTooltipForItem(foundItem);
+              if (group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+                haTooltip.setAttribute(ATTRIBUTE.GRID_ITEM, '');
+              }
+              foundItem.insertAdjacentElement('afterend', haTooltip);
+            }
             if (group === PANEL_TYPE.BOTTOM_ITEMS || group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
               if (group === PANEL_TYPE.BOTTOM_ITEMS) {
                 foundItem.setAttribute(ATTRIBUTE.BOTTOM, '');
                 bottomItems.appendChild(foundItem);
               } else if (group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
                 foundItem.setAttribute(ATTRIBUTE.GRID_ITEM, '');
-                foundItem.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
-                foundItem.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
                 bottomGridItems.appendChild(foundItem);
               }
             } else if (group) {
@@ -690,6 +694,7 @@ export class SidebarOrganizer {
             orderedPanels.push({ ...parseItemValues(foundItem), group: group || 'uncategorized' });
           }
         });
+
         visibilityTemplateUsageLog.length > 0 &&
           console.groupCollapsed('Panels with visibility templates:', visibilityTemplateUsageLog.length);
         console.table(visibilityTemplateUsageLog);
@@ -831,19 +836,6 @@ export class SidebarOrganizer {
     const bottomItems = bottomItemsContainer
       ? await this._getContainerItems(bottomItemsContainer, promisableResultOptions)
       : null;
-
-    // if (__DEBUG__) {
-    //   const topItemsDebug = mapItemsForDebug(topItems);
-    //   const bottomItemsDebug = bottomItems ? mapItemsForDebug(bottomItems) : null;
-    //   console.groupCollapsed('%cDebug Info: Sections Elements', 'color: #bada55; font-weight: 600;');
-    //   console.log('Top Items Container:', topItemsContainer);
-    //   console.log('Top Items:', topItemsDebug);
-    //   if (bottomItemsContainer) {
-    //     console.log('Bottom Items Container:', bottomItemsContainer);
-    //     console.log('Bottom Items:', bottomItemsDebug);
-    //   }
-    //   console.groupEnd();
-    // }
 
     return {
       topItemsContainer,
@@ -1010,67 +1002,6 @@ export class SidebarOrganizer {
     contentDiv.classList.toggle(CLASS.COLLAPSED, isCollapsed);
     return contentDiv;
   };
-
-  private _addBottomItems(): void {
-    const bottomItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_ITEMS) || [];
-    const bottomGridItems = this._configPanelMap.get(PANEL_TYPE.BOTTOM_GRID_ITEMS) || [];
-    if (bottomItems.length === 0 && bottomGridItems.length === 0) {
-      return;
-    }
-    const panelsList = this._panelsList;
-    const afterSpacer = panelsList.querySelector(SELECTOR.AFTER_SPACER) as HTMLElement;
-    panelsList.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`)?.forEach((el) => el.remove());
-    // // console.log({ bottomItems, bottomGridItems }, { panelsList, scrollbarItems, afterSpacer });
-    // const resetExistingElements = () => {
-    //   const existingBottomContainer = panelsList.querySelectorAll(SELECTOR.BOTTOM_CONTAINER);
-    //   const emptyExistingGridContainer = panelsList.querySelectorAll(SELECTOR.GRID_CONTAINER);
-    //   const dividerExisting = panelsList.querySelectorAll(`${SELECTOR.DIVIDER}[${ATTRIBUTE.BOTTOM}]`);
-    //   if (existingBottomContainer.length > 0 || emptyExistingGridContainer.length > 0 || dividerExisting.length > 0) {
-    //     existingBottomContainer.forEach((el) => el.remove());
-    //     emptyExistingGridContainer.forEach((el) => el.remove());
-    //     dividerExisting.forEach((el) => el.remove());
-    //   }
-    // };
-    // resetExistingElements();
-
-    if (bottomItems.length > 0) {
-      const bottomContainer = document.createElement('div') as HTMLElement;
-      bottomContainer.classList.add('bottom-container');
-      bottomItems.forEach((item) => {
-        const bottomItem = this._sidebarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
-        if (!bottomItem) return;
-        bottomItem.setAttribute(ATTRIBUTE.MOVED, '');
-        bottomContainer.appendChild(bottomItem);
-      });
-
-      if (bottomContainer.children.length > 0) {
-        const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
-        panelsList.insertBefore(bottomContainer, afterSpacer);
-        panelsList.insertBefore(bottomDivider, afterSpacer);
-      }
-    }
-
-    if (bottomGridItems.length > 0) {
-      const gridContainer = document.createElement('div') as HTMLElement;
-      gridContainer.classList.add('grid-container');
-      bottomGridItems.forEach((item) => {
-        const panel = this._sidebarItems.find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === item);
-        if (!panel) return;
-
-        panel.setAttribute(ATTRIBUTE.GRID_ITEM, '');
-        panel.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
-        panel.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
-        gridContainer.appendChild(panel);
-      });
-
-      if (gridContainer.children.length > 0) {
-        panelsList.querySelector(SELECTOR.GRID_CONTAINER)?.remove();
-        const divider = this._createDivider(ATTRIBUTE.BOTTOM);
-        panelsList.insertBefore(gridContainer, afterSpacer);
-        panelsList.insertBefore(divider, afterSpacer);
-      }
-    }
-  }
 
   private _handleNewConfig(config: SidebarConfig, useConfigFile: boolean) {
     if (useConfigFile) {
@@ -1288,34 +1219,8 @@ export class SidebarOrganizer {
     if (itemConfig.notification !== undefined) {
       this._subscribeNotification(item, itemConfig.notification!);
     }
-    item.addEventListener(EVENT.MOUSEENTER, this._mouseEnterBinded);
-    item.addEventListener(EVENT.MOUSELEAVE, this._mouseLeaveBinded);
+
     return item;
-  }
-
-  private async _mouseEnter(event: MouseEvent) {
-    const sidebarElement = (await this._sidebar.element) as Sidebar;
-    const target = event.currentTarget as HTMLElement;
-    const targetIsGridItem = target.hasAttribute('grid-item');
-    if (sidebarElement.alwaysExpand && !targetIsGridItem) {
-      return;
-    }
-
-    if (sidebarElement._mouseLeaveTimeout) {
-      clearTimeout(sidebarElement._mouseLeaveTimeout);
-      sidebarElement._mouseLeaveTimeout = undefined;
-    }
-    sidebarElement._showTooltip(event.currentTarget as HTMLElement);
-  }
-
-  private async _mouseLeave(): Promise<void> {
-    const sidebarElement = (await this._sidebar.element) as Sidebar;
-    if (sidebarElement._mouseLeaveTimeout) {
-      clearTimeout(sidebarElement._mouseLeaveTimeout);
-    }
-    sidebarElement._mouseLeaveTimeout = window.setTimeout(() => {
-      sidebarElement._hideTooltip();
-    }, 500);
   }
 
   private _subscribeNotification(panel: HTMLElement, value: string) {

@@ -1,9 +1,9 @@
 import type { HomeAssistant } from '../types/ha';
-import type { NewItemConfig, PanelInfo, SidebarPanelItem } from '@types';
+import type { HaTooltip, NewItemConfig, PanelInfo, SidebarPanelItem } from '@types';
 import type { Panels } from '@types';
 import type { Connection } from 'home-assistant-js-websocket';
 
-import { ATTRIBUTE, CLASS, ELEMENT } from '@constants';
+import { ATTRIBUTE, CLASS, ELEMENT, SELECTOR } from '@constants';
 import { createCollection } from 'home-assistant-js-websocket';
 
 import { hasItemAction, NavigateActionConfig, UrlActionConfig } from './action';
@@ -107,6 +107,16 @@ const convertUrlActionToNavigateAction = (action: UrlActionConfig): NavigateActi
     navigation_path: action.url_path,
   };
 };
+const cleanString = (str: string): string =>
+  str
+    .trim()
+    .replace(/[^a-zA-Z0-9-_\u00A0-\uFFEF\s-]/g, '-')
+    .replace(/[\s-]+/g, '-');
+
+export const createId = (panelId: string, prefix?: string): string => {
+  const id = cleanString(panelId);
+  return prefix ? `${cleanString(prefix)}_${id}` : id;
+};
 
 export const computeNewItem = (
   hass: HomeAssistant,
@@ -181,4 +191,21 @@ export const computeNotifyIcon = (): HTMLElement => {
   notifyIcon.classList.add(CLASS.NO_VISIBLE); // Start hidden
   notifyIcon.setAttribute(ATTRIBUTE.SLOT, 'end');
   return notifyIcon;
+};
+
+export const createHaTooltip = (forId: string, text: string): HaTooltip => {
+  const haTooltip = document.createElement('ha-tooltip') as HaTooltip;
+  haTooltip.for = forId;
+  haTooltip.innerText = text;
+  haTooltip.placement = 'right';
+  return haTooltip;
+};
+
+export const createHaTooltipForItem = (item: SidebarPanelItem, prefix?: string): HaTooltip => {
+  const panelId = item.getAttribute(ATTRIBUTE.DATA_PANEL);
+  const title = item.querySelector(SELECTOR.ITEM_TEXT)?.textContent?.trim() || panelId || 'unknown';
+  const idAttr = createId(panelId!, prefix ?? 'sidebar-panel');
+  item.id = idAttr;
+  const haTooltip = createHaTooltip(idAttr, title);
+  return haTooltip;
 };
