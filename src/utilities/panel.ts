@@ -107,7 +107,11 @@ const convertUrlActionToNavigateAction = (action: UrlActionConfig): NavigateActi
     navigation_path: action.url_path,
   };
 };
-const cleanString = (str: string): string => str.replace(/[^a-zA-Z0-9-_\u00A0-\uFFEF\s-]/g, '-');
+const cleanString = (str: string): string =>
+  str
+    .trim()
+    .replace(/[^a-zA-Z0-9-_\u00A0-\uFFEF\s-]/g, '-')
+    .replace(/[\s-]+/g, '-');
 
 export const createId = (panelId: string, prefix?: string): string => {
   const id = cleanString(panelId);
@@ -199,7 +203,7 @@ export const createHaTooltip = (forId: string, text: string): HaTooltip => {
 
 export const createHaTooltipForItem = (item: SidebarPanelItem, prefix?: string): HaTooltip => {
   const panelId = item.getAttribute(ATTRIBUTE.DATA_PANEL);
-  const title = item.querySelector(SELECTOR.ITEM_TEXT)?.textContent.trim() || panelId || 'unknown';
+  const title = item.querySelector(SELECTOR.ITEM_TEXT)?.textContent?.trim() || panelId || 'unknown';
   const idAttr = createId(panelId!, prefix ?? 'sidebar-panel');
   item.id = idAttr;
   const haTooltip = createHaTooltip(idAttr, title);
