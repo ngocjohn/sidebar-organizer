@@ -100,9 +100,6 @@ export class SidebarOrganizer {
       throwWarnings: false,
     });
 
-    // Listen for storage changes to handle collapse state updates across tabs
-    window.addEventListener('storage', this._storageListener.bind(this));
-
     // Listen for HA Events
     [
       HA_EVENT.SETTHEME,
@@ -120,6 +117,8 @@ export class SidebarOrganizer {
     this._currentPath = window.location.pathname;
     this._watchPathChanges();
     instance.listen();
+    // Listen for storage changes to handle collapse state updates across tabs
+    window.addEventListener('storage', this._storageListener.bind(this));
   }
 
   private _homeAssistant!: HAElement;
@@ -1298,8 +1297,8 @@ export class SidebarOrganizer {
 
     const isCollapsed = items[0].classList.contains(CLASS.COLLAPSED);
 
-    // Accordion mode: collapse all other groups when expanding one
     if (this._config?.accordion_mode && isCollapsed && this.setupConfigDone) {
+      // Accordion mode: collapse all other groups when expanding one, by computing a new set of collapsed groups and applying it
       const allGroups = Object.keys(this._config?.custom_groups || {});
       allGroups.forEach((otherGroup) => {
         if (otherGroup !== group && !this.collapsedItems.has(otherGroup)) {
@@ -1308,7 +1307,8 @@ export class SidebarOrganizer {
           }) as HTMLElement[];
           if (!otherItems.length) return;
 
-          this._setItemToLocalStorage(otherGroup, true);
+          // Add to collapsed groups set. Avoid issues when there are other tabs/windows open with a different collapse state
+          this.collapsedItems.add(otherGroup);
 
           const divider = this._scrollbar.querySelector(
             `${SELECTOR.DIVIDER_ADDED}[${ATTRIBUTE.GROUP}="${otherGroup}"]`
@@ -1317,7 +1317,6 @@ export class SidebarOrganizer {
             divider.classList.add(CLASS.COLLAPSED);
             divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.add(CLASS.COLLAPSED);
           }
-
           otherItems.forEach((item) => item.classList.add(CLASS.COLLAPSED));
         }
       });
