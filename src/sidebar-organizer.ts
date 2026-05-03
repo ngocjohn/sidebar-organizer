@@ -1298,7 +1298,7 @@ export class SidebarOrganizer {
     const isCollapsed = items[0].classList.contains(CLASS.COLLAPSED);
 
     if (this._config?.accordion_mode && isCollapsed && this.setupConfigDone) {
-      // Accordion mode: collapse all other groups when expanding one, by compute new set of collapsed groups and applying it
+      // Accordion mode: collapse all other groups when expanding one, by computing a new set of collapsed groups and applying it
       const allGroups = Object.keys(this._config?.custom_groups || {});
       allGroups.forEach((otherGroup) => {
         if (otherGroup !== group && !this.collapsedItems.has(otherGroup)) {
@@ -1307,7 +1307,7 @@ export class SidebarOrganizer {
           }) as HTMLElement[];
           if (!otherItems.length) return;
 
-          // Add to collapsed groups set. Avoid issue when are another tabs or windows open with different state of collapsed groups.
+          // Add to collapsed groups set. Avoid issues when there are other tabs/windows open with a different collapse state
           this.collapsedItems.add(otherGroup);
 
           const divider = this._scrollbar.querySelector(
