@@ -728,7 +728,7 @@ export class SidebarOrganizer {
           const bottomGridContainer = createContainer(PANEL_TYPE.BOTTOM_GRID_ITEMS, bottomGridItems);
 
           if (bottomContainer || bottomGridContainer) {
-            const haMdList = document.createElement(ELEMENT.HA_MD_LIST) as any;
+            const haMdList = document.createElement(ELEMENT.HA_LIST_NAV) as any;
             haMdList.classList.add(CLASS.BOTTOM_LIST);
             if (bottomContainer) {
               haMdList.appendChild(bottomContainer);
