@@ -17,6 +17,7 @@
     "allowJs": true,
     "rootDir": "src",
     "baseUrl": "./src",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@types": ["types"],
       "@constants": ["constants"],
