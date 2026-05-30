@@ -4,6 +4,7 @@ import { version, repository } from '../../package.json';
 
 export * from './dom';
 export * from './config-area';
+export * from './css-var';
 export const NAMESPACE = 'sidebar-organizer';
 export const NAMESPACE_TITLE = 'Sidebar Organizer';
 export const VERSION_NUMBER = version;

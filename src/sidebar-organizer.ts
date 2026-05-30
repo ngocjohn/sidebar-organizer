@@ -2,6 +2,9 @@ import {
   ALERT_MSG,
   ATTRIBUTE,
   CLASS,
+  CSS_VAR,
+  CSS_VAR_VALUE,
+  CUSTOM_EVENT,
   ELEMENT,
   HA_EVENT,
   HA_STATE,
@@ -311,12 +314,9 @@ export class SidebarOrganizer {
   // Observe sidebar element attrribute changes, if 'expanded' attribute is removed or added.
   private _watchSidebarExpansion(mutations: MutationRecord[]) {
     mutations.forEach((mutation) => {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'expanded') {
+      if (mutation.attributeName === ATTRIBUTE.EXPANDED) {
         const isExpanded = this.HaSidebar.hasAttribute('expanded');
-        console.debug(
-          'Sidebar expansion changed, current state:',
-          this.HaSidebar.hasAttribute('expanded') ? 'expanded' : 'collapsed'
-        );
+        console.debug('Sidebar expansion changed, current expanded state:', isExpanded);
         this._changeGridItemTooltipPlacement(isExpanded);
       }
     });
@@ -950,7 +950,7 @@ export class SidebarOrganizer {
     divider.appendChild(contentDiv);
     if (this._pinnedGroups[group]) {
       contentDiv.id = `pinned-${group}`;
-      const haTooltip = document.createElement('ha-tooltip') as any;
+      const haTooltip = document.createElement(SELECTOR.HA_TOOLTIP) as HaTooltip;
       haTooltip.for = `pinned-${group}`;
       haTooltip.innerText = `${group.trim()}`;
       haTooltip.placement = 'right';
@@ -963,7 +963,7 @@ export class SidebarOrganizer {
 
   private _createAddedGroupContent = (group: string, isCollapsed: boolean = false): HTMLElement => {
     if (this._pinnedGroups[group]) {
-      const groupDivEl = document.createElement('so-group-divider') as SoGroupDivider;
+      const groupDivEl = document.createElement(ELEMENT.SO_GROUP_DIVIDER) as SoGroupDivider;
       groupDivEl.classList.add(CLASS.ADDED_CONTENT);
       groupDivEl.setAttribute(ATTRIBUTE.GROUP, group);
       groupDivEl.classList.toggle(CLASS.COLLAPSED, isCollapsed);
@@ -1043,7 +1043,7 @@ export class SidebarOrganizer {
         console.debug('❌ Invalid custom width, skipping applying custom width style:', width);
         return;
       }
-      haMain.style.setProperty('--custom-sidebar-width', customWidth);
+      haMain.style.setProperty(CSS_VAR.CUSTOM_SIDEBAR_WIDTH, customWidth);
       console.debug('Custom sidebar width applied:', customWidth);
 
       this._styleManager.addStyle([HA_MAIN_CUSTOM_WIDTH_STYLE.toString()], haMain.shadowRoot!);
@@ -1081,23 +1081,23 @@ export class SidebarOrganizer {
     const forceTransparentBackground = this._config?.force_transparent_background === true;
 
     const colorCssConfig = {
-      '--divider-color': getColor('divider_color'),
-      '--divider-bg-color': getColor('background_color'),
-      '--divider-border-top-color': getColor('border_top_color'),
-      '--scrollbar-thumb-color': getColor('scrollbar_thumb_color'),
-      '--sidebar-background-color': getColor('custom_sidebar_background_color'),
-      '--divider-border-radius': borderRadius,
-      '--divider-margin-radius': marginRadius,
-      '--sidebar-text-color': getColor('divider_text_color'),
-      '--sidebar-text-transform': textTransform,
+      [CSS_VAR.DIVIDER_COLOR]: getColor('divider_color'),
+      [CSS_VAR.DIVIDER_BG_COLOR]: getColor('background_color'),
+      [CSS_VAR.DIVIDER_BORDER_TOP_COLOR]: getColor('border_top_color'),
+      [CSS_VAR.SCROLLBAR_THUMB_COLOR]: getColor('scrollbar_thumb_color'),
+      [CSS_VAR.SIDEBAR_BACKGROUND_COLOR]: getColor('custom_sidebar_background_color'),
+      [CSS_VAR.DIVIDER_BORDER_RADIUS]: borderRadius,
+      [CSS_VAR.DIVIDER_MARGIN_RADIUS]: marginRadius,
+      [CSS_VAR.SIDEBAR_TEXT_COLOR]: getColor('divider_text_color'),
+      [CSS_VAR.SIDEBAR_TEXT_TRANSFORM]: textTransform,
     };
 
     // If force transparent background is enabled, override related colors and add backdrop filter styles
     if (forceTransparentBackground) {
-      colorCssConfig['--sidebar-background-color'] = 'transparent';
-      colorCssConfig['--so-tooltip-background-color'] = 'var(--primary-background-color)';
-      colorCssConfig['--so-tooltip-text-color'] = 'var(--primary-text-color)';
-      colorCssConfig['--so-backdrop-filter'] = 'blur(10px)';
+      colorCssConfig[CSS_VAR.SIDEBAR_BACKGROUND_COLOR] = CSS_VAR_VALUE.TRANSPARENT;
+      colorCssConfig[CSS_VAR.SO_TOOLTIP_BACKGROUND_COLOR] = CSS_VAR_VALUE.PRIMARY_BACKGROUND_COLOR;
+      colorCssConfig[CSS_VAR.SO_TOOLTIP_TEXT_COLOR] = CSS_VAR_VALUE.PRIMARY_TEXT_COLOR;
+      colorCssConfig[CSS_VAR.SO_BACKDROP_FILTER] = CSS_VAR_VALUE.BLUR_10PX;
       this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
     }
 
@@ -1366,6 +1366,11 @@ export class SidebarOrganizer {
 
   _removeUserSidebarData = () => {
     return clearSidebarUserData(this.hass.connection);
+  };
+
+  _toogleKioskMode = (enable?: boolean) => {
+    const newValue = enable !== undefined ? enable : !this.hass.kioskMode;
+    window.dispatchEvent(new CustomEvent(CUSTOM_EVENT.HASS_KIOSK_MODE, { detail: { enable: newValue } }));
   };
 }
 

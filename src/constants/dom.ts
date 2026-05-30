@@ -57,6 +57,7 @@ export enum ELEMENT {
   SO_PROFILE_SECTION = 'so-profile-section',
   CONFIG_LOVELACE_DASHBOARDS = 'ha-config-lovelace-dashboards',
   HA_PANEL_LOVELACE = 'ha-panel-lovelace',
+  SO_GROUP_DIVIDER = 'so-group-divider',
 }
 
 export enum CLASS {
@@ -106,6 +107,7 @@ export enum SLOT {
 export enum CUSTOM_EVENT {
   CONFIG_DIFF = 'config-diff',
   UI_EDITOR = 'ui-editor',
+  HASS_KIOSK_MODE = 'hass-kiosk-mode',
 }
 
 export enum EVENT {
