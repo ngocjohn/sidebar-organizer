@@ -31,6 +31,7 @@ export enum SELECTOR {
   CONTENT = '.content',
   SIDEBAR_LOADER = 'ha-fade-in',
   HUI_ROOT = 'hui-root',
+  HA_TOOLTIP = 'ha-tooltip',
 }
 export enum ELEMENT {
   ITEM = 'ha-list-item-button',

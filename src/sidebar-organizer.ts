@@ -18,17 +18,16 @@ import {
   HaExtened,
   NewItemConfig,
   PANEL_TYPE,
-  PanelInfo,
   PartialPanelResolver,
   SidebarConfig,
   SidebarPanelItem,
   ElementsStore,
+  HaTooltip,
 } from '@types';
 import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
 import { compareHacsTagDiff } from '@utilities/compare-urls';
 
 import './components/so-group-divider';
-import { getBuiltInPanels } from '@utilities/compute-panels';
 import { fetchConfig } from '@utilities/configs';
 import {
   atLeastVersion,
@@ -119,6 +118,7 @@ export class SidebarOrganizer {
     instance.listen();
     // Listen for storage changes to handle collapse state updates across tabs
     window.addEventListener('storage', this._storageListener.bind(this));
+    this._sidebarObserver = new MutationObserver(this._watchSidebarExpansion.bind(this));
   }
 
   private _homeAssistant!: HAElement;
@@ -152,6 +152,8 @@ export class SidebarOrganizer {
   private sideBarRoot!: ShadowRoot;
   public _baseOrder: string[] = [];
   public _hiddenPanels: string[] = [];
+
+  private _sidebarObserver: MutationObserver;
 
   get hass(): HaExtened['hass'] {
     return this._ha!.hass;
@@ -189,9 +191,9 @@ export class SidebarOrganizer {
       return;
     }
 
-    if (!atLeastVersion(this.hass.config.version, 2026, 2)) {
+    if (!atLeastVersion(this.hass.config.version, 2026, 6)) {
       this._notCompatible = true;
-      const msg = `${ALERT_MSG.NOT_COMPATIBLE}: ${this.hass.config.version}.\nPlease upgrade Home Assistant to 2026.2 or later.`;
+      const msg = `${ALERT_MSG.NOT_COMPATIBLE}: ${this.hass.config.version}.\nPlease upgrade Home Assistant to 2026.6 or later.`;
       this._store._showToast(msg, 10 * 1000);
 
       LOGGER.warn(msg);
@@ -203,15 +205,7 @@ export class SidebarOrganizer {
     await this._watchEditLegacySidebar();
 
     this._setupConfigBtn();
-    if (!this.firstSetUpDone && this._hasSidebarConfig) {
-      // Load built-in panels for versions before 2026.3 to ensure they are included in the sidebar configuration process
-      if (!atLeastVersion(this.hass.config.version, 2026, 3)) {
-        await this._getDataDashboards();
-      }
-      this.firstSetUpDone = true;
-    }
-
-    if (this.firstSetUpDone && !this._userHasSidebarSettings) {
+    if (!this._userHasSidebarSettings) {
       await this._getConfig().then(() => {
         this._watchScrollHideHeader();
         this._setupInitialConfig();
@@ -311,6 +305,20 @@ export class SidebarOrganizer {
         console.log('Blocked attempt to set sidebar edit mode');
       },
       configurable: true,
+    });
+  }
+
+  // Observe sidebar element attrribute changes, if 'expanded' attribute is removed or added.
+  private _watchSidebarExpansion(mutations: MutationRecord[]) {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'expanded') {
+        const isExpanded = this.HaSidebar.hasAttribute('expanded');
+        console.debug(
+          'Sidebar expansion changed, current state:',
+          this.HaSidebar.hasAttribute('expanded') ? 'expanded' : 'collapsed'
+        );
+        this._changeGridItemTooltipPlacement(isExpanded);
+      }
     });
   }
 
@@ -429,13 +437,6 @@ export class SidebarOrganizer {
     } else {
       addAction(profileEl, this._dialogManager._showConfigDialogEditor.bind(this._dialogManager));
     }
-  }
-
-  private async _getDataDashboards() {
-    const defaultPanel = getDefaultPanelUrlPath(this.hass);
-    await getBuiltInPanels(this.hass.panels, defaultPanel).then((panels) => {
-      this._addBuiltInPanelsToSidebar(panels);
-    });
   }
 
   private async _getContainerItems(
@@ -666,6 +667,7 @@ export class SidebarOrganizer {
               const haTooltip = createHaTooltipForItem(foundItem);
               if (group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
                 haTooltip.setAttribute(ATTRIBUTE.GRID_ITEM, '');
+                // this._gridItemTooltips.push(haTooltip);
               }
               foundItem.insertAdjacentElement('afterend', haTooltip);
             }
@@ -735,6 +737,14 @@ export class SidebarOrganizer {
             }
             if (bottomGridContainer) {
               haMdList.appendChild(bottomGridContainer);
+              this._sidebarObserver.disconnect(); // Temporarily disconnect observer to prevent it from reacting to our DOM changes
+              this._sidebarObserver.observe(this.HaSidebar, {
+                attributes: true,
+                childList: false,
+                attributeOldValue: this.HaSidebar.hasAttribute('expanded'),
+                subtree: false,
+              });
+              this._changeGridItemTooltipPlacement(this.HaSidebar.hasAttribute('expanded'));
             }
             const spacer = this._panelsList.querySelector(SELECTOR.SPACER) as HTMLElement;
             this._panelsList.insertBefore(haMdList, spacer.nextElementSibling);
@@ -898,37 +908,6 @@ export class SidebarOrganizer {
     const isAllCollapsed = collapsedSize === groupsLength;
     toggleIcon.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
     toggleIcon.setAttribute('icon', isAllCollapsed ? MDI.PLUS : MDI.MINUS);
-  }
-
-  private _addBuiltInPanelsToSidebar(panels: PanelInfo[]): void {
-    if (!panels || panels.length === 0) return;
-    const scrollbarItems = Array.from(this._scrollbarItems) as SidebarPanelItem[];
-
-    const addedPanels: string[] = [];
-
-    panels.map((panel) => {
-      const existingPanel = scrollbarItems.find((el) => {
-        const panelId = el.getAttribute(ATTRIBUTE.DATA_PANEL) || el.href.replace('/', '');
-        return panelId === panel.url_path;
-      });
-      if (existingPanel) {
-        // Skip if panel already exists
-        return;
-      }
-      // const builtInItem = this._createBuiltInPanelItem(panel);
-      const builtInItem = this._createNewItem(panel, true);
-      if (builtInItem) {
-        this._scrollbar?.appendChild(builtInItem);
-        addedPanels.push(panel.url_path!);
-      }
-    });
-    addedPanels.length > 0 && // success
-      console.log(
-        '%cSIDEBAR-ORGANIZER:%c ✅ Built in panels added',
-        'color: #bada55;',
-        'color: #40c057; font-weight: 600;',
-        addedPanels
-      );
   }
 
   private _subscribeTemplate(value: string, callback: (result: string) => void): void {
@@ -1210,6 +1189,15 @@ export class SidebarOrganizer {
         }
         return shouldUpdate.call(this, changedProps);
       };
+    });
+  }
+
+  private _changeGridItemTooltipPlacement(expanded: boolean): void {
+    const gridItemTooltips = this._scrollbar.querySelectorAll(
+      `${SELECTOR.HA_TOOLTIP}[${ATTRIBUTE.GRID_ITEM}]`
+    ) as NodeListOf<HaTooltip>;
+    gridItemTooltips.forEach((tooltip) => {
+      tooltip.placement = !expanded ? 'right' : 'top';
     });
   }
 
