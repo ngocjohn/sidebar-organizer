@@ -71,19 +71,19 @@ export const DIVIDER_ADDED_STYLE = css`
     opacity: 0.5;
   }
 
-  :host ha-md-list-item > ha-icon.badge {
+  :host ha-list-item-button > ha-icon.badge {
     --mdc-icon-size: 20px !important;
   }
 
   :host([expanded]) .menu {
     width: 100% !important;
   }
-  :host([expanded]) ha-md-list-item {
+  :host([expanded]) ha-list-item-button {
     width: calc(100% - var(--ha-space-2)) !important;
   }
 
-  :host([expanded]) .grid-container > ha-md-list-item[grid-item] > ha-icon.badge,
-  :host([expanded]) .grid-container > ha-md-list-item[grid-item] > span.badge {
+  :host([expanded]) .grid-container > ha-list-item-button[grid-item] > ha-icon.badge,
+  :host([expanded]) .grid-container > ha-list-item-button[grid-item] > span.badge {
     position: absolute;
     top: 4px;
     left: 26px;
@@ -92,8 +92,8 @@ export const DIVIDER_ADDED_STYLE = css`
     line-height: var(--ha-line-height-expanded);
     padding: 0 var(--ha-space-1);
   }
-  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
-  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge {
+  :host(:not([expanded])) ha-list-item-button[data-notification='true'] > ha-icon.badge,
+  :host(:not([expanded])) ha-list-item-button[data-notification='true'] > span.badge {
     position: absolute;
     inset-inline-start: 20px;
     inset-inline-end: initial;
@@ -102,11 +102,11 @@ export const DIVIDER_ADDED_STYLE = css`
     top: 0px;
   }
 
-  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > ha-icon.badge,
-  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge.badge-number {
+  :host(:not([expanded])) ha-list-item-button[data-notification='true'] > ha-icon.badge,
+  :host(:not([expanded])) ha-list-item-button[data-notification='true'] > span.badge.badge-number {
     inset-inline-end: 4px !important;
   }
-  :host(:not([expanded])) ha-md-list-item[data-notification='true'] > span.badge.large-badge {
+  :host(:not([expanded])) ha-list-item-button[data-notification='true'] > span.badge.large-badge {
     transform: translateX(50%);
     right: 22px;
     white-space: nowrap;
@@ -114,17 +114,17 @@ export const DIVIDER_ADDED_STYLE = css`
     text-overflow: ellipsis;
   }
 
-  ha-md-list-item[data-notification='true'] span.badge.no-visible {
+  ha-list-item-button[data-notification='true'] span.badge.no-visible {
     visibility: hidden !important;
     opacity: 0 !important;
   }
-  ha-md-list-item[data-notification='true'] > ha-icon.badge {
+  ha-list-item-button[data-notification='true'] > ha-icon.badge {
     padding: 0 !important;
     color: var(--accent-color);
     background-color: transparent;
   }
 
-  ha-md-list-item[data-notification='true'] > span.badge {
+  ha-list-item-button[data-notification='true'] > span.badge {
     /* padding: 0 5px !important; */
     border-radius: 20px;
     font-size: 0.85em;
@@ -142,9 +142,9 @@ export const DIVIDER_ADDED_STYLE = css`
     /* max-height: fit-content; */
     /* justify-content: flex-start; */
   }
-  :host([expanded]) .grid-container > ha-md-list-item[grid-item] {
+  :host([expanded]) .grid-container > ha-list-item-button[grid-item] {
     width: 48px !important;
-    height: 48px;
+    margin: 4px;
     /* justify-content: center;
     align-items: center; */
     /* margin: auto auto; */
@@ -238,17 +238,17 @@ export const DIVIDER_ADDED_STYLE = css`
     background-color: rgb(from var(--sidebar-selected-icon-color) r g b / 0.2);
   }
 
-  :host([expanded]) ha-md-list-item[group] {
+  :host([expanded]) ha-list-item-button[group] {
     padding-left: var(--so-group-item-indent, 0px) !important;
     padding-inline-start: var(--so-group-item-indent, 0px) !important;
   }
-  :host ha-md-list-item:has([group]) {
+  :host ha-list-item-button:has([group]) {
     transition: all;
   }
-  :host ha-md-list-item.selected[grid-item]::before {
+  :host ha-list-item-button.selected[grid-item]::before {
     margin-block: 2px;
   }
-  :host ha-md-list-item.collapsed {
+  :host ha-list-item-button.collapsed {
     max-height: 0px !important;
     overflow: hidden;
     opacity: 0;
@@ -266,7 +266,7 @@ export const DIVIDER_ADDED_STYLE = css`
     max-height: 1000px;
   }
 
-  :host ha-md-list-item.slideIn {
+  :host ha-list-item-button.slideIn {
     animation-name: slideIn;
     animation-duration: 0.3s;
     animation-fill-mode: forwards;
@@ -283,7 +283,7 @@ export const DIVIDER_ADDED_STYLE = css`
     }
   }
 
-  :host ha-md-list-item.slideOut {
+  :host ha-list-item-button.slideOut {
     animation-name: slideOut;
     animation-duration: 0.3s;
   }
@@ -315,6 +315,7 @@ export const DRAWER_STYLE = css`
 export const HA_MAIN_CUSTOM_WIDTH_STYLE = css`
   :host([expanded]:not([modal])) {
     --mdc-drawer-width: var(--custom-sidebar-width, calc(256px + var(--safe-area-inset-left, 0px)));
+    --ha-sidebar-width: var(--custom-sidebar-width, calc(256px + var(--safe-area-inset-left, 0px)));
   }
 `;
 
