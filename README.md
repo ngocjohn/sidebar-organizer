@@ -6,9 +6,9 @@
 
 > ⚠️ **Important Notice** ⚠️
 >
-> Sidebar Organizer **v3.0.0 and above** is compatible with **Home Assistant 2026.2.0 and newer**.
+> Sidebar Organizer **v4.0.0 and above** is compatible with **Home Assistant 2026.6.0 and newer**.
 >
-> For older Home Assistant versions, use **Sidebar Organizer up to v2.3.0**.
+> For older Home Assistant versions, use **Sidebar Organizer up to v3.4.1**
 >
 > 🔒 If you rely on Sidebar Organizer, make sure you install the version that matches your Home Assistant release.
 
