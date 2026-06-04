@@ -78,9 +78,10 @@ export const DIVIDER_ADDED_STYLE = css`
   :host([expanded]) .menu {
     width: 100% !important;
   }
-  :host([expanded]) ha-list-item-button {
+
+  /* :host([expanded]) ha-list-item-button {
     width: calc(100% - var(--ha-space-2)) !important;
-  }
+  } */
 
   :host([expanded]) .grid-container > ha-list-item-button[grid-item] > ha-icon.badge,
   :host([expanded]) .grid-container > ha-list-item-button[grid-item] > span.badge {
@@ -142,12 +143,17 @@ export const DIVIDER_ADDED_STYLE = css`
     /* max-height: fit-content; */
     /* justify-content: flex-start; */
   }
-  :host([expanded]) .grid-container > ha-list-item-button[grid-item] {
+
+  :host([expanded]) ha-list-item-button[grid-item] {
     width: 48px !important;
     margin: 4px;
     /* justify-content: center;
     align-items: center; */
     /* margin: auto auto; */
+  }
+
+  :host([expanded]) ha-list-item-button:not([grid-item]) {
+    width: calc(100% - var(--ha-space-2)) !important;
   }
 
   :host .divider[added] .added-content {
