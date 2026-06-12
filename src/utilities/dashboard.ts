@@ -172,10 +172,10 @@ export const comparePanelItems = async (hass: HomeAssistant, panelOrder: string[
   // isn't explicitly hidden (`show_in_sidebar === false`) and isn't a built-in
   // panel that is hidden by default and not already part of the panel order.
   const isShownInSidebar = (panel: PanelInfo): boolean =>
-    !FIXED_PANELS.includes(panel.url_path) &&
+    !FIXED_PANELS.includes(panel.url_path!) &&
     !!panel.title &&
     (panel.show_in_sidebar ?? true) &&
-    !(panel.default_visible === false && !panelOrder.includes(panel.url_path));
+    !(panel.default_visible === false && !panelOrder.includes(panel.url_path!));
 
   const inSidebar = Object.values(panels)
     .filter(isShownInSidebar)

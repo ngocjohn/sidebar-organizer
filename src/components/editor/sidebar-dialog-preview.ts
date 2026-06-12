@@ -130,7 +130,11 @@ export class SidebarDialogPreview extends BaseEditor {
     );
     const settingsItemMovedChanged = oldConfig.move_settings_from_fixed !== newConfig.move_settings_from_fixed;
 
-    if (Object.values(changedFlags).some((changed) => changed) || customGroupsOrderChanged || bottomGroupsOrderChanged) {
+    if (
+      Object.values(changedFlags).some((changed) => changed) ||
+      customGroupsOrderChanged ||
+      bottomGroupsOrderChanged
+    ) {
       // update the listbox if any of the panel groups config changed
       this._updateListbox(newConfig);
     } else if (settingsItemMovedChanged) {
@@ -348,6 +352,12 @@ export class SidebarDialogPreview extends BaseEditor {
         </div>
         <div class="spacer"></div>
         <div class="after-spacer">
+          ${isEmpty(this._previewPanels?.bottom_groups)
+            ? nothing
+            : html`
+                <div class="divider"></div>
+                <div class="bottom-groups-panel">${this._renderBottomGroups()}</div>
+              `}
           ${isEmpty(this._previewPanels?.bottom_items)
             ? nothing
             : html`
@@ -359,12 +369,6 @@ export class SidebarDialogPreview extends BaseEditor {
             : html`
                 <div class="divider"></div>
                 <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
-              `}
-          ${isEmpty(this._previewPanels?.bottom_groups)
-            ? nothing
-            : html`
-                <div class="divider"></div>
-                <div class="bottom-groups-panel">${this._renderBottomGroups()}</div>
               `}
           ${this._dialog._settingItemMoved
             ? nothing
