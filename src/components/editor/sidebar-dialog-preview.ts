@@ -14,6 +14,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 
 export interface PreviewPanels {
   custom_groups?: Record<string, PanelInfo[]>;
+  bottom_groups?: Record<string, PanelInfo[]>;
   bottom_items?: PanelInfo[];
   bottom_grid_items?: PanelInfo[];
 }
@@ -106,6 +107,7 @@ export class SidebarDialogPreview extends BaseEditor {
   private _updatePanelConfig(oldConfig: SidebarConfig, newConfig: SidebarConfig): void {
     const panelConfigKeys = [
       'custom_groups',
+      'bottom_groups',
       'bottom_items',
       'bottom_grid_items',
       'hidden_items',
@@ -122,9 +124,13 @@ export class SidebarDialogPreview extends BaseEditor {
       Object.keys(oldConfig.custom_groups || {}),
       Object.keys(newConfig.custom_groups || {})
     );
+    const bottomGroupsOrderChanged = !shallowEqual(
+      Object.keys(oldConfig.bottom_groups || {}),
+      Object.keys(newConfig.bottom_groups || {})
+    );
     const settingsItemMovedChanged = oldConfig.move_settings_from_fixed !== newConfig.move_settings_from_fixed;
 
-    if (Object.values(changedFlags).some((changed) => changed) || customGroupsOrderChanged) {
+    if (Object.values(changedFlags).some((changed) => changed) || customGroupsOrderChanged || bottomGroupsOrderChanged) {
       // update the listbox if any of the panel groups config changed
       this._updateListbox(newConfig);
     } else if (settingsItemMovedChanged) {
@@ -284,11 +290,17 @@ export class SidebarDialogPreview extends BaseEditor {
   private _computePreviewPanels(): PreviewPanels {
     const previewPanels: PreviewPanels = {};
 
-    const { custom_groups, bottom_items, bottom_grid_items } = this._sidebarConfig || {};
+    const { custom_groups, bottom_groups, bottom_items, bottom_grid_items } = this._sidebarConfig || {};
     if (custom_groups) {
       previewPanels.custom_groups = {};
       Object.entries(custom_groups).forEach(([groupName, items]) => {
         previewPanels.custom_groups![groupName] = items.map((item) => this._getPanelInfo(item));
+      });
+    }
+    if (bottom_groups) {
+      previewPanels.bottom_groups = {};
+      Object.entries(bottom_groups).forEach(([groupName, items]) => {
+        previewPanels.bottom_groups![groupName] = items.map((item) => this._getPanelInfo(item));
       });
     }
     if (bottom_items) {
@@ -348,6 +360,12 @@ export class SidebarDialogPreview extends BaseEditor {
                 <div class="divider"></div>
                 <div class="bottom-grid-panel">${this._renderBottomGridPanels()}</div>
               `}
+          ${isEmpty(this._previewPanels?.bottom_groups)
+            ? nothing
+            : html`
+                <div class="divider"></div>
+                <div class="bottom-groups-panel">${this._renderBottomGroups()}</div>
+              `}
           ${this._dialog._settingItemMoved
             ? nothing
             : html`<div class="divider"></div>
@@ -375,6 +393,26 @@ export class SidebarDialogPreview extends BaseEditor {
               </div>
             </div>`}
         <div class="group-items" ?collapsed=${isUncategorized ? false : isCollapsed} group=${groupName}>
+          ${items.map((item: PanelInfo) => this._renderPanel(item))}
+        </div>`;
+    });
+  }
+
+  private _renderBottomGroups(): TemplateResult[] {
+    const groups = this._previewPanels?.bottom_groups;
+    if (!groups) {
+      return [];
+    }
+
+    return Object.entries(groups).map(([groupName, items]) => {
+      const isCollapsed = this._collapsedGroups.has(groupName);
+      return html`<div class="divider-container" group=${groupName} @click=${() => this._toggleColapsed(groupName)}>
+          <div class="added-content" group=${groupName} ?collapsed=${isCollapsed}>
+            <ha-icon icon="mdi:chevron-down"></ha-icon>
+            <span>${groupName.trim()}</span>
+          </div>
+        </div>
+        <div class="group-items" ?collapsed=${isCollapsed} group=${groupName}>
           ${items.map((item: PanelInfo) => this._renderPanel(item))}
         </div>`;
     });
@@ -450,7 +488,15 @@ export class SidebarDialogPreview extends BaseEditor {
   }
 
   private _toggleColapsed = (group: string) => {
-    if (this._collapsedGroups.has(group)) {
+    const isCollapsed = this._collapsedGroups.has(group);
+    if (this._sidebarConfig?.accordion_mode && isCollapsed) {
+      // Accordion mode: expanding one group collapses all other groups (custom + bottom)
+      const allGroups = [
+        ...Object.keys(this._previewPanels?.custom_groups || {}),
+        ...Object.keys(this._previewPanels?.bottom_groups || {}),
+      ].filter((g) => g !== PANEL_TYPE.UNCATEGORIZED_ITEMS);
+      this._collapsedGroups = new Set(allGroups.filter((g) => g !== group));
+    } else if (isCollapsed) {
       this._collapsedGroups.delete(group);
     } else {
       this._collapsedGroups.add(group);
@@ -459,7 +505,10 @@ export class SidebarDialogPreview extends BaseEditor {
   };
 
   public _toggleGroup = (group: string | null, preview?: string) => {
-    const groupKeys = this._previewPanels?.custom_groups ? Object.keys(this._previewPanels.custom_groups) : [];
+    const groupKeys = [
+      ...Object.keys(this._previewPanels?.custom_groups || {}),
+      ...Object.keys(this._previewPanels?.bottom_groups || {}),
+    ];
     this._collapsedGroups = new Set(
       groupKeys.filter((groupName) => {
         return groupName !== group;
@@ -507,16 +556,19 @@ export class SidebarDialogPreview extends BaseEditor {
     this._collapsedGroups = new Set(Object.keys(this._previewPanels?.custom_groups || {}));
     this.requestUpdate();
     this.updateComplete.then(() => {
-      let bottomPanelEl: HTMLElement;
-      bottomPanelEl =
-        bottomPanel === BOTTOM_SECTION.BOTTOM_ITEMS
-          ? (this.shadowRoot?.querySelector('div.bottom-panel') as HTMLElement)
-          : (this.shadowRoot?.querySelector('div.bottom-grid-panel') as HTMLElement);
+      const bottomPanelSelector: Record<BOTTOM_SECTION, string> = {
+        [BOTTOM_SECTION.BOTTOM_ITEMS]: 'div.bottom-panel',
+        [BOTTOM_SECTION.BOTTOM_GRID_ITEMS]: 'div.bottom-grid-panel',
+        [BOTTOM_SECTION.BOTTOM_GROUPS]: 'div.bottom-groups-panel',
+      };
+      const bottomPanelEl = this.shadowRoot?.querySelector(bottomPanelSelector[bottomPanel]) as HTMLElement;
       if (!bottomPanelEl) {
         return;
       }
       this._groupsContainer.scrollTo(0, this._groupsContainer.scrollHeight - bottomPanelEl.scrollHeight);
-      // const bottomPanelEl = this.shadowRoot?.querySelector('div.bottom-panel') as HTMLElement;
+      // Bottom panels live in the scrollable .after-spacer area, so bring the
+      // selected one into view within that container.
+      bottomPanelEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       bottomPanelEl.toggleAttribute('selected', bottomPanel && !anime);
       if (bottomPanel && anime) {
         bottomPanelEl.classList.add('hight-light');
@@ -668,7 +720,14 @@ export class SidebarDialogPreview extends BaseEditor {
         }
         .after-spacer {
           padding-top: 0;
-          min-height: fit-content;
+          flex-shrink: 0;
+          min-height: 0;
+          /* Cap the bottom area so the top section stays visible; scroll internally when it overflows */
+          max-height: 60%;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-color: var(--scrollbar-thumb-color) transparent;
+          scrollbar-width: thin;
         }
 
         .divider-preview {
@@ -760,10 +819,12 @@ export class SidebarDialogPreview extends BaseEditor {
           display: block;
           /* transition: all 0.3s ease; */
         }
-        .bottom-panel {
+        .bottom-panel,
+        .bottom-groups-panel {
           display: block;
         }
         .bottom-panel[selected],
+        .bottom-groups-panel[selected],
         .group-items[selected] {
           border: 1px solid var(--selected-container-color);
         }
