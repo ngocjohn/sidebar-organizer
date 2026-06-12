@@ -279,6 +279,7 @@ export class SidebarConfigDialog extends BaseEditor {
       // Update panel config map
       const panelConfig = {
         ...(newConfig.custom_groups || {}),
+        ...(newConfig.bottom_groups || {}),
         bottom_items: newConfig.bottom_items || [],
         bottom_grid_items: newConfig.bottom_grid_items || [],
       };

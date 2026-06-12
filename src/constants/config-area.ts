@@ -31,8 +31,9 @@ export type PanelArea = (typeof PANEL_AREA)[keyof typeof PANEL_AREA];
 export enum BOTTOM_SECTION {
   BOTTOM_ITEMS = 'bottom_items',
   BOTTOM_GRID_ITEMS = 'bottom_grid_items',
+  BOTTOM_GROUPS = 'bottom_groups',
 }
-export const BottomSectionKeys = ['bottom_items', 'bottom_grid_items'] as const;
+export const BottomSectionKeys = ['bottom_items', 'bottom_grid_items', 'bottom_groups'] as const;
 export type BottomSection = (typeof BOTTOM_SECTION)[keyof typeof BOTTOM_SECTION];
 
 export enum VISIBILITY_SECTION {
@@ -58,6 +59,7 @@ export const CONFIG_AREA_LABELS: Record<PanelAreaType | ConfigSectionType | stri
   [VISIBILITY_SECTION.VISIBILITY_TEMPLATES]: 'Visibility Templates',
   [BOTTOM_SECTION.BOTTOM_ITEMS]: 'Bottom Items',
   [BOTTOM_SECTION.BOTTOM_GRID_ITEMS]: 'Bottom Grid Items',
+  [BOTTOM_SECTION.BOTTOM_GROUPS]: 'Bottom Groups',
   ['uncategorized_items']: 'Uncategorized Items',
 };
 

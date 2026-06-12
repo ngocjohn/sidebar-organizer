@@ -3,8 +3,8 @@ import type { HA as HomeAssistant, PanelInfo } from '../types';
 import { LitElement } from 'lit';
 
 import { stringCompare } from './compare';
-import { getHiddenBuiltInPanels } from './compute-panels';
-import { getDefaultPanelUrlPath, getPanelIcon, getPanelTitle, PANEL_DASHBOARDS } from './panel';
+import { getHiddenBuiltInPanels, getPanelsNotShownInSidebar } from './compute-panels';
+import { FIXED_PANELS, getDefaultPanelUrlPath, getPanelIcon, getPanelTitle, PANEL_DASHBOARDS } from './panel';
 
 export type LovelaceDashboard = LovelaceYamlDashboard | LovelaceStorageDashboard;
 
@@ -165,13 +165,32 @@ export const getPanelItems = async (hass: HomeAssistant): Promise<DataTableItem[
 };
 
 export const comparePanelItems = async (hass: HomeAssistant, panelOrder: string[]): Promise<DashboardComparison> => {
-  const currentItems = await getPanelItems(hass).then((items) => {
-    const notInSidebar = items.filter((item) => !item.show_in_sidebar && !item.default).map((item) => item.url_path);
-    const inSidebar = items.filter((item) => item.show_in_sidebar).map((item) => item.url_path);
-    return { inSidebar, notInSidebar };
-  });
-  const added = currentItems.inSidebar.filter((item) => !panelOrder.includes(item));
-  const removed = currentItems.notInSidebar.filter((item) => panelOrder.includes(item));
+  const panels = hass.panels || {};
+  const defaultPanel = getDefaultPanelUrlPath(hass);
+
+  // A panel is shown in the sidebar when it has a title, isn't a fixed panel,
+  // isn't explicitly hidden (`show_in_sidebar === false`) and isn't a built-in
+  // panel that is hidden by default and not already part of the panel order.
+  const isShownInSidebar = (panel: PanelInfo): boolean =>
+    !FIXED_PANELS.includes(panel.url_path!) &&
+    !!panel.title &&
+    (panel.show_in_sidebar ?? true) &&
+    !(panel.default_visible === false && !panelOrder.includes(panel.url_path!));
+
+  const inSidebar = Object.values(panels)
+    .filter(isShownInSidebar)
+    .map((panel) => panel.url_path);
+
+  // Panels that exist but are not shown in the sidebar (no title or hidden).
+  const notInSidebar = getPanelsNotShownInSidebar(panels, defaultPanel);
+
+  const currentItems = { inSidebar, notInSidebar };
+  const added = inSidebar.filter((item) => item !== defaultPanel && !panelOrder.includes(item));
+  // Anything in the stored order that is no longer shown in the sidebar is
+  // considered removed. This covers both panels that still exist but are hidden
+  // (`notInSidebar`) and orphaned entries whose panel no longer exists in
+  // `hass.panels` at all (e.g. an uninstalled integration).
+  const removed = panelOrder.filter((item) => item !== defaultPanel && !inSidebar.includes(item));
   return {
     currentItems,
     added,
