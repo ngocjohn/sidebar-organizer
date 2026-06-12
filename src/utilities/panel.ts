@@ -92,7 +92,7 @@ export const subscribeUpdates = (conn, store) =>
 export const subscribePanels = (conn: Connection, onChange: (panels: Panels) => void) =>
   createCollection<Panels>('_pnl', fetchPanels, subscribeUpdates, conn, onChange);
 
-export const FIXED_PANELS = [PROFILE_PANEL, 'config', NOT_FOUND_PANEL];
+export const FIXED_PANELS = [PROFILE_PANEL, NOT_FOUND_PANEL];
 export const SHOW_AFTER_SPACER_PANELS = ['developer-tools'];
 export const BUILT_IN_PANELS = ['home', 'light', 'climate', 'security'];
 
