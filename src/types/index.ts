@@ -111,6 +111,7 @@ export interface NewItemConfig extends PanelInfo {
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;
   group?: string;
+  icon_template?: string;
 }
 export type NewItemConfigKeys = keyof NewItemConfig;
 
@@ -157,7 +158,13 @@ export interface SidebardPanelConfig {
   bottom_grid_items?: string[];
   hidden_items?: string[];
 }
-export const PanelTypes = ['custom_groups', 'bottom_groups', 'bottom_items', 'bottom_grid_items', 'hidden_items'] as const;
+export const PanelTypes = [
+  'custom_groups',
+  'bottom_groups',
+  'bottom_items',
+  'bottom_grid_items',
+  'hidden_items',
+] as const;
 export type PanelType = (typeof PanelTypes)[number];
 
 export type ItemShallowKeys = keyof SidebardPanelConfig & 'new_items';
