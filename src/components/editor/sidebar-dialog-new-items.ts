@@ -1,4 +1,4 @@
-import { mdiChevronLeft, mdiGestureTap, mdiMessageBadgeOutline } from '@mdi/js';
+import { mdiChevronLeft, mdiEmoticonExcited, mdiGestureTap, mdiMessageBadgeOutline } from '@mdi/js';
 import { SidebarConfig, NewItemConfig } from '@types';
 import { TRANSLATED_LABEL } from '@utilities/localize';
 import { showConfirmDialog, showPromptDialog } from '@utilities/show-dialog-box';
@@ -82,6 +82,23 @@ export class SidebarDialogNewItems extends BaseEditor {
       schema: [
         {
           name: 'notification',
+          selector: {
+            template: {},
+          },
+        },
+      ],
+    },
+  ] as const;
+
+  private _iconTemplateSchema = [
+    {
+      type: 'expandable',
+      title: 'Icon template',
+      iconPath: mdiEmoticonExcited,
+      expanded: false,
+      schema: [
+        {
+          name: 'icon_template',
           selector: {
             template: {},
           },
@@ -199,10 +216,15 @@ export class SidebarDialogNewItems extends BaseEditor {
     const notificationData = {
       notification: baseData.notification,
     };
+
+    const iconTemplateData = {
+      icon_template: baseData.icon_template,
+    };
     const groupKeys = this.groupKeys;
     const baseSchema = this._configSchema(groupKeys);
     const actionSchema = this._actionsSchema;
     const notificationSchema = this._notificationSchema;
+    const iconTemplateSchema = this._iconTemplateSchema;
 
     return html`
       ${headerBack}
@@ -230,6 +252,7 @@ export class SidebarDialogNewItems extends BaseEditor {
               ${this._createHaForm(dataWithoutActions, baseSchema, 'base')}
               ${this._createHaForm(actionData, actionSchema, 'actions')}
               ${this._createHaForm(notificationData, notificationSchema, 'notification', 'notification-form')}
+              ${this._createHaForm(iconTemplateData, iconTemplateSchema, 'icon_template', 'icon-template-form')}
             `
           : html`
               <ha-yaml-editor
@@ -340,6 +363,12 @@ export class SidebarDialogNewItems extends BaseEditor {
       if (JSON.stringify(currentItem.notification) !== JSON.stringify(incoming.notification)) {
         updates = {
           notification: incoming.notification,
+        };
+      }
+    } else if (configKey === 'icon_template') {
+      if (JSON.stringify(currentItem.icon_template) !== JSON.stringify(incoming.icon_template)) {
+        updates = {
+          icon_template: incoming.icon_template,
         };
       }
     }

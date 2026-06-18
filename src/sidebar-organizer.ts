@@ -527,8 +527,15 @@ export class SidebarOrganizer {
     // info
     console.groupCollapsed('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
 
-    const { default_collapsed, custom_groups, bottom_groups, color_config, bottom_items, bottom_grid_items, pinned_groups } =
-      this._config;
+    const {
+      default_collapsed,
+      custom_groups,
+      bottom_groups,
+      color_config,
+      bottom_items,
+      bottom_grid_items,
+      pinned_groups,
+    } = this._config;
 
     this._configPanelMap = new Map<string, string[]>(
       Object.entries({
@@ -834,7 +841,11 @@ export class SidebarOrganizer {
       // Add plain dividers for non-grouped bottom items
       if (bottomItemsContainer && bottomItemsContainer.children.length > 0) {
         Array.from(bottomItemsContainer.children).forEach((item) => {
-          if (item instanceof HTMLElement && !item.getAttribute(ATTRIBUTE.GROUP) && !item.classList.contains('divider')) {
+          if (
+            item instanceof HTMLElement &&
+            !item.getAttribute(ATTRIBUTE.GROUP) &&
+            !item.classList.contains('divider')
+          ) {
             const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
             item.insertAdjacentElement('afterend', bottomDivider);
           }
@@ -1175,7 +1186,13 @@ export class SidebarOrganizer {
     }
 
     // Combine grouped, default, bottom, and bottom group items
-    const reorderedPanels = [...groupedItems, ...defaultItems, ...bottomMovedItems, ...bottomGridItems, ...bottomGroupItems];
+    const reorderedPanels = [
+      ...groupedItems,
+      ...defaultItems,
+      ...bottomMovedItems,
+      ...bottomGridItems,
+      ...bottomGroupItems,
+    ];
 
     return reorderedPanels;
   }
@@ -1246,6 +1263,9 @@ export class SidebarOrganizer {
     if (itemConfig.notification !== undefined) {
       this._subscribeNotification(item, itemConfig.notification!);
     }
+    if (itemConfig.icon_template !== undefined) {
+      this._subscribeIconTemplate(item, itemConfig.icon_template);
+    }
 
     return item;
   }
@@ -1300,7 +1320,16 @@ export class SidebarOrganizer {
         }
       }
     };
+    this._subscribeTemplate(template, callback);
+  }
 
+  private _subscribeIconTemplate(panel: HTMLElement, template: string) {
+    const callback = (result: string) => {
+      if (result != null && isIcon(result)) {
+        const iconEl = panel.querySelector(ELEMENT.HA_ICON) as HTMLElement;
+        iconEl.setAttribute('icon', result);
+      }
+    };
     this._subscribeTemplate(template, callback);
   }
 
