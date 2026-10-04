@@ -11,6 +11,7 @@ import {
   MDI,
   NAMESPACE,
   PATH,
+  PROFILE_DASHBOARD_PATH_REGEXP,
   PROFILE_GENERAL_PATH_REGEXP,
   SELECTOR,
   STORAGE,
@@ -404,7 +405,12 @@ export class SidebarOrganizer {
   private _checkProfileSection = async (): Promise<void> => {
     const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
     const pathName = panelResolver?.route?.path ?? window.location.pathname;
-    if (pathName && PROFILE_GENERAL_PATH_REGEXP.test(pathName) && this._dialogManager) {
+    if (
+      pathName &&
+      (PROFILE_GENERAL_PATH_REGEXP.test(pathName) || PROFILE_DASHBOARD_PATH_REGEXP.test(pathName)) &&
+      this._dialogManager
+    ) {
+      // console.debug('Profile section detected, injecting sidebar organizer element');
       await this._dialogManager._injectSidebarOrganizerElement(panelResolver);
     } else {
       return;

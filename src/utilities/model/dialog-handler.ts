@@ -225,9 +225,9 @@ export default class DialogHandler {
   };
 
   public async _injectSidebarOrganizerElement(panelResolver: PartialPanelResolver): Promise<void> {
-    const contentElement = panelResolver
-      .querySelector(ELEMENT.PROFILE_GENERAL)
-      ?.shadowRoot?.querySelector(SELECTOR.CONTENT);
+    const contentElement: HTMLElement | null | undefined =
+      panelResolver.querySelector(ELEMENT.PROFILE_GENERAL)?.shadowRoot?.querySelector(SELECTOR.CONTENT) ??
+      panelResolver.querySelector(ELEMENT.PROFILE_DASHBOARD)?.shadowRoot?.querySelector(SELECTOR.CONTAINER);
 
     if (contentElement && !contentElement.querySelector(ELEMENT.SO_PROFILE_SECTION)) {
       const sectionElement = await this._createProfileSectionComponent();

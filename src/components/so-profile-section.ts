@@ -188,6 +188,10 @@ export class SoProfileSection extends LitElement {
     }
   };
   static styles = css`
+    ha-card {
+      margin: 0 auto var(--ha-space-4);
+      max-width: 600px;
+    }
     ha-card .card-header {
       display: flex;
       justify-content: space-between;
