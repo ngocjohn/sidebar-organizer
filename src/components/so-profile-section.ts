@@ -1,7 +1,7 @@
 import type { SidebarOrganizer } from '../sidebar-organizer';
 
 import { CONFIG_NAME, NAMESPACE_TITLE, REPO_URL } from '@constants';
-import { clearSidebarOrganizerStorage } from '@utilities/configs/misc';
+import { atLeastVersion, clearSidebarOrganizerStorage } from '@utilities/configs/misc';
 import { clearBrowserCache, fileDownload, nextRender } from '@utilities/dom-utils';
 import { CoreFrontendUserData, subscribeFrontendUserData } from '@utilities/index';
 import { getDefaultPanelUrlPath } from '@utilities/panel';
@@ -114,6 +114,7 @@ export class SoProfileSection extends LitElement {
   }
 
   protected render() {
+    const renderLegacyRow = !atLeastVersion(this.organizer.hass.config.version, 2026, 11);
     return html`
       <ha-card>
         <div class="card-header">
@@ -123,32 +124,58 @@ export class SoProfileSection extends LitElement {
         <div class="card-content">
           The following settings are used to control the behavior of the Sidebar Organizer plugin.
         </div>
-        <ha-md-list>
-          ${ACTION_LIST.map((action) => {
-            const isDisabled = action.canDisable && !this.organizer._hasSidebarConfig;
-            return html`
-              ${action.action === 'delete_config' ? html`<wa-divider style="--spacing: 0;"></wa-divider>` : ''}
-              <ha-md-list-item>
-                <span slot="headline">${action.headline}</span>
-                ${action.supportingText ? html`<span slot="supporting-text">${action.supportingText}</span>` : ''}
-                <ha-button
-                  slot="end"
-                  appearance="plain"
-                  size="small"
-                  variant=${action.variant || 'brand'}
-                  .disabled=${isDisabled}
-                  @click=${() => this._handleAction(action.action)}
-                >
-                  ${action.btnText}
-                </ha-button>
-              </ha-md-list-item>
-            `;
-          })}
-        </ha-md-list>
+        ${renderLegacyRow
+          ? this._renderLegacyActions()
+          : html` ${ACTION_LIST.map((action) => {
+              const isDisabled = action.canDisable && !this.organizer._hasSidebarConfig;
+              return html`
+                ${action.action === 'delete_config' ? html`<wa-divider style="--spacing: 0;"></wa-divider>` : ''}
+                <ha-row-item>
+                  <span slot="headline">${action.headline}</span>
+                  ${action.supportingText ? html`<span slot="supporting-text">${action.supportingText}</span>` : ''}
+                  <ha-button
+                    slot="end"
+                    appearance="plain"
+                    size="small"
+                    variant=${action.variant || 'brand'}
+                    .disabled=${isDisabled}
+                    @click=${() => this._handleAction(action.action)}
+                  >
+                    ${action.btnText}
+                  </ha-button>
+                </ha-row-item>
+              `;
+            })}`}
       </ha-card>
     `;
   }
 
+  private _renderLegacyActions() {
+    return html`
+      <ha-md-list>
+        ${ACTION_LIST.map((action) => {
+          const isDisabled = action.canDisable && !this.organizer._hasSidebarConfig;
+          return html`
+            ${action.action === 'delete_config' ? html`<wa-divider style="--spacing: 0;"></wa-divider>` : ''}
+            <ha-md-list-item>
+              <span slot="headline">${action.headline}</span>
+              ${action.supportingText ? html`<span slot="supporting-text">${action.supportingText}</span>` : ''}
+              <ha-button
+                slot="end"
+                appearance="plain"
+                size="small"
+                variant=${action.variant || 'brand'}
+                .disabled=${isDisabled}
+                @click=${() => this._handleAction(action.action)}
+              >
+                ${action.btnText}
+              </ha-button>
+            </ha-md-list-item>
+          `;
+        })}
+      </ha-md-list>
+    `;
+  }
   private _handleAction = async (action: ActionType) => {
     switch (action) {
       case 'open_dialog':
