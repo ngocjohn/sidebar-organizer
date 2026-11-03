@@ -1,0 +1,1459 @@
+import {
+  ALERT_MSG,
+  ATTRIBUTE,
+  CLASS,
+  CSS_VAR,
+  CSS_VAR_VALUE,
+  CUSTOM_EVENT,
+  ELEMENT,
+  HA_EVENT,
+  HA_STATE,
+  MDI,
+  NAMESPACE,
+  PATH,
+  PROFILE_DASHBOARD_PATH_REGEXP,
+  PROFILE_GENERAL_PATH_REGEXP,
+  SELECTOR,
+  STORAGE,
+} from '@constants';
+import {
+  DividerColorSettings,
+  HaDrawer,
+  HaExtened,
+  NewItemConfig,
+  PANEL_TYPE,
+  PartialPanelResolver,
+  SidebarConfig,
+  SidebarPanelItem,
+  ElementsStore,
+  HaTooltip,
+} from '@types';
+import { _getDarkConfigMode, applyTheme } from '@utilities/apply-theme';
+import { compareHacsTagDiff } from '@utilities/compare-urls';
+
+import './components/so-group-divider';
+import { fetchConfig } from '@utilities/configs';
+import {
+  atLeastVersion,
+  clearSidebarOrganizerStorage,
+  getCollapsedItems,
+  normalizePinnedGroups,
+} from '@utilities/configs/misc';
+import { getDefaultThemeColors, convertCustomStyles } from '@utilities/custom-styles';
+import { addAction, mapItemsForDebug, nextRender, onPanelLoaded, parseItemValues } from '@utilities/dom-utils';
+import { clearSidebarUserData, fetchFrontendUserData } from '@utilities/frontend';
+import { isIcon } from '@utilities/is-icon';
+import * as LOGGER from '@utilities/logger';
+import DialogHandler from '@utilities/model/dialog-handler';
+import Store from '@utilities/model/store';
+import {
+  computeBadge,
+  computeNewItem,
+  computeNotifyIcon,
+  getDefaultPanelUrlPath,
+  createHaTooltipForItem,
+} from '@utilities/panel';
+import { setStorage, sidebarUseConfigFile } from '@utilities/storage-utils';
+import { hasTemplate, subscribeRenderTemplate } from '@utilities/ws-templates';
+import { getPromisableResult, PromisableOptions } from 'get-promisable-result';
+import { HAElement, HAQuerySelector, HAQuerySelectorEvent, OnListenDetail } from 'home-assistant-query-selector';
+import { HomeAssistantStylesManager } from 'home-assistant-styles-manager';
+
+import { SoGroupDivider } from './components/so-group-divider';
+import { DIVIDER_ADDED_STYLE, DRAWER_STYLE, HA_MAIN_CUSTOM_WIDTH_STYLE, HUI_ROOT_STYLE } from './sidebar-css';
+
+export class SidebarOrganizer {
+  constructor() {
+    const instance = new HAQuerySelector();
+    instance.addEventListener(HAQuerySelectorEvent.ON_LISTEN, async (event) => {
+      const { HOME_ASSISTANT, HA_DRAWER, HA_SIDEBAR } = event.detail;
+      this._ha = (await HOME_ASSISTANT.element) as HaExtened;
+      this._haDrawer = (await HA_DRAWER.element) as HaDrawer;
+      this.HaSidebar = await HA_SIDEBAR.element;
+      this.sideBarRoot = (await HA_SIDEBAR.selector.$.element) as ShadowRoot;
+      this._store = new Store(this._ha, this);
+      this._dialogManager = new DialogHandler(this._ha, this);
+      this.run();
+    });
+
+    instance.addEventListener(
+      HAQuerySelectorEvent.ON_LISTEN,
+      (event: CustomEvent<OnListenDetail>) => {
+        this._panelResolver = event.detail.PARTIAL_PANEL_RESOLVER;
+        this._sidebar = event.detail.HA_SIDEBAR;
+        this._haMain = event.detail.HOME_ASSISTANT_MAIN;
+        this._homeAssistant = event.detail.HOME_ASSISTANT;
+      },
+      { once: true }
+    );
+
+    instance.addEventListener(HAQuerySelectorEvent.ON_PANEL_LOAD, () => {
+      this._panelLoaded();
+    });
+
+    instance.addEventListener(HAQuerySelectorEvent.ON_LOVELACE_PANEL_LOAD, async (event) => {
+      const { HA_PANEL_LOVELACE } = event.detail;
+      this._panelLovelace = HA_PANEL_LOVELACE;
+      await nextRender();
+      this._watchScrollHideHeader();
+    });
+
+    this._styleManager = new HomeAssistantStylesManager({
+      prefix: NAMESPACE,
+      throwWarnings: false,
+    });
+
+    // Listen for HA Events
+    [
+      HA_EVENT.SETTHEME,
+      HA_EVENT.DEFAULT_PANEL,
+      HA_EVENT.DIALOG_CLOSED,
+      HA_EVENT.LOCATION_CHANGED,
+      HA_EVENT.SHOW_DIALOG,
+      HA_EVENT.SIDEBAR_CONFIG_SAVED,
+      HA_EVENT.HASS_EDIT_SIDEBAR,
+    ].forEach((event) => {
+      window.addEventListener(event, this._handleHaEvents.bind(this));
+    });
+
+    this._sidebarItems = [];
+    this._currentPath = window.location.pathname;
+    this._watchPathChanges();
+    instance.listen();
+    // Listen for storage changes to handle collapse state updates across tabs
+    window.addEventListener('storage', this._storageListener.bind(this));
+    this._sidebarObserver = new MutationObserver(this._watchSidebarExpansion.bind(this));
+  }
+
+  private _homeAssistant!: HAElement;
+  private _haMain!: HAElement;
+  private _drawer!: HAElement;
+  private _ha!: HaExtened;
+  public _haDrawer!: HaDrawer;
+  private _panelLovelace!: HAElement;
+  private _notCompatible: boolean = false;
+  public _config: SidebarConfig = {};
+  private _currentPath: string;
+  private _delayTimeout: number | null = null;
+  private _configPanelMap = new Map<string, string[]>();
+  private _pinnedGroups: Record<string, { icon?: string }> = {};
+
+  public _panelResolver!: HAElement;
+  private _prevPath: string | null = null;
+  private _sidebar!: HAElement;
+  private _sidebarItems: SidebarPanelItem[];
+  private _styleManager: HomeAssistantStylesManager;
+  public _store!: Store;
+  public _dialogManager!: DialogHandler;
+  public _userHasSidebarSettings: boolean = false;
+
+  private collapsedItems = new Set<string>();
+  private firstSetUpDone = false;
+  public _diffCheck: boolean = false;
+
+  public HaSidebar: any;
+  private setupConfigDone = false;
+  private sideBarRoot!: ShadowRoot;
+  public _baseOrder: string[] = [];
+  public _hiddenPanels: string[] = [];
+
+  private _sidebarObserver: MutationObserver;
+
+  get hass(): HaExtened['hass'] {
+    return this._ha!.hass;
+  }
+
+  get darkMode(): boolean {
+    return _getDarkConfigMode(this._config.color_config, this.hass);
+  }
+
+  get _panelsList(): HTMLElement {
+    return this.sideBarRoot?.querySelector(SELECTOR.PANELS_LIST) as HTMLElement;
+  }
+
+  get _scrollbar(): HTMLElement {
+    return this.sideBarRoot?.querySelector(SELECTOR.SIDEBAR_SCROLLBAR) as HTMLElement;
+  }
+
+  get _scrollbarItems(): NodeListOf<SidebarPanelItem> {
+    // Query from _panelsList to include both top (ha-scrollbar) and bottom (bottom-list) items
+    return this._panelsList.querySelectorAll(ELEMENT.ITEM) as NodeListOf<SidebarPanelItem>;
+  }
+
+  get _hasSidebarConfig(): boolean {
+    const sidebarConfig = localStorage.getItem(STORAGE.UI_CONFIG);
+    const useConfigFile = sidebarUseConfigFile();
+    return useConfigFile || (sidebarConfig !== null && sidebarConfig !== undefined);
+  }
+
+  get _pluginConfigured(): boolean {
+    return Boolean(this._hasSidebarConfig && !this._userHasSidebarSettings);
+  }
+
+  public async run(): Promise<void> {
+    if (!this.hass || this.hass.config?.state !== HA_STATE.RUNNING) {
+      this._store._haNotRunningToast();
+      return;
+    }
+
+    if (!atLeastVersion(this.hass.config.version, 2026, 6)) {
+      this._notCompatible = true;
+      const msg = `${ALERT_MSG.NOT_COMPATIBLE}: ${this.hass.config.version}.\nPlease upgrade Home Assistant to 2026.6 or later.`;
+      this._store._showToast(msg, 10 * 1000);
+
+      LOGGER.warn(msg);
+      return;
+    }
+
+    compareHacsTagDiff(this._ha.hass);
+    await this._checkUserSidebarSettings();
+    await this._watchEditLegacySidebar();
+
+    this._setupConfigBtn();
+    if (!this._userHasSidebarSettings) {
+      await this._getConfig().then(() => {
+        this._watchScrollHideHeader();
+        this._setupInitialConfig();
+      });
+      this._processSections();
+    }
+  }
+
+  // This function is only for personal use, not mentioned in the readme as it is not a core part of the plugin.
+  // It adds a scroll listener to the lovelace panel to hide the header when scrolling down and show it when scrolling up.
+  // Set 'scroll_hide_header: true' in config to enable it.
+
+  private _onWindowScrollHideHeader?: () => void;
+  private async _watchScrollHideHeader(): Promise<void> {
+    if (!this._config.scroll_hide_header) return;
+    if (!this._panelLovelace) return;
+    const huiRoot = (await this._panelLovelace.selector.$.query(SELECTOR.HUI_ROOT).element) as HTMLElement;
+    if (!huiRoot) return;
+
+    this._styleManager.addStyle([HUI_ROOT_STYLE.toString()], huiRoot.shadowRoot!);
+
+    const header = huiRoot.shadowRoot!.querySelector('.header') as HTMLElement | null;
+    const toolbar = header?.querySelector('.toolbar') as HTMLElement | null;
+    if (!header || !toolbar) return;
+    console.debug('Scroll hide header enabled, setting up scroll listener');
+    const maxHide = toolbar.offsetHeight || header.offsetHeight || 56;
+
+    let ticking = false;
+    let lastScrollY = window.scrollY;
+    let currentOffset = 0;
+    let accumulatedDelta = 0;
+
+    const threshold = maxHide; // Minimum scroll delta before reacting, this helps to prevent jitter on small scrolls. Defaults to header height;
+
+    const updateHeaderVisibility = () => {
+      ticking = false;
+
+      const scrollY = window.scrollY;
+      const delta = scrollY - lastScrollY;
+      lastScrollY = scrollY;
+
+      // accumulate movement
+      accumulatedDelta += delta;
+
+      const shouldReact = Math.abs(accumulatedDelta) >= threshold;
+
+      // only react if threshold is exceeded
+      if (!shouldReact) return;
+
+      // apply only the accumulated movement
+      currentOffset += accumulatedDelta;
+      // reset accumulator AFTER applying
+      accumulatedDelta = 0;
+
+      currentOffset = Math.max(0, Math.min(currentOffset, maxHide));
+
+      if (scrollY <= 0) currentOffset = 0;
+
+      const progress = currentOffset / maxHide;
+
+      toolbar.style.transform = `translateY(-${currentOffset}px)`;
+      toolbar.style.opacity = `${1 - progress}`;
+
+      header.classList.toggle('scroll-hide', currentOffset > 0);
+      header.style.setProperty('--header-hide-progress', `${progress}`);
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(updateHeaderVisibility);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    updateHeaderVisibility();
+
+    this._onWindowScrollHideHeader?.();
+    this._onWindowScrollHideHeader = () => {
+      window.removeEventListener('scroll', onScroll);
+    };
+  }
+
+  private async _watchEditLegacySidebar(): Promise<void> {
+    if (!this._hasSidebarConfig) return;
+
+    const HaMain = customElements.get('home-assistant-main');
+    if (!HaMain) {
+      console.warn('home-assistant-main is not yet defined');
+      return;
+    }
+    Object.defineProperty(HaMain.prototype, '_sidebarEditMode', {
+      get() {
+        return false; // Always return false to block edit mode
+      },
+      set() {
+        // Ignore all global attempts to set sidebar edit mode, log the attempt
+        console.log('Blocked attempt to set sidebar edit mode');
+      },
+      configurable: true,
+    });
+  }
+
+  // Observe sidebar element attrribute changes, if 'expanded' attribute is removed or added.
+  private _watchSidebarExpansion(mutations: MutationRecord[]) {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === ATTRIBUTE.EXPANDED) {
+        const isExpanded = this.HaSidebar.hasAttribute('expanded');
+        console.debug('Sidebar expansion changed, current expanded state:', isExpanded);
+        this._changeGridItemTooltipPlacement(isExpanded);
+      }
+    });
+  }
+
+  private _watchPathChanges() {
+    const callback = () => {
+      // Delay the check to allow path to update fully
+      if (this._delayTimeout) {
+        clearTimeout(this._delayTimeout);
+      }
+
+      this._delayTimeout = window.setTimeout(() => {
+        const newPath = window.location.pathname;
+        this._checkProfileSection();
+        if (newPath !== this._currentPath) {
+          this._prevPath = this._currentPath;
+          this._currentPath = newPath;
+          if (
+            this._prevPath !== null &&
+            this._prevPath === PATH.LOVELACE_DASHBOARD &&
+            this._currentPath !== PATH.LOVELACE_DASHBOARD
+          ) {
+            this._checkDashboardChange();
+          }
+        }
+      }, 200); // Delay in ms
+    };
+
+    const pushState = history.pushState;
+    const replaceState = history.replaceState;
+
+    history.pushState = function (...args) {
+      pushState.apply(this, args);
+      callback();
+    };
+
+    history.replaceState = function (...args) {
+      replaceState.apply(this, args);
+      callback();
+    };
+
+    window.addEventListener('popstate', callback);
+  }
+
+  private async _checkDashboardChange(): Promise<void> {
+    if (this._userHasSidebarSettings || !this._baseOrder.length) {
+      console.log('User has sidebar settings or base order is empty, skipping dashboard change check');
+      return;
+    }
+    const changed = await this._store._shouldUpdateConfig();
+
+    if (changed) {
+      // Reload the window to apply changes
+      console.log('%cSIDEBAR-ORGANIZER:', 'color: #bada55;', 'Changes detected, reloading window');
+      this._reloadWindow();
+    } else {
+      this._checkDiffs();
+      this._store.resetDashboardState();
+    }
+  }
+
+  private async _panelLoaded(): Promise<void> {
+    if (this._notCompatible) return;
+    const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
+    if (!panelResolver.route) return;
+    const pathName = panelResolver.route?.path ?? window.location.pathname;
+    if (!pathName) return;
+    // const paperListBox = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_SCROLLBAR).element) as HTMLElement;
+    const paperListBox = this._panelsList as HTMLElement;
+    // console.log('Panel Loaded:', pathName, paperListBox);
+    if (pathName && paperListBox) {
+      setTimeout(() => {
+        if (this._diffCheck && this.firstSetUpDone && this.setupConfigDone) {
+          onPanelLoaded(pathName, paperListBox);
+          if (pathName === PATH.LOVELACE_DASHBOARD) {
+            this._store._subscribePanels();
+          }
+        }
+      }, 100);
+    }
+  }
+
+  private _checkProfileSection = async (): Promise<void> => {
+    const panelResolver = (await this._panelResolver.element) as PartialPanelResolver;
+    const pathName = panelResolver?.route?.path ?? window.location.pathname;
+    if (
+      pathName &&
+      (PROFILE_GENERAL_PATH_REGEXP.test(pathName) || PROFILE_DASHBOARD_PATH_REGEXP.test(pathName)) &&
+      this._dialogManager
+    ) {
+      // console.debug('Profile section detected, injecting sidebar organizer element');
+      await this._dialogManager._injectSidebarOrganizerElement(panelResolver);
+    } else {
+      return;
+    }
+  };
+
+  private async _checkUserSidebarSettings(): Promise<void> {
+    const userData = await fetchFrontendUserData(this.hass.connection, 'sidebar');
+    this._userHasSidebarSettings = (userData?.panelOrder && userData.panelOrder.length > 0) || false;
+  }
+
+  private async _setupConfigBtn(): Promise<void> {
+    const siderbarRoot = (await this._sidebar.selector.$.element) as ShadowRoot;
+    const profileEl =
+      (siderbarRoot?.querySelector(SELECTOR.ITEM_PROFILE) as HTMLElement) ||
+      (siderbarRoot?.querySelector(SELECTOR.USER_ITEM) as HTMLElement);
+    if (!profileEl) {
+      console.log('Profile element not found in sidebar, cannot setup config button');
+      return;
+    }
+    if (this._userHasSidebarSettings) {
+      //info
+      console.log(
+        '%cSIDEBAR-ORGANIZER:%c ℹ️ User has sidebar settings, inject dialog prompt to clear data',
+        'color: #999999;',
+        'color: #228be6; font-weight: 600;'
+      );
+
+      addAction(profileEl, this._dialogManager._addDialogUserDataClear.bind(this._dialogManager));
+      return;
+    } else {
+      addAction(profileEl, this._dialogManager._showConfigDialogEditor.bind(this._dialogManager));
+    }
+  }
+
+  private async _getContainerItems(
+    container: HTMLElement,
+    promisableResultOptions?: PromisableOptions
+  ): Promise<NodeListOf<SidebarPanelItem>> {
+    if (!promisableResultOptions) {
+      promisableResultOptions = {
+        retries: 10,
+        delay: 20,
+        shouldReject: false,
+      };
+    }
+
+    const items = await getPromisableResult<NodeListOf<SidebarPanelItem>>(
+      () => container.querySelectorAll<SidebarPanelItem>(`${ELEMENT.ITEM}`),
+      (elements: NodeListOf<SidebarPanelItem>): boolean => {
+        return Boolean(elements && elements.length > 0);
+      },
+      promisableResultOptions
+    );
+    return items;
+  }
+
+  private _storageListener(event: StorageEvent) {
+    if (event.key === STORAGE.COLLAPSE) {
+      const collapsedItems = JSON.parse(event.newValue!);
+      this.collapsedItems = new Set(collapsedItems);
+      this._handleCollapsed(this.collapsedItems);
+      console.log('Collapsed items updated from storage event:', this.collapsedItems);
+    }
+  }
+
+  private async _handleHaEvents(event: any) {
+    if (this._notCompatible) return;
+    event.stopPropagation();
+    const { type, detail } = event;
+    if (!type || !detail) return;
+    switch (type) {
+      case HA_EVENT.HASS_EDIT_SIDEBAR:
+        console.log('HASS Edit Sidebar Event:', detail);
+        if (detail.editMode === true && !this._hasSidebarConfig) {
+          this._dialogManager._addLegacyEditWarning();
+        }
+        break;
+
+      case HA_EVENT.SETTHEME:
+        const themeSetting = detail as HaExtened['hass']['selectedTheme'];
+        console.log('Theme Changed', themeSetting);
+        this._styleManager.removeStyle(this.sideBarRoot!);
+        setTimeout(() => {
+          this._addAdditionalStyles(this._config.color_config);
+        }, 100);
+        break;
+      case HA_EVENT.DEFAULT_PANEL:
+        console.log('Default Panel Changed Event:', detail);
+        // this._store._handleDefaultPanelChange(detail.defaultPanel);
+        break;
+
+      case HA_EVENT.SHOW_DIALOG:
+        if (detail.dialogTag === ELEMENT.DIALOG_EDIT_SIDEBAR) {
+          console.log('Show Dialog Event:', ELEMENT.DIALOG_EDIT_SIDEBAR, detail);
+          this._dialogManager._handleEditModeAttempt();
+        }
+        break;
+      case HA_EVENT.SIDEBAR_CONFIG_SAVED:
+        console.log('Sidebar Config Saved Event:', detail);
+        this._handleNewConfig(detail.config, detail.useConfigFile);
+        break;
+    }
+  }
+
+  private async _getConfig() {
+    const config = await fetchConfig(this.hass);
+    // console.log('Fetched Config:', config);
+    if (!config) {
+      console.log('No config found, stopping further setup');
+      return;
+    }
+    this._config = config;
+  }
+
+  private _setupInitialConfig() {
+    // info
+    console.groupCollapsed('%cSIDEBAR-ORGANIZER:%c ℹ️ Setting from config...', 'color: #bada55;', 'color: #228be6; ');
+
+    const {
+      default_collapsed,
+      custom_groups,
+      bottom_groups,
+      color_config,
+      bottom_items,
+      bottom_grid_items,
+      pinned_groups,
+    } = this._config;
+
+    this._configPanelMap = new Map<string, string[]>(
+      Object.entries({
+        ...(custom_groups || {}),
+        ...(bottom_groups || {}),
+        ...(bottom_items ? { [PANEL_TYPE.BOTTOM_ITEMS]: bottom_items } : {}),
+        ...(bottom_grid_items ? { [PANEL_TYPE.BOTTOM_GRID_ITEMS]: bottom_grid_items } : {}),
+      })
+    );
+    // Normalize pinned groups config to ensure consistent structure
+    this._pinnedGroups = normalizePinnedGroups(pinned_groups || {});
+    // Initialize collapsed groups based on config, this will be used to set initial state of groups and manage collapse/expand functionality
+    const allGroups = { ...(custom_groups || {}), ...(bottom_groups || {}) };
+    this.collapsedItems = getCollapsedItems(allGroups, default_collapsed);
+
+    // Setup custom sidebar width
+    this._addCustomWidthStyle();
+    // Setup additional styles based on color config
+    this._addAdditionalStyles(color_config);
+
+    // Prepare base order of panels based on current sidebar state and config
+    this._setupPanelOrder();
+  }
+
+  private _setupPanelOrder(): void {
+    Promise.all([
+      this._sidebar.selector.$.element,
+      this._sidebar.selector.$.query(SELECTOR.SIDEBAR_BEFORE_SPACER_CONTAINER).element,
+    ]).then((elements) => {
+      const [sidebarShadowRoot, beforeSpacerContainer] = elements;
+      if (!sidebarShadowRoot || !(beforeSpacerContainer instanceof HTMLElement)) {
+        return;
+      }
+
+      const { new_items, move_settings_from_fixed, notification, hidden_items, visibility_templates } = this._config;
+      const notificationMap = new Map(Object.entries(notification || {}));
+      const groupVisibilityMap = new Map<string, string>(Object.entries(visibility_templates?.groups || {}));
+      const itemVisibilityMap = new Map<string, string>(Object.entries(visibility_templates?.items || {}));
+
+      if (new_items && new_items.length > 0) {
+        // Add new items to sidebar before spacer
+        Array.from(new_items).map((item) => {
+          const newItemEl = this._createNewItem(item);
+
+          if (newItemEl) {
+            beforeSpacerContainer.appendChild(newItemEl);
+          }
+        });
+        console.debug('New items added to sidebar:', new_items);
+      }
+
+      if (move_settings_from_fixed === true) {
+        const settingsItem = sidebarShadowRoot.querySelector(SELECTOR.SETTINGS_ITEM) as SidebarPanelItem;
+        if (settingsItem) {
+          beforeSpacerContainer.appendChild(settingsItem);
+          console.debug('Settings item moved from fixed:', move_settings_from_fixed);
+        } else {
+          console.log(
+            '%cSIDEBAR-ORGANIZER:%c ❌ Settings item not found',
+            'color: #999999;',
+            'color: #fa5252; font-weight: 600;'
+          );
+        }
+      }
+
+      this._getContainerItems(beforeSpacerContainer).then((items) => {
+        Array.from(items).forEach((item: SidebarPanelItem) => {
+          if (item.hasAttribute(ATTRIBUTE.NEW_ITEM)) return; // Skip new items
+
+          const panelId = item.href.replace('/', '');
+          item.setAttribute(ATTRIBUTE.DATA_PANEL, panelId);
+
+          if (hidden_items?.includes(panelId)) {
+            item.style.display = 'none';
+          }
+
+          const notificationValue = notificationMap.get(panelId);
+          if (notificationValue !== undefined) {
+            this._subscribeNotification(item, notificationValue);
+          }
+        });
+
+        const initOrder = Array.from(items).map(
+          (item) => item.getAttribute(ATTRIBUTE.DATA_PANEL) || item.href.replace('/', '')
+        );
+
+        this._baseOrder = this._reorderPanelItemsByConfig(initOrder);
+        if (this._configPanelMap.size === 0) {
+          // Skip reordering if there are no groups defined in config to avoid unnecessary DOM manipulation
+          console.log(
+            '%cSIDEBAR-ORGANIZER:%c No groups defined in config, skipping initial reordering',
+            'color: #999999;',
+            'color: #228be6;'
+          );
+          return;
+        }
+
+        const topItems = document.createDocumentFragment();
+        const uncategorizedItems = document.createDocumentFragment();
+        const bottomItems = document.createDocumentFragment();
+        const bottomGridItems = document.createDocumentFragment();
+
+        const inGroup = (panel: string): string | null => this._getGroupOfPanel(panel);
+        const groupHasVisibilityTemplate = (group: string): boolean => groupVisibilityMap.has(group);
+        const itemHasVisibilityTemplate = (item: string): boolean => itemVisibilityMap.has(item);
+
+        const defaultPanelUrlPath = getDefaultPanelUrlPath(this.hass);
+
+        const orderedPanels: Omit<NewItemConfig, 'icon'>[] = [];
+        const visibilityTemplateUsageLog: { panelId: string; source: 'group' | 'item'; template: string }[] = [];
+
+        this._baseOrder.forEach((panelId) => {
+          const foundItem = Array.from(items).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
+          if (!foundItem) {
+            console.log(
+              '%cSIDEBAR-ORGANIZER:%c ❌ Panel item not found for panel ID:',
+              'color: #999999;',
+              'color: #fa5252; font-weight: 600;',
+              panelId
+            );
+          } else {
+            const group = inGroup(panelId);
+            const isNewItem = foundItem.hasAttribute(ATTRIBUTE.NEW_ITEM);
+            const groupVisibilityTemplate =
+              group && groupHasVisibilityTemplate(group) ? groupVisibilityMap.get(group)! : null;
+            const itemVisibilityTemplate = itemHasVisibilityTemplate(panelId) ? itemVisibilityMap.get(panelId)! : null;
+            const visibilityTemplate = groupVisibilityTemplate || itemVisibilityTemplate;
+
+            if (visibilityTemplate) {
+              visibilityTemplateUsageLog.push({
+                panelId,
+                source: groupVisibilityTemplate ? 'group' : 'item',
+                template: visibilityTemplate,
+              });
+
+              this._subscribeVisibility(foundItem, visibilityTemplate);
+            }
+            if (isNewItem || group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+              const haTooltip = createHaTooltipForItem(foundItem);
+              if (group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+                haTooltip.setAttribute(ATTRIBUTE.GRID_ITEM, '');
+                // this._gridItemTooltips.push(haTooltip);
+              }
+              foundItem.insertAdjacentElement('afterend', haTooltip);
+            }
+            const isBottomGroup = group && this._config.bottom_groups && group in this._config.bottom_groups;
+            if (group === PANEL_TYPE.BOTTOM_ITEMS || group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+              if (group === PANEL_TYPE.BOTTOM_ITEMS) {
+                foundItem.setAttribute(ATTRIBUTE.BOTTOM, '');
+                bottomItems.appendChild(foundItem);
+              } else if (group === PANEL_TYPE.BOTTOM_GRID_ITEMS) {
+                foundItem.setAttribute(ATTRIBUTE.GRID_ITEM, '');
+                bottomGridItems.appendChild(foundItem);
+              }
+            } else if (isBottomGroup) {
+              foundItem.setAttribute(ATTRIBUTE.GROUP, group);
+              foundItem.setAttribute(ATTRIBUTE.BOTTOM, '');
+              bottomItems.appendChild(foundItem);
+            } else if (group) {
+              if (group !== PANEL_TYPE.UNCATEGORIZED_ITEMS) {
+                foundItem.setAttribute(ATTRIBUTE.GROUP, group);
+              }
+              topItems.appendChild(foundItem);
+            } else {
+              if (panelId === defaultPanelUrlPath) {
+                foundItem.setAttribute(ATTRIBUTE.DEFAULT_PANEL, '');
+                topItems.prepend(foundItem);
+              } else {
+                uncategorizedItems.appendChild(foundItem);
+              }
+            }
+            orderedPanels.push({ ...parseItemValues(foundItem), group: group || 'uncategorized' });
+          }
+        });
+
+        visibilityTemplateUsageLog.length > 0 &&
+          console.groupCollapsed('Panels with visibility templates:', visibilityTemplateUsageLog.length);
+        console.table(visibilityTemplateUsageLog);
+        console.groupEnd();
+
+        console.groupCollapsed('Ordering panels based on config:', this._baseOrder.length, 'panels');
+        console.table(orderedPanels);
+        console.groupEnd();
+
+        if (uncategorizedItems.children.length > 0 || topItems.children.length > 0) {
+          beforeSpacerContainer.appendChild(topItems);
+          beforeSpacerContainer.appendChild(uncategorizedItems);
+        }
+        if (bottomItems.children.length > 0 || bottomGridItems.children.length > 0) {
+          // this._processBottomList(bottomItems, bottomGridItems);
+          const createContainer = (
+            type: PANEL_TYPE.BOTTOM_GRID_ITEMS | PANEL_TYPE.BOTTOM_ITEMS,
+            content: DocumentFragment
+          ): HTMLElement | null => {
+            if (content.children.length === 0) {
+              return null;
+            }
+            const className = type === PANEL_TYPE.BOTTOM_ITEMS ? CLASS.BOTTOM_CONTAINER : CLASS.BOTTOM_GRID_CONTAINER;
+
+            const container = document.createElement('div') as HTMLElement;
+            container.classList.add(className);
+            container.appendChild(content);
+            return container;
+          };
+
+          const bottomContainer = createContainer(PANEL_TYPE.BOTTOM_ITEMS, bottomItems);
+          const bottomGridContainer = createContainer(PANEL_TYPE.BOTTOM_GRID_ITEMS, bottomGridItems);
+
+          if (bottomContainer || bottomGridContainer) {
+            const haMdList = document.createElement(ELEMENT.HA_LIST_NAV) as any;
+            haMdList.classList.add(CLASS.BOTTOM_LIST);
+            if (bottomContainer) {
+              haMdList.appendChild(bottomContainer);
+            }
+            if (bottomGridContainer) {
+              haMdList.appendChild(bottomGridContainer);
+              this._sidebarObserver.disconnect(); // Temporarily disconnect observer to prevent it from reacting to our DOM changes
+              this._sidebarObserver.observe(this.HaSidebar, {
+                attributes: true,
+                childList: false,
+                attributeOldValue: this.HaSidebar.hasAttribute('expanded'),
+                subtree: false,
+              });
+              this._changeGridItemTooltipPlacement(this.HaSidebar.hasAttribute('expanded'));
+            }
+            const spacer = this._panelsList.querySelector(SELECTOR.SPACER) as HTMLElement;
+            this._panelsList.insertBefore(haMdList, spacer.nextElementSibling);
+          }
+          //success
+          console.debug(
+            '%cSIDEBAR-ORGANIZER:%c ✅ Bottom items added to sidebar',
+            'color: #bada55;',
+            'color: #40c057;'
+          );
+        }
+        console.groupEnd();
+      });
+    });
+  }
+
+  private _processSections() {
+    this._getElements().then(async (elements: ElementsStore) => {
+      const { custom_groups, bottom_groups, visibility_templates } = this._config;
+      const { topItemsContainer, topItems, bottomItemsContainer, bottomItems } = elements;
+
+      const groupVisibilityMap = new Map<string, string>(Object.entries(visibility_templates?.groups || {}));
+
+      this._sidebarItems = [
+        ...Array.from(topItems),
+        ...(bottomItems ? Array.from(bottomItems) : []),
+      ] as SidebarPanelItem[];
+
+      Object.entries(custom_groups || {}).forEach(([groupName, panels]) => {
+        if (groupName === PANEL_TYPE.UNCATEGORIZED_ITEMS) return; // Skip uncategorized group as it's not an actual group but a placeholder for ungrouped items
+        const groupVisibilityTemplate = groupVisibilityMap.has(groupName) ? groupVisibilityMap.get(groupName)! : null;
+        const isCollapsed = this.collapsedItems.has(groupName);
+        panels.forEach((panelId, index) => {
+          const item = Array.from(topItems).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId);
+          if (item) {
+            if (index === 0) {
+              const groupDivider = this._createDividerWithGroup(groupName, isCollapsed);
+              if (groupVisibilityTemplate) {
+                this._subscribeVisibility(groupDivider, groupVisibilityTemplate);
+              }
+              item.insertAdjacentElement('beforebegin', groupDivider);
+            }
+            item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+          }
+        });
+      });
+
+      const firstUngroupedItem = topItemsContainer.querySelector(
+        `${ELEMENT.ITEM}:not([${ATTRIBUTE.GROUP}]):not([${ATTRIBUTE.DEFAULT_PANEL}])`
+      ) as SidebarPanelItem | null;
+      if (firstUngroupedItem) {
+        const ungroupedDivider = this._createDivider(ATTRIBUTE.UNGROUPED);
+        firstUngroupedItem.insertAdjacentElement('beforebegin', ungroupedDivider);
+      }
+
+      // Process bottom groups (folder groups in bottom section)
+      if (bottomItemsContainer && bottom_groups) {
+        Object.entries(bottom_groups).forEach(([groupName, panels]) => {
+          const isCollapsed = this.collapsedItems.has(groupName);
+          const groupVisibilityTemplate = groupVisibilityMap.has(groupName) ? groupVisibilityMap.get(groupName)! : null;
+          panels.forEach((panelId, index) => {
+            const item = bottomItems
+              ? Array.from(bottomItems).find((el) => el.getAttribute(ATTRIBUTE.DATA_PANEL) === panelId)
+              : null;
+            if (item) {
+              if (index === 0) {
+                const groupDivider = this._createDividerWithGroup(groupName, isCollapsed);
+                if (groupVisibilityTemplate) {
+                  this._subscribeVisibility(groupDivider, groupVisibilityTemplate);
+                }
+                item.insertAdjacentElement('beforebegin', groupDivider);
+              }
+              item.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+            }
+          });
+        });
+      }
+
+      // Add plain dividers for non-grouped bottom items
+      if (bottomItemsContainer && bottomItemsContainer.children.length > 0) {
+        Array.from(bottomItemsContainer.children).forEach((item) => {
+          if (
+            item instanceof HTMLElement &&
+            !item.getAttribute(ATTRIBUTE.GROUP) &&
+            !item.classList.contains('divider')
+          ) {
+            const bottomDivider = this._createDivider(ATTRIBUTE.BOTTOM);
+            item.insertAdjacentElement('afterend', bottomDivider);
+          }
+        });
+      }
+      // Wait for DOM updates to complete before checking diffs and handling header to ensure we are working with the latest rendered state
+      await nextRender();
+      this._checkDiffs();
+      // Handle sidebar header after processing sections to ensure toggle button is added based on the presence of groups in the config and their collapsed state
+      this._handleSidebarHeader();
+
+      // Mark setup config as done to allow panel loaded logic to run when panels are loaded
+      this.setupConfigDone = true;
+      this._watchHaSidebarShouldUpdate();
+      this._panelLoaded();
+    });
+  }
+
+  private async _getElements(): Promise<ElementsStore> {
+    const promisableResultOptions = {
+      retries: 10,
+      delay: 20,
+      shouldReject: false,
+    };
+    const sidebarShadowRoot = await this._sidebar.selector.$.element;
+
+    // In modern Home Assistant, ha-fade-in is a permanent wrapper and is never null.
+    // Removed blocking check to prevent 5000ms delay.
+    const topItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_BEFORE_SPACER_CONTAINER)
+      .element) as HTMLElement;
+
+    // bottom list container is optional, directly query shadowRoot to prevent 5000ms timeout
+    const bottomItemsContainer = (sidebarShadowRoot?.querySelector(SELECTOR.SIDEBAR_BOTTOM_LIST_CONTAINER) as HTMLElement | null) || null;
+
+    const topItems = await this._getContainerItems(topItemsContainer, promisableResultOptions);
+    const bottomItems = bottomItemsContainer
+      ? await this._getContainerItems(bottomItemsContainer, promisableResultOptions)
+      : null;
+
+    return {
+      topItemsContainer,
+      topItems,
+      bottomItemsContainer,
+      bottomItems,
+    };
+  }
+
+  private _handleSidebarHeader(): void {
+    const menuEl = this.sideBarRoot?.querySelector(SELECTOR.MENU) as HTMLElement | null;
+    const titleEl = menuEl?.querySelector(SELECTOR.MENU_TITLE) as HTMLElement | null;
+    if (!titleEl) return;
+
+    const customTitle = this._config.header_title;
+    if (customTitle) titleEl.innerText = customTitle;
+
+    titleEl.classList.add('toggle');
+
+    if (this._config.hide_header_toggle) return;
+
+    const groupKeys = Object.keys(this._config?.custom_groups || {});
+    const hasAnyItems = Object.values(this._config.custom_groups || {}).flat().length > 0;
+    if (groupKeys.length === 0 || !hasAnyItems) return;
+
+    const isAllCollapsed = this.collapsedItems.size === groupKeys.length;
+
+    const expandCollapseIcon = document.createElement(ELEMENT.HA_ICON) as any;
+    expandCollapseIcon.icon = isAllCollapsed ? MDI.PLUS : MDI.MINUS;
+    expandCollapseIcon.classList.add(CLASS.COLLAPSE_TOGGLE);
+    expandCollapseIcon.classList.toggle(CLASS.ACTIVE, isAllCollapsed);
+
+    // Helps avoid weird touch gestures and delays
+    (expandCollapseIcon as HTMLElement).style.touchAction = 'manipulation';
+
+    const toggle = (ev: Event) => {
+      ev.stopPropagation();
+      // optional: prevents synthetic click paths in some browsers
+      if (ev.cancelable) ev.preventDefault();
+
+      this.collapsedItems.size === groupKeys.length
+        ? this.collapsedItems.clear()
+        : (this.collapsedItems = new Set(groupKeys));
+
+      this._handleCollapsed(this.collapsedItems);
+    };
+
+    // Pointer events = one event stream for mouse + touch + pen
+    expandCollapseIcon.addEventListener('pointerup', toggle, { passive: false });
+
+    // Remove any existing icon to prevent duplicates when re-rendering header
+    titleEl.querySelector(`.${CLASS.COLLAPSE_TOGGLE}`)?.remove();
+    titleEl.appendChild(expandCollapseIcon);
+  }
+
+  private _handleCollapsedChange(): void {
+    const toggleIcon = this.sideBarRoot?.querySelector(SELECTOR.HEADER_TOGGLE_ICON) as HTMLElement;
+    if (!toggleIcon) return;
+    const collapsedSize = this.collapsedItems.size;
+    const groupsLength = Object.keys(this._config?.custom_groups || {}).length;
+    const isAllCollapsed = collapsedSize === groupsLength;
+    toggleIcon.classList.toggle(CLASS.ACTIVE, isAllCollapsed!);
+    toggleIcon.setAttribute('icon', isAllCollapsed ? MDI.PLUS : MDI.MINUS);
+  }
+
+  private _subscribeTemplate(value: string, callback: (result: string) => void): void {
+    if (!this.hass || !hasTemplate(value)) {
+      console.log('Not a template:', this.hass, value);
+      return;
+    }
+
+    subscribeRenderTemplate(
+      this.hass.connection,
+      (result) => {
+        callback(result.result);
+      },
+      {
+        template: value,
+        variables: {
+          config: value,
+          user: this.hass.user!.name,
+        },
+        strict: true,
+      }
+    );
+  }
+
+  private _createDivider = (attribute?: string): HTMLElement => {
+    const divider = document.createElement('div') as HTMLElement;
+    divider.classList.add('divider');
+    if (attribute) {
+      divider.setAttribute(attribute, '');
+    }
+    return divider;
+  };
+
+  private _createDividerWithGroup = (group: string, isCollapsed: boolean = false): HTMLElement => {
+    const divider = this._createDivider();
+    divider.setAttribute(ATTRIBUTE.GROUP, group);
+    divider.setAttribute(ATTRIBUTE.ADDED, '');
+    divider.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+    const contentDiv = this._createAddedGroupContent(group, isCollapsed) as HTMLElement;
+    divider.appendChild(contentDiv);
+    if (this._pinnedGroups[group]) {
+      contentDiv.id = `pinned-${group}`;
+      const haTooltip = document.createElement(SELECTOR.HA_TOOLTIP) as HaTooltip;
+      haTooltip.for = `pinned-${group}`;
+      haTooltip.innerText = `${group.trim()}`;
+      haTooltip.placement = 'right';
+      // haTooltip.withoutArrow = true;
+      divider.appendChild(haTooltip);
+    }
+    divider.addEventListener('click', this._toggleGroup.bind(this));
+    return divider;
+  };
+
+  private _createAddedGroupContent = (group: string, isCollapsed: boolean = false): HTMLElement => {
+    if (this._pinnedGroups[group]) {
+      const groupDivEl = document.createElement(ELEMENT.SO_GROUP_DIVIDER) as SoGroupDivider;
+      groupDivEl.classList.add(CLASS.ADDED_CONTENT);
+      groupDivEl.setAttribute(ATTRIBUTE.GROUP, group);
+      groupDivEl.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+      groupDivEl.customIcon = this._pinnedGroups[group].icon!!;
+      groupDivEl.haSidebar = this.HaSidebar;
+      return groupDivEl;
+    }
+
+    const contentDiv = document.createElement('div');
+    contentDiv.classList.add(CLASS.ADDED_CONTENT);
+    contentDiv.classList.add('default');
+    contentDiv.setAttribute(ATTRIBUTE.GROUP, group);
+    contentDiv.innerHTML = `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${group.trim()}</span>`;
+    contentDiv.classList.toggle(CLASS.COLLAPSED, isCollapsed);
+    return contentDiv;
+  };
+
+  private _handleNewConfig(config: SidebarConfig, useConfigFile: boolean) {
+    if (useConfigFile) {
+      console.log('Using Config File');
+      this._reloadWindow();
+      return;
+    }
+
+    const isChanged = JSON.stringify(config) !== JSON.stringify(this._config);
+    if (!isChanged) {
+      console.log('No Changes');
+      return;
+    } else {
+      console.log('Changes Detected');
+      this._config = config;
+      const resetConfigPromise = () =>
+        new Promise<void>((resolve) => {
+          setStorage(STORAGE.UI_CONFIG, this._config);
+          localStorage.removeItem(STORAGE.PANEL_ORDER);
+          localStorage.removeItem(STORAGE.HIDDEN_PANELS);
+          resolve();
+        });
+      resetConfigPromise().then(() => {
+        this._reloadWindow();
+      });
+    }
+  }
+
+  private async _handleCollapsed(collapsedItems: Set<string>) {
+    setStorage(STORAGE.COLLAPSE, [...collapsedItems]);
+    // Wait for the DOM to update after collapsing/expanding groups
+    await nextRender();
+    this._handleCollapsedChange();
+    // Update sidebar items
+    Array.from(this._sidebarItems)
+      .filter((item) => item.hasAttribute(ATTRIBUTE.GROUP))
+      .forEach((item) => {
+        const group = item.getAttribute(ATTRIBUTE.GROUP);
+        const isItemCollapsed = collapsedItems.has(group!);
+        item.classList.toggle(CLASS.COLLAPSED, isItemCollapsed);
+        // console.log('Item:', item, 'Group:', group, 'Collapsed:', isItemCollapsed);
+      });
+
+    // Update dividers and their content
+    this._panelsList.querySelectorAll(SELECTOR.DIVIDER_ADDED).forEach((divider) => {
+      const group = divider.getAttribute(ATTRIBUTE.GROUP);
+      const isGroupCollapsed = collapsedItems.has(group!);
+      divider.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
+      divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.toggle(CLASS.COLLAPSED, isGroupCollapsed);
+      // console.log('Divider:', divider, 'Group:', group, 'Collapsed:', isGroupCollapsed);
+    });
+  }
+
+  private _addCustomWidthStyle(): void {
+    if (!this._config.width) return;
+    Promise.all([this._haMain.element as Promise<HTMLElement>]).then((elements) => {
+      const [haMain] = elements;
+      const { width } = this._config!;
+      const customWidth = this._store._utils.CONFIG._computeWidth(width);
+      if (!customWidth) {
+        console.debug('❌ Invalid custom width, skipping applying custom width style:', width);
+        return;
+      }
+      haMain.style.setProperty(CSS_VAR.CUSTOM_SIDEBAR_WIDTH, customWidth);
+      console.debug('Custom sidebar width applied:', customWidth);
+
+      this._styleManager.addStyle([HA_MAIN_CUSTOM_WIDTH_STYLE.toString()], haMain.shadowRoot!);
+    });
+  }
+
+  private _addAdditionalStyles(color_config: SidebarConfig['color_config'], mode?: string) {
+    mode = mode ? mode : this.darkMode ? 'dark' : 'light';
+    const customTheme = color_config?.custom_theme?.theme || undefined;
+    // console.log('Adding Additional Styles for mode:', mode);
+    if (customTheme) {
+      applyTheme(this.HaSidebar, this.hass, customTheme, mode);
+      console.log('Custom Theme:', customTheme, 'Mode:', mode);
+    }
+    const colorConfig = color_config?.[mode] || {};
+    const borderRadius = color_config?.border_radius ? `${color_config.border_radius}px` : undefined;
+    const marginRadius = borderRadius ? '4px 4px' : '1px 4px 0px';
+    const textTransform = this._config?.text_transformation || 'capitalize';
+
+    // Custom Styles
+    const customStyles = colorConfig.custom_styles || [];
+    const CUSTOM_STYLES = convertCustomStyles(customStyles) || '';
+
+    const defaultColors: DividerColorSettings = getDefaultThemeColors(
+      customTheme !== undefined ? this.HaSidebar : undefined
+    );
+
+    // console.log('Default Colors:', defaultColors);
+    // console.log('theme', customTheme, 'colorConfig', colorConfig, 'defaultColors', defaultColors);
+    const getColor = (key: string): string => {
+      const color = colorConfig?.[key] ? `${colorConfig[key]} !important` : defaultColors[key];
+      // console.log('Color:', key, color);
+      return color;
+    };
+    const forceTransparentBackground = this._config?.force_transparent_background === true;
+
+    const colorCssConfig = {
+      [CSS_VAR.DIVIDER_COLOR]: getColor('divider_color'),
+      [CSS_VAR.DIVIDER_BG_COLOR]: getColor('background_color'),
+      [CSS_VAR.DIVIDER_BORDER_TOP_COLOR]: getColor('border_top_color'),
+      [CSS_VAR.SCROLLBAR_THUMB_COLOR]: getColor('scrollbar_thumb_color'),
+      [CSS_VAR.SIDEBAR_BACKGROUND_COLOR]: getColor('custom_sidebar_background_color'),
+      [CSS_VAR.DIVIDER_BORDER_RADIUS]: borderRadius,
+      [CSS_VAR.DIVIDER_MARGIN_RADIUS]: marginRadius,
+      [CSS_VAR.SIDEBAR_TEXT_COLOR]: getColor('divider_text_color'),
+      [CSS_VAR.SIDEBAR_TEXT_TRANSFORM]: textTransform,
+    };
+
+    // If force transparent background is enabled, override related colors and add backdrop filter styles
+    if (forceTransparentBackground) {
+      colorCssConfig[CSS_VAR.SIDEBAR_BACKGROUND_COLOR] = CSS_VAR_VALUE.TRANSPARENT;
+      colorCssConfig[CSS_VAR.SO_TOOLTIP_BACKGROUND_COLOR] = CSS_VAR_VALUE.PRIMARY_BACKGROUND_COLOR;
+      colorCssConfig[CSS_VAR.SO_TOOLTIP_TEXT_COLOR] = CSS_VAR_VALUE.PRIMARY_TEXT_COLOR;
+      colorCssConfig[CSS_VAR.SO_BACKDROP_FILTER] = CSS_VAR_VALUE.BLUR_10PX;
+      this._styleManager.addStyle([DRAWER_STYLE.toString()], this._haDrawer!.shadowRoot!);
+    }
+
+    const CUSTOM_COLOR_CONFIG = `:host {${Object.entries(colorCssConfig)
+      .map(([key, value]) => `${key}: ${value};`)
+      .join('')}}`;
+
+    this._styleManager.addStyle(
+      [CUSTOM_COLOR_CONFIG, CUSTOM_STYLES, DIVIDER_ADDED_STYLE.toString()],
+      this.sideBarRoot!
+    );
+  }
+
+  private _reorderPanelItemsByConfig(currentPanel: string[]): string[] {
+    const defaultPanel = getDefaultPanelUrlPath(this.hass);
+    const customGroups = this._config.custom_groups || {};
+    const bottomGroups = this._config.bottom_groups || {};
+    const bottomMovedItems = this._config.bottom_items || [];
+    const bottomGridItems = this._config.bottom_grid_items || [];
+    const bottomGroupItems = Object.values(bottomGroups).flat();
+
+    // Get grouped items
+    const groupedItems = Object.values(customGroups)
+      .flat()
+      .filter((item) => currentPanel.includes(item));
+
+    // Filter default items that are not in grouped or bottom items
+    const defaultItems = currentPanel.filter(
+      (item) =>
+        !groupedItems.includes(item) &&
+        !bottomMovedItems.includes(item) &&
+        !bottomGridItems.includes(item) &&
+        !bottomGroupItems.includes(item)
+    );
+
+    // Move default panel item to the front
+    const defaultPanelItem = defaultItems.find((item) => item === defaultPanel);
+    if (defaultPanelItem) {
+      defaultItems.splice(defaultItems.indexOf(defaultPanelItem), 1);
+      groupedItems.unshift(defaultPanelItem);
+    }
+
+    // Combine grouped, default, bottom, and bottom group items
+    const reorderedPanels = [
+      ...groupedItems,
+      ...defaultItems,
+      ...bottomMovedItems,
+      ...bottomGridItems,
+      ...bottomGroupItems,
+    ];
+
+    return reorderedPanels;
+  }
+
+  public _checkDiffs = (): void => {
+    const baseOrder = this._baseOrder;
+    // const _allItems = Array.from(this._allItems);
+    const _allItems = Array.from(this._sidebarItems);
+    const itemsValidation = mapItemsForDebug(_allItems, true);
+
+    if (itemsValidation.some((item) => item.isValid === false)) {
+      const logs = {
+        baseOrder: baseOrder,
+        notValidItems: itemsValidation.filter((item) => item.isValid === false).map((item) => item.panelId),
+      };
+      // warning
+      console.log(
+        '%cSIDEBAR-ORGANIZER:%c ⚠️ DIFF DETECTED',
+        'color: #bada55;',
+        'color: #fab005; font-weight: 600;',
+        logs
+      );
+
+      LOGGER.warn('Changes detected:', logs);
+
+      this._diffCheck = false;
+      this._store._needReloadToast();
+    } else {
+      this._diffCheck = true;
+      // success
+      console.log('%cSIDEBAR-ORGANIZER:%c ✅ Order checked!', 'color: #bada55;', 'color: #40c057; font-weight: 600;');
+    }
+  };
+
+  // Watch for HA sidebar updates and prevent re-render if not necessary
+  private _watchHaSidebarShouldUpdate(): void {
+    if (!this.hass || !customElements.get(ELEMENT.HA_SIDEBAR)) {
+      return;
+    }
+    customElements.whenDefined(ELEMENT.HA_SIDEBAR).then((sidebar: CustomElementConstructor) => {
+      //info
+      console.log('%cSIDEBAR-ORGANIZER:%c ℹ️ Add Sidebar Watch shouldupdate', 'color: #bada55;', 'color: #228be6;');
+      const shouldUpdate = sidebar.prototype.shouldUpdate;
+      sidebar.prototype.shouldUpdate = function (changedProps: Map<string, unknown>): boolean {
+        if (this.hass.config.state !== HA_STATE.RUNNING) {
+          console.log('Sidebar should not update due to HA state or irrelevant prop change:', {
+            haState: this.hass.config.state,
+            changedProps: Array.from(changedProps.keys()),
+          });
+          return false;
+        }
+        return shouldUpdate.call(this, changedProps);
+      };
+    });
+  }
+
+  private _changeGridItemTooltipPlacement(expanded: boolean): void {
+    const gridItemTooltips = this._scrollbar.querySelectorAll(
+      `${SELECTOR.HA_TOOLTIP}[${ATTRIBUTE.GRID_ITEM}]`
+    ) as NodeListOf<HaTooltip>;
+    gridItemTooltips.forEach((tooltip) => {
+      tooltip.placement = !expanded ? 'right' : 'top';
+    });
+  }
+
+  private _createNewItem(itemConfig: NewItemConfig, builtIn: boolean = false): SidebarPanelItem {
+    const item = computeNewItem(this.hass, itemConfig, builtIn);
+    if (itemConfig.notification !== undefined) {
+      this._subscribeNotification(item, itemConfig.notification!);
+    }
+    if (itemConfig.icon_template !== undefined) {
+      this._subscribeIconTemplate(item, itemConfig.icon_template);
+    }
+
+    return item;
+  }
+
+  private _subscribeNotification(panel: HTMLElement, value: string) {
+    let badge = panel.querySelector(SELECTOR.BADGE) ?? computeBadge();
+    let notifyIcon = panel.querySelector(SELECTOR.NOTIFY_ICON) ?? computeNotifyIcon();
+    const itemText = panel.querySelector(SELECTOR.ITEM_TEXT) as HTMLElement;
+    panel.insertBefore(badge, itemText.nextElementSibling);
+    panel.insertBefore(notifyIcon, itemText);
+    panel.setAttribute(ATTRIBUTE.DATA_NOTIFICATION, 'true');
+
+    const callback = (resultContent: any) => {
+      // Check for non-empty values (handle null, undefined, empty strings, whitespace-only)
+      if (resultContent != null && String(resultContent).trim() !== '') {
+        if (typeof resultContent === 'string' && isIcon(resultContent)) {
+          // Show icon, hide badge
+          // badge.innerHTML = '';
+          notifyIcon.classList.toggle(CLASS.NO_VISIBLE, false);
+          notifyIcon.setAttribute('icon', resultContent);
+          badge.classList.toggle(CLASS.NO_VISIBLE, true);
+          badge.remove();
+        } else {
+          // Show badge, hide icon
+          badge.innerHTML = resultContent;
+          badge.classList.toggle(CLASS.NO_VISIBLE, false);
+          badge.classList.toggle(CLASS.BADGE_NUMBER, !isNaN(resultContent));
+          badge.classList.toggle(CLASS.LARGE_BADGE, resultContent.length >= 3);
+          notifyIcon.classList.toggle(CLASS.NO_VISIBLE, true);
+          notifyIcon.removeAttribute('icon');
+          notifyIcon.remove();
+        }
+      } else {
+        // Hide both elements when no value
+        notifyIcon.classList.toggle(CLASS.NO_VISIBLE, true);
+        notifyIcon.removeAttribute('icon');
+        badge.innerHTML = '';
+        badge.classList.toggle(CLASS.NO_VISIBLE, true);
+      }
+    };
+    this._subscribeTemplate(value, callback);
+  }
+
+  private _subscribeVisibility(panel: HTMLElement, template: string) {
+    const callback = (result: any) => {
+      if (result != null) {
+        const isVisible = (typeof result === 'string' ? result.toLowerCase() === 'true' : Boolean(result)) ?? true;
+        if (!isVisible) {
+          panel.style.display = 'none';
+        } else {
+          panel.style.removeProperty('display');
+        }
+      }
+    };
+    this._subscribeTemplate(template, callback);
+  }
+
+  private _subscribeIconTemplate(panel: HTMLElement, template: string) {
+    const callback = (result: string) => {
+      if (result != null && isIcon(result)) {
+        const iconEl = panel.querySelector(ELEMENT.HA_ICON) as HTMLElement;
+        iconEl.setAttribute('icon', result);
+      }
+    };
+    this._subscribeTemplate(template, callback);
+  }
+
+  private _toggleGroup(event: MouseEvent) {
+    event.stopPropagation();
+    const noAnimation = this._config?.animation_off || false;
+    const animationDelay = this._config?.animation_delay || 50;
+    const target = event.target as HTMLElement;
+    const group = target.getAttribute('group');
+    // const targetParent = target.parentElement as HTMLElement;
+    // console.log('%cSIDEBAR-ORGANIZER:', 'color: #bada55;', 'Toggling group:', group, target, targetParent);
+
+    const items = Array.from(this._scrollbarItems).filter((item) => {
+      const itemGroup = item.getAttribute('group');
+      return itemGroup === group && !item.hasAttribute('moved');
+    }) as HTMLElement[];
+
+    if (!items.length) {
+      console.error(`No items found for group: ${group}`);
+      return;
+    }
+
+    const isCollapsed = items[0].classList.contains(CLASS.COLLAPSED);
+
+    if (this._config?.accordion_mode && isCollapsed && this.setupConfigDone) {
+      // Accordion mode: collapse all other groups when expanding one, by computing a new set of collapsed groups and applying it
+      const allGroups = [
+        ...Object.keys(this._config?.custom_groups || {}),
+        ...Object.keys(this._config?.bottom_groups || {}),
+      ];
+      allGroups.forEach((otherGroup) => {
+        if (otherGroup !== group && !this.collapsedItems.has(otherGroup)) {
+          const otherItems = Array.from(this._scrollbarItems).filter((item) => {
+            return item.getAttribute('group') === otherGroup && !item.hasAttribute('moved');
+          }) as HTMLElement[];
+          if (!otherItems.length) return;
+
+          // Add to collapsed groups set. Avoid issues when there are other tabs/windows open with a different collapse state
+          this.collapsedItems.add(otherGroup);
+
+          const divider = this._panelsList.querySelector(
+            `${SELECTOR.DIVIDER_ADDED}[${ATTRIBUTE.GROUP}="${otherGroup}"]`
+          );
+          if (divider) {
+            divider.classList.add(CLASS.COLLAPSED);
+            divider.querySelector(SELECTOR.ADDED_CONTENT)?.classList.add(CLASS.COLLAPSED);
+          }
+          otherItems.forEach((item) => item.classList.add(CLASS.COLLAPSED));
+        }
+      });
+    }
+
+    this._setItemToLocalStorage(group!, !isCollapsed);
+
+    // Toggle collapsed state for group and its items
+    target.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
+    target.parentElement?.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
+
+    // Animate items if noAnimation is false
+    if (noAnimation) {
+      items.forEach((item) => {
+        item.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
+      });
+      return;
+    }
+    items.forEach((item, index) => {
+      const animationClass = isCollapsed ? 'slideIn' : 'slideOut';
+      item.style.animationDelay = `${index * animationDelay}ms`;
+      item.classList.add(animationClass);
+      item.addEventListener(
+        'animationend',
+        () => {
+          item.classList.toggle(CLASS.COLLAPSED, !isCollapsed);
+          item.classList.remove(animationClass);
+        },
+        { once: true }
+      );
+    });
+  }
+
+  private _setItemToLocalStorage(group: string, collapsed: boolean) {
+    if (collapsed) {
+      this.collapsedItems.add(group);
+    } else {
+      this.collapsedItems.delete(group);
+    }
+    setStorage(STORAGE.COLLAPSE, [...this.collapsedItems]);
+    this._handleCollapsedChange();
+  }
+
+  public _reloadWindow(timeout: number = 1000): void {
+    this._store._showToast('Reloading window to apply changes...');
+    setTimeout(() => {
+      window.location.reload();
+    }, timeout);
+  }
+
+  public _getGroupOfPanel = (panel: string): string | null => {
+    const group = [...this._configPanelMap.entries()].find(([, items]) => items.includes(panel));
+    return group ? group[0] : null;
+  };
+
+  _removeSidebarConfigFromStorage = () => {
+    return clearSidebarOrganizerStorage();
+  };
+
+  _removeUserSidebarData = () => {
+    return clearSidebarUserData(this.hass.connection);
+  };
+
+  _toogleKioskMode = (enable?: boolean) => {
+    const newValue = enable !== undefined ? enable : !this.hass.kioskMode;
+    window.dispatchEvent(new CustomEvent(CUSTOM_EVENT.HASS_KIOSK_MODE, { detail: { enable: newValue } }));
+  };
+}
+
+declare global {
+  interface Window {
+    SidebarOrganizer: SidebarOrganizer;
+  }
+}
+
+// Initial Run
+
+if (!window.SidebarOrganizer) {
+  if (__DEBUG__) {
+    console.clear();
+  }
+  window.SidebarOrganizer = new SidebarOrganizer();
+}
