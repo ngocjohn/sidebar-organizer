@@ -205,7 +205,7 @@ export class SidebarOrganizer {
       return;
     }
 
-    compareHacsTagDiff(this._ha.hass);
+    void compareHacsTagDiff(this._ha.hass);
     await this._checkUserSidebarSettings();
     await this._watchEditLegacySidebar();
 
@@ -880,9 +880,11 @@ export class SidebarOrganizer {
     const topItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_BEFORE_SPACER_CONTAINER)
       .element) as HTMLElement;
 
-    // bottom list container is optional, directly query shadowRoot to prevent 5000ms timeout
-    const bottomItemsContainer =
-      (sidebarShadowRoot?.querySelector(SELECTOR.SIDEBAR_BOTTOM_LIST_CONTAINER) as HTMLElement | null) || null;
+    // bottom list container is optional, may not exist if no bottom items configured.
+    // Check once rather than awaiting the selector, which retries until it times out (~5 s)
+    // when the element is absent. The sidebar has rendered by now (top container resolved).
+    const bottomItemsContainer = (sidebarShadowRoot?.querySelector(SELECTOR.SIDEBAR_BOTTOM_LIST_CONTAINER) ??
+      null) as HTMLElement | null;
 
     const topItems = await this._getContainerItems(topItemsContainer, promisableResultOptions);
     const bottomItems = bottomItemsContainer

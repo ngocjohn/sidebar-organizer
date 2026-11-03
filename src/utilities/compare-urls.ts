@@ -12,22 +12,31 @@ const HACS_TAG_RGX = /[?&]hacstag=(\d+)/;
 
 const loadedScripts = document.scripts;
 
-const loadedUrl = await getPromisableResult<string>(
-  () => {
-    const script = Array.from(loadedScripts).find((s) => NAME_RGX.test(s.src));
-    return script?.src || '';
-  },
-  (result: string) => result.length > 0,
-  {
-    retries: 100,
-    delay: 50,
-    shouldReject: false,
-  }
-);
+// Looks for the plugin loaded as a dashboard resource (<script src>). When the plugin is
+// loaded only via frontend extra_module_url (inline import()), no such tag exists, so this
+// must not block module evaluation: a top-level await here delayed the whole plugin by
+// retries x delay (5 s) on every page load.
+const findLoadedUrl = (): Promise<string> =>
+  getPromisableResult<string>(
+    () => {
+      const script = Array.from(loadedScripts).find((s) => NAME_RGX.test(s.src));
+      return script?.src || '';
+    },
+    (result: string) => result.length > 0,
+    {
+      retries: 100,
+      delay: 50,
+      shouldReject: false,
+    }
+  );
 
-export function compareHacsTagDiff(hass: HomeAssistant): void {
+export async function compareHacsTagDiff(hass: HomeAssistant): Promise<void> {
   const configUrl = getConfigUrl(loadedScripts);
-  if (!loadedUrl || !configUrl) {
+  if (!configUrl) {
+    return;
+  }
+  const loadedUrl = await findLoadedUrl();
+  if (!loadedUrl) {
     return;
   }
   const hacsUrlMatch = loadedUrl?.match(HACS_URL_RGX)?.[0];
