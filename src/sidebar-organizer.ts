@@ -452,8 +452,8 @@ export class SidebarOrganizer {
   ): Promise<NodeListOf<SidebarPanelItem>> {
     if (!promisableResultOptions) {
       promisableResultOptions = {
-        retries: 100,
-        delay: 50,
+        retries: 10,
+        delay: 20,
         shouldReject: false,
       };
     }
@@ -461,10 +461,7 @@ export class SidebarOrganizer {
     const items = await getPromisableResult<NodeListOf<SidebarPanelItem>>(
       () => container.querySelectorAll<SidebarPanelItem>(`${ELEMENT.ITEM}`),
       (elements: NodeListOf<SidebarPanelItem>): boolean => {
-        return Array.from(elements).every((element: SidebarPanelItem): boolean => {
-          const text = element.querySelector<HTMLElement>(SELECTOR.ITEM_TEXT)!.innerText.trim();
-          return text.length > 0;
-        });
+        return Boolean(elements && elements.length > 0);
       },
       promisableResultOptions
     );
@@ -872,25 +869,20 @@ export class SidebarOrganizer {
 
   private async _getElements(): Promise<ElementsStore> {
     const promisableResultOptions = {
-      retries: 100,
-      delay: 50,
+      retries: 10,
+      delay: 20,
       shouldReject: false,
     };
     const sidebarShadowRoot = await this._sidebar.selector.$.element;
 
-    if (sidebarShadowRoot) {
-      await getPromisableResult(
-        () => sidebarShadowRoot.querySelector(SELECTOR.SIDEBAR_LOADER),
-        (sidebarLoader: Element | null) => sidebarLoader === null,
-        promisableResultOptions
-      );
-    }
+    // In modern Home Assistant, ha-fade-in is a permanent wrapper and is never null.
+    // Removed blocking check to prevent 5000ms delay.
     const topItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_BEFORE_SPACER_CONTAINER)
       .element) as HTMLElement;
 
-    // bottom list container is optional, may not exist if no bottom items configured
-    const bottomItemsContainer = (await this._sidebar.selector.$.query(SELECTOR.SIDEBAR_BOTTOM_LIST_CONTAINER)
-      .element) as HTMLElement | null;
+    // bottom list container is optional, directly query shadowRoot to prevent 5000ms timeout
+    const bottomItemsContainer =
+      (sidebarShadowRoot?.querySelector(SELECTOR.SIDEBAR_BOTTOM_LIST_CONTAINER) as HTMLElement | null) || null;
 
     const topItems = await this._getContainerItems(topItemsContainer, promisableResultOptions);
     const bottomItems = bottomItemsContainer
