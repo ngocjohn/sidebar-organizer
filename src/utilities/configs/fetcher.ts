@@ -31,14 +31,13 @@ export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfi
       typeof result === 'boolean' ? result : result.valid
     );
 
-    if (!isValid && !sidebarUseConfigFile()) {
+    if (!isValid) {
       console.log('Config is not valid. Trying to correct it.');
       // Try to correct the config
       config = await tryCorrectConfig(config, hass);
-      setStorage(STORAGE.UI_CONFIG, config);
-      return config;
-    } else if (!isValid && sidebarUseConfigFile()) {
-      config = DEFAULT_CONFIG;
+      if (!sidebarUseConfigFile()) {
+        setStorage(STORAGE.UI_CONFIG, config);
+      }
       return config;
     } else {
       config = validateConfig(config);
