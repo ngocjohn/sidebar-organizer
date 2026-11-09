@@ -12,6 +12,7 @@ export const fetchFileConfig = async (): Promise<SidebarConfig | undefined> => {
   const randomUrl = `${CONFIG_PATH}?hash=${randomId()}`;
   try {
     const response = await fetch(randomUrl, { cache: 'no-store' });
+    if (!response.ok) return undefined;
     const yamlStr = await response.text();
     const data = YAML.parse(yamlStr);
     // console.log('data', data);
@@ -22,7 +23,24 @@ export const fetchFileConfig = async (): Promise<SidebarConfig | undefined> => {
   }
 };
 
+/**
+ * If this browser has never chosen a config
+ * source (no "use config file" key in localStorage) and a valid sidebar-organizer.yaml
+ * exists in /local, switch to the config file automatically. This makes every browser
+ * and device follow the shared file without toggling "Use config file" on each one.
+ * An explicit choice made in the editor (true or false) is always respected.
+ */
+const autoEnableConfigFile = async (): Promise<void> => {
+  if (window.localStorage.getItem(STORAGE.USE_CONFIG_FILE) !== null) return;
+  const data = await fetchFileConfig();
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    console.log(`${CONFIG_NAME}.yaml found - using the config file for this browser.`);
+    setStorage(STORAGE.USE_CONFIG_FILE, true);
+  }
+};
+
 export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfig | undefined> => {
+  await autoEnableConfigFile();
   let config = sidebarUseConfigFile() ? await fetchFileConfig() : getStorageConfig();
   if (config) {
     config = { ...config };
