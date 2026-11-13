@@ -182,7 +182,8 @@ export class SidebarConfigDialog extends BaseEditor {
         const currentItemsInConfig = currentCustomGroups?.[PANEL_TYPE.UNCATEGORIZED_ITEMS] || [];
         const allUngroupedItems = this.uncategorizedItems;
 
-        const isDifferent = JSON.stringify(currentItemsInConfig.sort()) !== JSON.stringify(allUngroupedItems.sort());
+        const isDifferent =
+          JSON.stringify([...currentItemsInConfig].sort()) !== JSON.stringify([...allUngroupedItems].sort());
 
         if (isDifferent) {
           const updatedGroupConfigUncategorized = [...allUngroupedItems];
