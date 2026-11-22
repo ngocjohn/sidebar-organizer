@@ -82,6 +82,17 @@ const getUnavailableItems = (config: SidebarConfig, hass: HaExtened['hass']): st
 };
 
 /**
+ * Returns the current user's default panel if the config lists it.
+ *
+ * The default panel is always shown at the top of the sidebar. Other users with another default panel
+ * may still have it in a group of a shared config.
+ */
+const getOwnDefaultPanelItems = (config: SidebarConfig, hass: HaExtened['hass']): string[] => {
+  const defaultPanel = getDefaultPanelUrlPath(hass);
+  return getAllConfigItems(config).includes(defaultPanel) ? [defaultPanel] : [];
+};
+
+/**
  * Returns the config items that don't apply to the current user.
  *
  * Only a config file ("Use YAML File") is shared by all users. For the current user, these items are skipped
@@ -90,7 +101,7 @@ const getUnavailableItems = (config: SidebarConfig, hass: HaExtened['hass']): st
 export const getSkippedItems = (config: SidebarConfig, hass: HaExtened['hass']): string[] => {
   if (!sidebarUseConfigFile()) return [];
 
-  return getUnavailableItems(config, hass);
+  return [...getUnavailableItems(config, hass), ...getOwnDefaultPanelItems(config, hass)];
 };
 
 /**
@@ -161,13 +172,14 @@ export const getValidDetails = async (
 
   // Items that don't apply to this user are skipped, not reported (see getSkippedItems)
   const skippedItems = getSkippedItems(config, hass);
-  const allItems = getAllConfigItems(config).filter((item) => !skippedItems.includes(item));
+  const isNotSkipped = (item: string) => !skippedItems.includes(item);
+  const allItems = getAllConfigItems(config).filter(isNotSkipped);
 
   const flattenedGroups = [
     ...Object.values(config.custom_groups || {}).flat(),
     ...(config.bottom_items || []),
     ...(config.bottom_grid_items || []),
-  ];
+  ].filter(isNotSkipped);
 
   // Find duplicated items
   const duplicateItems = findDuplicateItems(flattenedGroups);
