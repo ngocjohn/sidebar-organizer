@@ -264,6 +264,8 @@ In this section, you can organize the layout of the sidebar panels by customizin
 
 - _This file is useful for synchronizing your sidebar settings across multiple devices. For instance, if you have a companion app and want to apply the same sidebar setup without repeating the entire process, you can enable the option to use the YAML config file in the app. This ensures the sidebar layout will be consistent with the configuration from the YAML file._
 
+- _The same file can be shared by users with and without admin rights. Panels a user doesn't have (for example admin-only add-on panels for a non-admin user) are skipped for that user instead of being reported as invalid. The same applies to a user's own default panel: it stays at the top of the sidebar for that user, while other users can have it in a group._
+
   ![Config RAW Code](assets/config-raw-code.png)
 
 ---

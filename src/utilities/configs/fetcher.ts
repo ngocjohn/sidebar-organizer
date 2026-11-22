@@ -3,7 +3,13 @@ import { HaExtened, SidebarConfig } from '@types';
 import YAML from 'yaml';
 
 import { sidebarUseConfigFile, getStorageConfig, setStorage } from '../storage-utils';
-import { _changeStorageConfig, isItemsValid, tryCorrectConfig, validateConfig } from './validators';
+import {
+  _changeStorageConfig,
+  isItemsValid,
+  removeSkippedItems,
+  tryCorrectConfig,
+  validateConfig,
+} from './validators';
 
 const randomId = (): string => Math.random().toString(16).slice(2);
 
@@ -25,7 +31,8 @@ export const fetchFileConfig = async (): Promise<SidebarConfig | undefined> => {
 export const fetchConfig = async (hass: HaExtened['hass']): Promise<SidebarConfig | undefined> => {
   let config = sidebarUseConfigFile() ? await fetchFileConfig() : getStorageConfig();
   if (config) {
-    config = { ...config };
+    // Drop items that don't apply to this user (see removeSkippedItems) before validating and rendering
+    config = removeSkippedItems({ ...config }, hass);
     // console.log('Added with init config defaults', config);
     const isValid = await isItemsValid(config, hass, true).then((result) =>
       typeof result === 'boolean' ? result : result.valid
