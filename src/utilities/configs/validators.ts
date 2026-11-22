@@ -66,6 +66,44 @@ export const getAllConfigItems = (config: SidebarConfig): string[] => {
   ].filter((item) => !newItems.includes(item));
 };
 
+/**
+ * Returns the panels in the config that the current user doesn't have.
+ *
+ * Home Assistant sends admin-only panels (e.g. add-on panels) to admins only, so a config shared by all users
+ * can list panels that a non-admin user never gets. Admins get every panel, so nothing is returned for them
+ * and unknown items are still reported as invalid.
+ */
+const getUnavailableItems = (config: SidebarConfig, hass: HaExtened['hass']): string[] => {
+  const isNonAdminUser = hass.user !== undefined && !hass.user.is_admin;
+  if (!isNonAdminUser) return [];
+
+  const haPanelKeys = Object.keys(hass.panels);
+  return getAllConfigItems(config).filter((item) => !haPanelKeys.includes(item));
+};
+
+/**
+ * Returns the config items that don't apply to the current user.
+ *
+ * Only a config file ("Use YAML File") is shared by all users. For the current user, these items are skipped
+ * instead of being reported as invalid: they are removed before the config is validated and rendered.
+ */
+export const getSkippedItems = (config: SidebarConfig, hass: HaExtened['hass']): string[] => {
+  if (!sidebarUseConfigFile()) return [];
+
+  return getUnavailableItems(config, hass);
+};
+
+/**
+ * Removes the items that don't apply to the current user (see `getSkippedItems`).
+ */
+export const removeSkippedItems = (config: SidebarConfig, hass: HaExtened['hass']): SidebarConfig => {
+  const skippedItems = getSkippedItems(config, hass);
+  if (skippedItems.length === 0) return config;
+
+  console.debug('%cVALIDATORS:%c Skipped items that do not apply to this user:', 'color: #4dabf7;', '', skippedItems);
+  return { ...config, ...cleanItemsFromAllPanels(config, skippedItems) };
+};
+
 export const findDuplicateItems = (allItems: string[]): string[] => {
   let duplicateItemList: string[] = [];
   const itemCount: { [key: string]: number } = {};
@@ -121,7 +159,9 @@ export const getValidDetails = async (
   const haPanelKeys = Object.keys(hass.panels);
   const defaultPanel = getDefaultPanelUrlPath(hass);
 
-  let allItems = getAllConfigItems(config);
+  // Items that don't apply to this user are skipped, not reported (see getSkippedItems)
+  const skippedItems = getSkippedItems(config, hass);
+  const allItems = getAllConfigItems(config).filter((item) => !skippedItems.includes(item));
 
   const flattenedGroups = [
     ...Object.values(config.custom_groups || {}).flat(),
